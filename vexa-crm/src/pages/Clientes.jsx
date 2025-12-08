@@ -27,11 +27,19 @@ function Clientes() {
   const [clientes, setClientes] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentCliente, setCurrentCliente] = useState({
-    nome: "",
-    email: "",
+    nomeCompleto: "",
     telefone: "",
-    cpfCnpj: "",
-    endereco: "",
+    whatsApp: "",
+    email: "",
+    cpf: "",
+    dataNascimento: "",
+    rua: "",
+    numero: "",
+    bairro: "",
+    cidade: "",
+    cep: "",
+    preferencias: "",
+    observacoes: "",
   });
   const [editMode, setEditMode] = useState(false);
 
@@ -50,15 +58,40 @@ function Clientes() {
 
   const handleOpenDialog = (cliente = null) => {
     if (cliente) {
-      setCurrentCliente(cliente);
+      setCurrentCliente({
+        id: cliente.id,
+        nomeCompleto: cliente.nomeCompleto,
+        telefone: cliente.telefone,
+        whatsApp: cliente.whatsApp,
+        email: cliente.email || "",
+        cpf: cliente.cpf || "",
+        dataNascimento: cliente.dataNascimento
+          ? cliente.dataNascimento.split("T")[0]
+          : "",
+        rua: cliente.rua,
+        numero: cliente.numero,
+        bairro: cliente.bairro,
+        cidade: cliente.cidade,
+        cep: cliente.cep,
+        preferencias: cliente.preferencias || "",
+        observacoes: cliente.observacoes || "",
+      });
       setEditMode(true);
     } else {
       setCurrentCliente({
-        nome: "",
-        email: "",
+        nomeCompleto: "",
         telefone: "",
-        cpfCnpj: "",
-        endereco: "",
+        whatsApp: "",
+        email: "",
+        cpf: "",
+        dataNascimento: "",
+        rua: "",
+        numero: "",
+        bairro: "",
+        cidade: "",
+        cep: "",
+        preferencias: "",
+        observacoes: "",
       });
       setEditMode(false);
     }
@@ -67,13 +100,6 @@ function Clientes() {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setCurrentCliente({
-      nome: "",
-      email: "",
-      telefone: "",
-      cpfCnpj: "",
-      endereco: "",
-    });
   };
 
   const handleSave = async () => {
@@ -140,13 +166,16 @@ function Clientes() {
                     <strong>Nome</strong>
                   </TableCell>
                   <TableCell>
-                    <strong>Email</strong>
-                  </TableCell>
-                  <TableCell>
                     <strong>Telefone</strong>
                   </TableCell>
                   <TableCell>
-                    <strong>CPF/CNPJ</strong>
+                    <strong>WhatsApp</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Email</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Cidade</strong>
                   </TableCell>
                   <TableCell align="right">
                     <strong>Ações</strong>
@@ -156,10 +185,11 @@ function Clientes() {
               <TableBody>
                 {clientes.map((cliente) => (
                   <TableRow key={cliente.id}>
-                    <TableCell>{cliente.nome}</TableCell>
-                    <TableCell>{cliente.email}</TableCell>
+                    <TableCell>{cliente.nomeCompleto}</TableCell>
                     <TableCell>{cliente.telefone}</TableCell>
-                    <TableCell>{cliente.cpfCnpj}</TableCell>
+                    <TableCell>{cliente.whatsApp}</TableCell>
+                    <TableCell>{cliente.email}</TableCell>
+                    <TableCell>{cliente.cidade}</TableCell>
                     <TableCell align="right">
                       <IconButton
                         color="primary"
@@ -196,9 +226,27 @@ function Clientes() {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Nome"
-                name="nome"
-                value={currentCliente.nome}
+                label="Nome Completo"
+                name="nomeCompleto"
+                value={currentCliente.nomeCompleto}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Telefone"
+                name="telefone"
+                value={currentCliente.telefone}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="WhatsApp"
+                name="whatsApp"
+                value={currentCliente.whatsApp}
                 onChange={handleChange}
               />
             </Grid>
@@ -215,29 +263,87 @@ function Clientes() {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Telefone"
-                name="telefone"
-                value={currentCliente.telefone}
+                label="CPF"
+                name="cpf"
+                value={currentCliente.cpf}
                 onChange={handleChange}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="CPF/CNPJ"
-                name="cpfCnpj"
-                value={currentCliente.cpfCnpj}
+                label="Data de Nascimento"
+                name="dataNascimento"
+                type="date"
+                value={currentCliente.dataNascimento}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={8}>
+              <TextField
+                fullWidth
+                label="Rua"
+                name="rua"
+                value={currentCliente.rua}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Número"
+                name="numero"
+                value={currentCliente.numero}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Bairro"
+                name="bairro"
+                value={currentCliente.bairro}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="Cidade"
+                name="cidade"
+                value={currentCliente.cidade}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="CEP"
+                name="cep"
+                value={currentCliente.cep}
                 onChange={handleChange}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Endereço"
-                name="endereco"
+                label="Preferências"
+                name="preferencias"
                 multiline
                 rows={2}
-                value={currentCliente.endereco}
+                value={currentCliente.preferencias}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Observações"
+                name="observacoes"
+                multiline
+                rows={2}
+                value={currentCliente.observacoes}
                 onChange={handleChange}
               />
             </Grid>
