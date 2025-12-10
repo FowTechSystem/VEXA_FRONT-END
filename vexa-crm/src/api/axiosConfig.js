@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://localhost:7000/api", // Coloque a porta da sua API C#
+  baseURL: "https://localhost:5001/api",
   headers: {
     "Content-Type": "application/json",
   },

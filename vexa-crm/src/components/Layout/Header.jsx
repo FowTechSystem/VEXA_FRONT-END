@@ -1,5 +1,6 @@
 // src/components/Layout/Header.jsx
 import React from "react";
+import { useNavigate } from "react-router-dom"; // ADICIONE ESTE IMPORT
 import {
   AppBar,
   Toolbar,
@@ -21,6 +22,7 @@ import {
 
 function Header({ onMenuClick }) {
   const [anchorEl, setAnchorEl] = React.useState(null);
+  const navigate = useNavigate(); // ADICIONE ESTA LINHA
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -30,10 +32,12 @@ function Header({ onMenuClick }) {
     setAnchorEl(null);
   };
 
+  // ATUALIZE O handleLogout
   const handleLogout = () => {
-    // Implementar logout
     localStorage.removeItem("token");
-    window.location.href = "/login";
+    localStorage.removeItem("isAuthenticated"); // ADICIONE ESTA LINHA
+    localStorage.removeItem("userEmail"); // ADICIONE ESTA LINHA
+    navigate("/login"); // TROQUE window.location.href por navigate
   };
 
   return (

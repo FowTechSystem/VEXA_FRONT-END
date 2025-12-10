@@ -1,5 +1,7 @@
 // src/pages/Clientes.jsx
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect, useState, useCallback } from "react";
+
 import {
   Box,
   Button,
@@ -24,7 +26,6 @@ import { Add, Edit, Delete } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
 
 function Clientes() {
-  const [clientes, setClientes] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentCliente, setCurrentCliente] = useState({
     nomeCompleto: "",
@@ -43,18 +44,23 @@ function Clientes() {
   });
   const [editMode, setEditMode] = useState(false);
 
+  const [clientes, setClientes] = useState([]);
+
+  const fetchClientes = useCallback(async () => {
+    try {
+      const data = await clientesService.getAll();
+      // Garantir que sempre seja um array
+      setClientes(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao buscar clientes:", error);
+      setClientes([]); // Se der erro, define como array vazio
+    }
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchClientes();
   }, []);
-
-  const fetchClientes = async () => {
-    try {
-      const data = await clientesService.getAll();
-      setClientes(data);
-    } catch (error) {
-      console.error("Erro ao buscar clientes:", error);
-    }
-  };
 
   const handleOpenDialog = (cliente = null) => {
     if (cliente) {
@@ -113,6 +119,14 @@ function Clientes() {
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
+      // ADICIONE ESTAS LINHAS PARA VER O ERRO DETALHADO:
+      if (error.response) {
+        console.error("Detalhes do erro:", error.response.data);
+        alert(
+          "Erro ao salvar: " +
+            JSON.stringify(error.response.data.errors || error.response.data)
+        );
+      }
     }
   };
 
