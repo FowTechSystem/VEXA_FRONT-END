@@ -39,38 +39,43 @@ function Vendas() {
     dataVenda: new Date().toISOString().split("T")[0],
   });
 
-  useEffect(() => {
-    fetchVendas();
-    fetchClientes();
-    fetchProdutos();
-  }, []);
-
+  // MOVA TODAS AS FUNÇÕES PARA ANTES DO useEffect
   const fetchVendas = async () => {
     try {
       const data = await vendasService.getAll();
-      setVendas(data);
+      setVendas(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar vendas:", error);
+      setVendas([]);
     }
   };
 
   const fetchClientes = async () => {
     try {
       const data = await clientesService.getAll();
-      setClientes(data);
+      setClientes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
+      setClientes([]);
     }
   };
 
   const fetchProdutos = async () => {
     try {
       const data = await produtosService.getAll();
-      setProdutos(data);
+      setProdutos(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
+      setProdutos([]);
     }
   };
+
+  useEffect(() => {
+    fetchVendas();
+    fetchClientes();
+    fetchProdutos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenDialog = () => {
     setCurrentVenda({
@@ -166,36 +171,44 @@ function Vendas() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {vendas.map((venda) => (
-                  <TableRow key={venda.id}>
-                    <TableCell>#{venda.id}</TableCell>
-                    <TableCell>{venda.nomeCliente}</TableCell>
-                    <TableCell>
-                      {new Date(venda.dataVenda).toLocaleDateString("pt-BR")}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography sx={{ fontWeight: 600 }}>
-                        R$ {parseFloat(venda.valorTotal).toFixed(2)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={venda.status || "Concluída"}
-                        size="small"
-                        color={getStatusColor(venda.status || "Concluída")}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        startIcon={<Visibility />}
-                        variant="outlined"
-                      >
-                        Detalhes
-                      </Button>
+                {Array.isArray(vendas) && vendas.length > 0 ? (
+                  vendas.map((venda) => (
+                    <TableRow key={venda.id}>
+                      <TableCell>#{venda.id}</TableCell>
+                      <TableCell>{venda.nomeCliente}</TableCell>
+                      <TableCell>
+                        {new Date(venda.dataVenda).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography sx={{ fontWeight: 600 }}>
+                          R$ {parseFloat(venda.valorTotal).toFixed(2)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={venda.status || "Concluída"}
+                          size="small"
+                          color={getStatusColor(venda.status || "Concluída")}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          startIcon={<Visibility />}
+                          variant="outlined"
+                        >
+                          Detalhes
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      Nenhuma venda cadastrada
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -214,7 +227,9 @@ function Vendas() {
             <Grid item xs={12}>
               <Autocomplete
                 options={clientes}
-                getOptionLabel={(option) => option.nome}
+                getOptionLabel={(option) =>
+                  option.nomeCompleto || option.nome || ""
+                }
                 onChange={(e, value) => handleChange("clienteId", value?.id)}
                 renderInput={(params) => (
                   <TextField {...params} label="Cliente" fullWidth />
@@ -224,7 +239,7 @@ function Vendas() {
             <Grid item xs={12} sm={8}>
               <Autocomplete
                 options={produtos}
-                getOptionLabel={(option) => option.nome}
+                getOptionLabel={(option) => option.nome || ""}
                 onChange={(e, value) => handleChange("produtoId", value?.id)}
                 renderInput={(params) => (
                   <TextField {...params} label="Produto" fullWidth />

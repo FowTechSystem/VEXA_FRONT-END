@@ -1,6 +1,6 @@
 // src/components/Layout/Header.jsx
-import React from "react";
-import { useNavigate } from "react-router-dom"; // ADICIONE ESTE IMPORT
+import React, { useState } from "react"; // ADICIONE useState
+import { useNavigate } from "react-router-dom";
 import {
   AppBar,
   Toolbar,
@@ -19,10 +19,12 @@ import {
   Settings,
   Logout,
 } from "@mui/icons-material";
+import UserProfileDrawer from "../UserProfileDrawer"; // IMPORTE O DRAWER
 
 function Header({ onMenuClick }) {
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const navigate = useNavigate(); // ADICIONE ESTA LINHA
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false); // ADICIONE ESTE STATE
+  const navigate = useNavigate();
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -32,103 +34,113 @@ function Header({ onMenuClick }) {
     setAnchorEl(null);
   };
 
-  // ATUALIZE O handleLogout
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("isAuthenticated"); // ADICIONE ESTA LINHA
-    localStorage.removeItem("userEmail"); // ADICIONE ESTA LINHA
-    navigate("/login"); // TROQUE window.location.href por navigate
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("userEmail");
+    navigate("/login");
+  };
+
+  // FUNÇÃO PARA ABRIR O DRAWER
+  const handleOpenProfile = () => {
+    setDrawerOpen(true);
+    handleClose();
   };
 
   return (
-    <AppBar
-      position="fixed"
-      sx={{
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        backgroundColor: "primary.main",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      }}
-    >
-      <Toolbar>
-        <IconButton
-          color="inherit"
-          edge="start"
-          onClick={onMenuClick}
-          sx={{ mr: 2, display: { sm: "none" } }}
-        >
-          <MenuIcon />
-        </IconButton>
-
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
-          sx={{
-            flexGrow: 1,
-            fontWeight: 700,
-            letterSpacing: 1,
-          }}
-        >
-          CRM VEXA
-        </Typography>
-
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          {/* Notificações */}
-          <IconButton color="inherit">
-            <Badge badgeContent={4} color="secondary">
-              <Notifications />
-            </Badge>
+    <>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: "primary.main",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={onMenuClick}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
           </IconButton>
 
-          {/* Configurações */}
-          <IconButton color="inherit">
-            <Settings />
-          </IconButton>
-
-          {/* Menu do Usuário */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton onClick={handleMenu} color="inherit">
-              <Avatar
-                sx={{
-                  width: 35,
-                  height: 35,
-                  backgroundColor: "secondary.main",
-                }}
-              >
-                A
-              </Avatar>
-            </IconButton>
-          </Box>
-
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "right",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "right",
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              flexGrow: 1,
+              fontWeight: 700,
+              letterSpacing: 1,
             }}
           >
-            <MenuItem onClick={handleClose}>
-              <AccountCircle sx={{ mr: 1 }} />
-              Meu Perfil
-            </MenuItem>
-            <MenuItem onClick={handleClose}>
-              <Settings sx={{ mr: 1 }} />
-              Configurações
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <Logout sx={{ mr: 1 }} />
-              Sair
-            </MenuItem>
-          </Menu>
-        </Box>
-      </Toolbar>
-    </AppBar>
+            CRM VEXA
+          </Typography>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <IconButton color="inherit">
+              <Badge badgeContent={4} color="secondary">
+                <Notifications />
+              </Badge>
+            </IconButton>
+
+            <IconButton color="inherit">
+              <Settings />
+            </IconButton>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <IconButton onClick={handleMenu} color="inherit">
+                <Avatar
+                  sx={{
+                    width: 35,
+                    height: 35,
+                    backgroundColor: "secondary.main",
+                  }}
+                >
+                  A
+                </Avatar>
+              </IconButton>
+            </Box>
+
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+              anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "right",
+              }}
+              transformOrigin={{
+                vertical: "top",
+                horizontal: "right",
+              }}
+            >
+              <MenuItem onClick={handleOpenProfile}>
+                <AccountCircle sx={{ mr: 1 }} />
+                Meu Perfil
+              </MenuItem>
+              <MenuItem onClick={handleClose}>
+                <Settings sx={{ mr: 1 }} />
+                Configurações
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>
+                <Logout sx={{ mr: 1 }} />
+                Sair
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* DRAWER LATERAL */}
+      <UserProfileDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
+    </>
   );
 }
 

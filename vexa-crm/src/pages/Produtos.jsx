@@ -36,18 +36,21 @@ function Produtos() {
   });
   const [editMode, setEditMode] = useState(false);
 
-  useEffect(() => {
-    fetchProdutos();
-  }, []);
-
+  // MOVA A FUNÇÃO PARA ANTES DO useEffect
   const fetchProdutos = async () => {
     try {
       const data = await produtosService.getAll();
-      setProdutos(data);
+      setProdutos(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
+      setProdutos([]);
     }
   };
+
+  useEffect(() => {
+    fetchProdutos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenDialog = (produto = null) => {
     if (produto) {
@@ -155,56 +158,67 @@ function Produtos() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {produtos.map((produto) => (
-                  <TableRow key={produto.id}>
-                    <TableCell>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
-                        <Inventory color="primary" />
-                        <div>
-                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {produto.nome}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {produto.descricao}
-                          </Typography>
-                        </div>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={produto.categoria}
-                        size="small"
-                        color="primary"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      R$ {parseFloat(produto.preco).toFixed(2)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={produto.estoque}
-                        size="small"
-                        color={produto.estoque > 10 ? "success" : "warning"}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleOpenDialog(produto)}
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDelete(produto.id)}
-                      >
-                        <Delete />
-                      </IconButton>
+                {Array.isArray(produtos) && produtos.length > 0 ? (
+                  produtos.map((produto) => (
+                    <TableRow key={produto.id}>
+                      <TableCell>
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                        >
+                          <Inventory color="primary" />
+                          <div>
+                            <Typography
+                              variant="body1"
+                              sx={{ fontWeight: 600 }}
+                            >
+                              {produto.nome}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {produto.descricao}
+                            </Typography>
+                          </div>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={produto.categoria}
+                          size="small"
+                          color="primary"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        R$ {parseFloat(produto.preco).toFixed(2)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={produto.estoque}
+                          size="small"
+                          color={produto.estoque > 10 ? "success" : "warning"}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleOpenDialog(produto)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDelete(produto.id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Nenhum produto cadastrado
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>

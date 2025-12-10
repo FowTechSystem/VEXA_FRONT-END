@@ -1,10 +1,12 @@
-// src/components/Layout/MainLayout.jsx (Atualizado)
+// src/components/Layout/MainLayout.jsx
 import React, { useState } from "react";
 import { Box } from "@mui/material";
+import { Outlet } from "react-router-dom"; // ADICIONE ESTE IMPORT
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
-function MainLayout({ children }) {
+function MainLayout() {
+  // REMOVA o {children} do parâmetro
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
@@ -30,7 +32,7 @@ function MainLayout({ children }) {
           minHeight: "100vh",
         }}
       >
-        {children}
+        <Outlet /> {/* TROQUE {children} por <Outlet /> */}
       </Box>
     </Box>
   );

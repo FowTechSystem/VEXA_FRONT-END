@@ -1,7 +1,5 @@
 // src/pages/Clientes.jsx
-
-import React, { useEffect, useState, useCallback } from "react";
-
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -26,6 +24,7 @@ import { Add, Edit, Delete } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
 
 function Clientes() {
+  const [clientes, setClientes] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentCliente, setCurrentCliente] = useState({
     nomeCompleto: "",
@@ -44,22 +43,19 @@ function Clientes() {
   });
   const [editMode, setEditMode] = useState(false);
 
-  const [clientes, setClientes] = useState([]);
-
-  const fetchClientes = useCallback(async () => {
+  const fetchClientes = async () => {
     try {
       const data = await clientesService.getAll();
-      // Garantir que sempre seja um array
       setClientes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
-      setClientes([]); // Se der erro, define como array vazio
+      setClientes([]);
     }
-  }, []);
+  };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchClientes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleOpenDialog = (cliente = null) => {
@@ -119,7 +115,6 @@ function Clientes() {
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
-      // ADICIONE ESTAS LINHAS PARA VER O ERRO DETALHADO:
       if (error.response) {
         console.error("Detalhes do erro:", error.response.data);
         alert(
@@ -197,29 +192,37 @@ function Clientes() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {clientes.map((cliente) => (
-                  <TableRow key={cliente.id}>
-                    <TableCell>{cliente.nomeCompleto}</TableCell>
-                    <TableCell>{cliente.telefone}</TableCell>
-                    <TableCell>{cliente.whatsApp}</TableCell>
-                    <TableCell>{cliente.email}</TableCell>
-                    <TableCell>{cliente.cidade}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleOpenDialog(cliente)}
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDelete(cliente.id)}
-                      >
-                        <Delete />
-                      </IconButton>
+                {Array.isArray(clientes) && clientes.length > 0 ? (
+                  clientes.map((cliente) => (
+                    <TableRow key={cliente.id}>
+                      <TableCell>{cliente.nomeCompleto}</TableCell>
+                      <TableCell>{cliente.telefone}</TableCell>
+                      <TableCell>{cliente.whatsApp}</TableCell>
+                      <TableCell>{cliente.email}</TableCell>
+                      <TableCell>{cliente.cidade}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleOpenDialog(cliente)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDelete(cliente.id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      Nenhum cliente cadastrado
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>

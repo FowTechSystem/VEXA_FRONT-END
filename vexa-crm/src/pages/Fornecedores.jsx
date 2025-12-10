@@ -35,18 +35,21 @@ function Fornecedores() {
   });
   const [editMode, setEditMode] = useState(false);
 
-  useEffect(() => {
-    fetchFornecedores();
-  }, []);
-
+  // MOVA A FUNÇÃO PARA ANTES DO useEffect
   const fetchFornecedores = async () => {
     try {
       const response = await api.get("/fornecedores");
-      setFornecedores(response.data);
+      setFornecedores(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error);
+      setFornecedores([]);
     }
   };
+
+  useEffect(() => {
+    fetchFornecedores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenDialog = (fornecedor = null) => {
     if (fornecedor) {
@@ -150,28 +153,36 @@ function Fornecedores() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {fornecedores.map((fornecedor) => (
-                  <TableRow key={fornecedor.id}>
-                    <TableCell>{fornecedor.nome}</TableCell>
-                    <TableCell>{fornecedor.email}</TableCell>
-                    <TableCell>{fornecedor.telefone}</TableCell>
-                    <TableCell>{fornecedor.cnpj}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleOpenDialog(fornecedor)}
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDelete(fornecedor.id)}
-                      >
-                        <Delete />
-                      </IconButton>
+                {Array.isArray(fornecedores) && fornecedores.length > 0 ? (
+                  fornecedores.map((fornecedor) => (
+                    <TableRow key={fornecedor.id}>
+                      <TableCell>{fornecedor.nome}</TableCell>
+                      <TableCell>{fornecedor.email}</TableCell>
+                      <TableCell>{fornecedor.telefone}</TableCell>
+                      <TableCell>{fornecedor.cnpj}</TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleOpenDialog(fornecedor)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDelete(fornecedor.id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Nenhum fornecedor cadastrado
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
