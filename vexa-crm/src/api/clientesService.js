@@ -2,6 +2,30 @@
 import api from "./axiosConfig";
 
 export const clientesService = {
+  listarPaginado: async ({ filtro, valor, pagina, tamanho }) => {
+    const params = new URLSearchParams();
+    if (filtro) params.append("filtro", filtro);
+    if (valor) params.append("valor", valor);
+    params.append("pagina", pagina);
+    params.append("tamanho", tamanho);
+
+    const response = await api.get(`/clientes?${params.toString()}`);
+    return response.data;
+  },
+
+  // Método para upload de foto
+  uploadFoto: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post("/clientes/upload-foto", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
   getAll: async () => {
     const response = await api.get("/clientes");
     return response.data;
@@ -18,7 +42,9 @@ export const clientesService = {
   },
 
   update: async (id, cliente) => {
-    const response = await api.put(`/clientes/${id}`, cliente);
+    const { id: _, ...clienteData } = cliente;
+
+    const response = await api.put(`/clientes/${id}`, clienteData);
     return response.data;
   },
 
