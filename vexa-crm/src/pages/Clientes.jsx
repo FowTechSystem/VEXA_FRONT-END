@@ -29,6 +29,7 @@ import {
   Tabs,
   Tab,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
   Add,
@@ -69,6 +70,13 @@ function Clientes() {
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
 
+  // Estados para validação de CPF
+  const [cpfError, setCpfError] = useState("");
+  const [cpfChecking, setCpfChecking] = useState(false);
+
+  // Estado para loading do CEP
+  const [cepLoading, setCepLoading] = useState(false);
+
   const [currentCliente, setCurrentCliente] = useState({
     nomeCompleto: "",
     telefone: "",
@@ -89,6 +97,134 @@ function Clientes() {
     fotoUrl: "",
   });
   const [editMode, setEditMode] = useState(false);
+
+  // ============================================
+  // VALIDAÇÃO DE CPF
+  // ============================================
+  const validarCPF = (cpf) => {
+    cpf = cpf.replace(/[^\d]/g, "");
+
+    if (cpf.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.charAt(9))) return false;
+
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.charAt(10))) return false;
+
+    return true;
+  };
+
+  const verificarCPFExistente = async (cpf) => {
+    if (!cpf || cpf.length < 11) {
+      setCpfError("");
+      return;
+    }
+
+    if (!validarCPF(cpf)) {
+      setCpfError("CPF inválido");
+      return;
+    }
+
+    setCpfChecking(true);
+    try {
+      const data = await clientesService.listarPaginado({
+        filtro: "cpf",
+        valor: cpf,
+        pagina: 1,
+        tamanho: 1,
+      });
+
+      if (
+        data.clientes.length > 0 &&
+        (!editMode || data.clientes[0].id !== currentCliente.id)
+      ) {
+        setCpfError("CPF já cadastrado para: " + data.clientes[0].nomeCompleto);
+      } else {
+        setCpfError("");
+      }
+    } catch (error) {
+      console.error("Erro ao verificar CPF:", error);
+    } finally {
+      setCpfChecking(false);
+    }
+  };
+
+  // ============================================
+  // BUSCAR CEP - ViaCEP API
+  // ============================================
+  const buscarCEP = async (cep) => {
+    const cepLimpo = cep.replace(/[^\d]/g, "");
+
+    if (cepLimpo.length !== 8) return;
+
+    setCepLoading(true);
+    try {
+      const response = await fetch(
+        `https://viacep.com.br/ws/${cepLimpo}/json/`
+      );
+      const data = await response.json();
+
+      if (data.erro) {
+        alert("CEP não encontrado");
+        return;
+      }
+
+      setCurrentCliente({
+        ...currentCliente,
+        cep: cepLimpo,
+        rua: data.logradouro || "",
+        bairro: data.bairro || "",
+        cidade: data.localidade || "",
+        complemento: data.complemento || currentCliente.complemento,
+      });
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+      alert("Erro ao buscar CEP. Tente novamente.");
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  // ============================================
+  // HANDLERS
+  // ============================================
+  const handleCPFChange = (e) => {
+    const cpf = e.target.value.replace(/[^\d]/g, "");
+    setCurrentCliente({
+      ...currentCliente,
+      cpf: cpf,
+    });
+
+    if (cpf.length === 11) {
+      setTimeout(() => verificarCPFExistente(cpf), 500);
+    } else {
+      setCpfError("");
+    }
+  };
+
+  const handleCEPChange = (e) => {
+    const cep = e.target.value.replace(/[^\d]/g, "");
+    setCurrentCliente({
+      ...currentCliente,
+      cep: cep,
+    });
+
+    if (cep.length === 8) {
+      buscarCEP(cep);
+    }
+  };
 
   // Usar useCallback para evitar warning de exhaustive-deps
   const fetchClientes = useCallback(async () => {
@@ -126,12 +262,10 @@ function Clientes() {
     setPaginaAtual(value);
   };
 
-  // Handler para upload de foto
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setFotoFile(file);
-      // Criar preview da imagem
       const reader = new FileReader();
       reader.onloadend = () => {
         setFotoPreview(reader.result);
@@ -141,7 +275,8 @@ function Clientes() {
   };
 
   const handleOpenDialog = (cliente = null) => {
-    setTabValue(0); // Resetar para primeira aba
+    setTabValue(0);
+    setCpfError("");
 
     if (cliente) {
       setCurrentCliente({
@@ -199,13 +334,32 @@ function Clientes() {
     setOpenDialog(false);
     setFotoPreview(null);
     setFotoFile(null);
+    setCpfError("");
   };
 
   const handleSave = async () => {
+    // Validar campos obrigatórios
+    if (!currentCliente.nomeCompleto.trim()) {
+      alert("Nome é obrigatório");
+      setTabValue(0);
+      return;
+    }
+
+    if (!currentCliente.dataNascimento) {
+      alert("Data de Nascimento é obrigatória");
+      setTabValue(0);
+      return;
+    }
+
+    if (cpfError) {
+      alert("Corrija os erros antes de salvar");
+      setTabValue(0);
+      return;
+    }
+
     try {
       let fotoUrl = currentCliente.fotoUrl;
 
-      // Se tem foto nova, fazer upload primeiro
       if (fotoFile) {
         const uploadResult = await clientesService.uploadFoto(fotoFile);
         fotoUrl = uploadResult.url;
@@ -456,6 +610,23 @@ function Clientes() {
                   value={currentCliente.nomeCompleto}
                   onChange={handleChange}
                   required
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      backgroundColor: !currentCliente.nomeCompleto
+                        ? "#ffebee"
+                        : "transparent",
+                      "&.Mui-focused fieldset": {
+                        borderColor: !currentCliente.nomeCompleto
+                          ? "#d32f2f"
+                          : undefined,
+                      },
+                    },
+                    "& .MuiInputLabel-root": {
+                      color: !currentCliente.nomeCompleto
+                        ? "#d32f2f"
+                        : undefined,
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -464,7 +635,13 @@ function Clientes() {
                   label="CPF"
                   name="cpf"
                   value={currentCliente.cpf}
-                  onChange={handleChange}
+                  onChange={handleCPFChange}
+                  error={!!cpfError}
+                  helperText={cpfError || (cpfChecking ? "Verificando..." : "")}
+                  inputProps={{ maxLength: 11 }}
+                  InputProps={{
+                    endAdornment: cpfChecking && <CircularProgress size={20} />,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -488,13 +665,31 @@ function Clientes() {
               <Grid item xs={12} sm={3}>
                 <TextField
                   fullWidth
-                  label="Data Nascimento"
+                  label="Data Nascimento*"
                   name="dataNascimento"
                   type="date"
                   value={currentCliente.dataNascimento}
                   onChange={handleChange}
+                  required
                   InputLabelProps={{ shrink: true }}
                   placeholder="dd/mm/aaaa"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      backgroundColor: !currentCliente.dataNascimento
+                        ? "#ffebee"
+                        : "transparent",
+                      "&.Mui-focused fieldset": {
+                        borderColor: !currentCliente.dataNascimento
+                          ? "#d32f2f"
+                          : undefined,
+                      },
+                    },
+                    "& .MuiInputLabel-root": {
+                      color: !currentCliente.dataNascimento
+                        ? "#d32f2f"
+                        : undefined,
+                    },
+                  }}
                 />
               </Grid>
 
@@ -567,7 +762,12 @@ function Clientes() {
                   label="CEP"
                   name="cep"
                   value={currentCliente.cep}
-                  onChange={handleChange}
+                  onChange={handleCEPChange}
+                  inputProps={{ maxLength: 8 }}
+                  helperText="Digite o CEP para buscar automaticamente"
+                  InputProps={{
+                    endAdornment: cepLoading && <CircularProgress size={20} />,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={8}>
