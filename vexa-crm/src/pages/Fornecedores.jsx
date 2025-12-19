@@ -57,7 +57,11 @@ function Fornecedores() {
   const fetchFornecedores = async () => {
     try {
       const response = await FornecedorService.getAll();
-      const data = response.items || response.fornecedores || response;
+      const data =
+        response.fornecedor ||
+        response.items ||
+        response.fornecedores ||
+        response;
       const fornecedoresArray = Array.isArray(data) ? data : [];
       setFornecedores(fornecedoresArray);
       setFornecedoresFiltrados(fornecedoresArray);
@@ -233,21 +237,11 @@ function Fornecedores() {
   const buscarCep = async () => {
     const cep = currentFornecedor.cep.replace(/\D/g, "");
 
-    if (cep.length !== 8) {
-      alert("CEP inválido! Digite 8 dígitos.");
-      return;
-    }
-
     setCepLoading(true);
 
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await response.json();
-
-      if (data.erro) {
-        alert("CEP não encontrado!");
-        return;
-      }
 
       setCurrentFornecedor({
         ...currentFornecedor,
@@ -258,7 +252,6 @@ function Fornecedores() {
       });
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      alert("Erro ao buscar CEP. Tente novamente.");
     } finally {
       setCepLoading(false);
     }
