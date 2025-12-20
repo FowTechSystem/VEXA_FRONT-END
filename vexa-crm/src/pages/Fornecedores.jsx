@@ -165,9 +165,12 @@ function Fornecedores() {
         Telefone: currentFornecedor.telefone || null,
         Whatsapp: currentFornecedor.whatsApp || null,
         Email: currentFornecedor.email || null,
-        Endereco: currentFornecedor.rua
-          ? `${currentFornecedor.rua}, ${currentFornecedor.numero} - ${currentFornecedor.bairro}, ${currentFornecedor.cidade}`
-          : null,
+        Rua: currentFornecedor.rua || null,
+        Numero: currentFornecedor.numero || null,
+        Bairro: currentFornecedor.bairro || null,
+        Cidade: currentFornecedor.cidade || null,
+        Cep: currentFornecedor.cep || null,
+        Complemento: currentFornecedor.complemento || null,
         CategoriaProdutos: currentFornecedor.categoriaProdutos || null,
         CondicaoPagamento: currentFornecedor.condicaoPagamento || null,
         Observacoes: currentFornecedor.observacoes || null,
