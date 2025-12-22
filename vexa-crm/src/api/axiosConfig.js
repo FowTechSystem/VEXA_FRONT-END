@@ -2,11 +2,12 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://localhost:5001/api", // HTTP, não HTTPS
+  baseURL: "https://localhost:5001/api", // ✅ HTTPS (não HTTP)
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000, // adicione timeout
+  timeout: 30000, // ✅ Aumentei para 30 segundos
+  withCredentials: true, // ✅ IMPORTANTE: Necessário para CORS com credentials
 });
 
 // Interceptor de requisição
@@ -20,9 +21,9 @@ api.interceptors.request.use(
     // DEBUG: Ver requisições no console
     console.log(
       "🚀 Request:",
-      config.method.toUpperCase(),
+      config.method?.toUpperCase(), // ✅ Adicionei ?. para evitar erro
       config.url,
-      config.data
+      config.data || config.params // ✅ Mostrar params também
     );
     return config;
   },
@@ -39,7 +40,22 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("❌ Response Error:", error.response?.data || error.message);
+    // ✅ Mensagens mais detalhadas
+    if (error.code === "ECONNABORTED") {
+      console.error("❌ Timeout: Backend não respondeu em 30 segundos");
+    } else if (error.code === "ERR_NETWORK") {
+      console.error(
+        "❌ Network Error: Verifique se o backend está rodando ou se há problema de CORS"
+      );
+    } else if (error.response) {
+      console.error("❌ Response Error:", {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url,
+      });
+    } else {
+      console.error("❌ Error:", error.message);
+    }
     return Promise.reject(error);
   }
 );
