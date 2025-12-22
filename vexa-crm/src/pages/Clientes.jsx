@@ -3,8 +3,6 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Typography,
   Table,
   TableBody,
@@ -30,6 +28,8 @@ import {
   Tab,
   Divider,
   CircularProgress,
+  Paper,
+  InputAdornment,
 } from "@mui/material";
 import {
   Add,
@@ -226,7 +226,6 @@ function Clientes() {
     }
   };
 
-  // Usar useCallback para evitar warning de exhaustive-deps
   const fetchClientes = useCallback(async () => {
     try {
       const data = await clientesService.listarPaginado({
@@ -338,7 +337,6 @@ function Clientes() {
   };
 
   const handleSave = async () => {
-    // Validar campos obrigatórios
     if (!currentCliente.nomeCompleto.trim()) {
       alert("Nome é obrigatório");
       setTabValue(0);
@@ -413,146 +411,223 @@ function Clientes() {
   };
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Clientes
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
+    <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
         >
-          Novo Cliente
-        </Button>
+          <Typography variant="h4" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+            Clientes
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              textTransform: "none",
+              bgcolor: "#2563eb",
+              "&:hover": { bgcolor: "#1d4ed8" },
+              borderRadius: "8px",
+              px: 3,
+              py: 1,
+              boxShadow: "none",
+            }}
+          >
+            Novo Cliente
+          </Button>
+        </Box>
+
+        {/* Search Bar */}
+        <TextField
+          fullWidth
+          placeholder="Digite o nome ou CPF do cliente..."
+          value={valorBusca}
+          onChange={handleBuscaChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ color: "#9ca3af" }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            bgcolor: "white",
+            borderRadius: "10px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": { border: "1px solid #e5e7eb" },
+              "&:hover fieldset": { border: "1px solid #d1d5db" },
+              "&.Mui-focused fieldset": { border: "1px solid #2563eb" },
+            },
+          }}
+        />
+
+        {/* Contador */}
+        <Typography
+          variant="body2"
+          sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
+        >
+          {totalRegistros} {totalRegistros === 1 ? "cliente" : "clientes"}
+        </Typography>
       </Box>
 
-      {/* Seção de Busca */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              fullWidth
-              label="Pesquisar por..."
-              value={valorBusca}
-              onChange={handleBuscaChange}
-              placeholder="Digite o nome ou CPF do cliente..."
-              InputProps={{
-                startAdornment: (
-                  <Search sx={{ mr: 1, color: "text.secondary" }} />
-                ),
-              }}
-            />
-            <Button
-              variant="contained"
-              startIcon={<Search />}
-              sx={{ minWidth: 140 }}
-            >
-              Pesquisar
-            </Button>
-            <Button variant="outlined" sx={{ minWidth: 180 }}>
-              Exportar para Excel
-            </Button>
-          </Stack>
-
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            <strong>TOTAL:</strong> {totalRegistros} cliente(s)
-          </Typography>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <strong>Nome</strong>
+      {/* Tabela */}
+      <TableContainer
+        component={Paper}
+        elevation={0}
+        sx={{
+          borderRadius: "12px",
+          border: "1px solid #e5e7eb",
+          overflow: "hidden",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f9fafb" }}>
+              <TableCell
+                sx={{
+                  fontWeight: 600,
+                  color: "#374151",
+                  fontSize: "13px",
+                  py: 2,
+                }}
+              >
+                NOME
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                TELEFONE
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                WHATSAPP
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                EMAIL
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                CIDADE
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                AÇÕES
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Array.isArray(clientes) && clientes.length > 0 ? (
+              clientes.map((cliente, index) => (
+                <TableRow
+                  key={cliente.id}
+                  sx={{
+                    "&:hover": { bgcolor: "#f9fafb" },
+                    borderBottom:
+                      index === clientes.length - 1
+                        ? "none"
+                        : "1px solid #f3f4f6",
+                  }}
+                >
+                  <TableCell
+                    sx={{ color: "#111827", fontWeight: 500, py: 2.5 }}
+                  >
+                    {cliente.nomeCompleto}
                   </TableCell>
-                  <TableCell>
-                    <strong>Telefone</strong>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {cliente.telefone || "—"}
                   </TableCell>
-                  <TableCell>
-                    <strong>WhatsApp</strong>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {cliente.whatsApp || "—"}
                   </TableCell>
-                  <TableCell>
-                    <strong>Email</strong>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {cliente.email || "—"}
                   </TableCell>
-                  <TableCell>
-                    <strong>Cidade</strong>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {cliente.cidade || "—"}
                   </TableCell>
                   <TableCell align="right">
-                    <strong>Ações</strong>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(cliente)}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                      }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(cliente.id)}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                      }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {Array.isArray(clientes) && clientes.length > 0 ? (
-                  clientes.map((cliente) => (
-                    <TableRow key={cliente.id}>
-                      <TableCell>{cliente.nomeCompleto}</TableCell>
-                      <TableCell>{cliente.telefone}</TableCell>
-                      <TableCell>{cliente.whatsApp}</TableCell>
-                      <TableCell>{cliente.email}</TableCell>
-                      <TableCell>{cliente.cidade}</TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleOpenDialog(cliente)}
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(cliente.id)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      Nenhum cliente cadastrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  align="center"
+                  sx={{ py: 8, color: "#9ca3af" }}
+                >
+                  <Typography variant="body1">
+                    Nenhum cliente encontrado
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Clique em "Novo Cliente" para cadastrar
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-          {totalPaginas > 1 && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-              <Pagination
-                count={totalPaginas}
-                page={paginaAtual}
-                onChange={handlePaginaChange}
-                color="primary"
-                showFirstButton
-                showLastButton
-              />
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+      {/* Paginação */}
+      {totalPaginas > 1 && (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+          <Pagination
+            count={totalPaginas}
+            page={paginaAtual}
+            onChange={handlePaginaChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+            sx={{
+              "& .MuiPaginationItem-root": {
+                borderRadius: "8px",
+              },
+            }}
+          />
+        </Box>
+      )}
 
-      {/* Dialog com Abas */}
+      {/* Dialog */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
           {editMode ? "Editar Cliente" : "Novo Cliente"}
         </DialogTitle>
         <DialogContent>
@@ -578,6 +653,12 @@ function Clientes() {
                   component="span"
                   startIcon={<PhotoCamera />}
                   size="small"
+                  sx={{
+                    textTransform: "none",
+                    borderColor: "#e5e7eb",
+                    color: "#6b7280",
+                    "&:hover": { borderColor: "#d1d5db", bgcolor: "#f9fafb" },
+                  }}
                 >
                   {fotoPreview ? "Alterar Foto" : "Adicionar Foto"}
                 </Button>
@@ -589,13 +670,29 @@ function Clientes() {
 
           {/* Tabs */}
           <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
-            <Tab icon={<Person />} label="Geral" iconPosition="start" />
-            <Tab icon={<Home />} label="Endereço" iconPosition="start" />
-            <Tab icon={<Extension />} label="Extras" iconPosition="start" />
+            <Tab
+              icon={<Person />}
+              label="Geral"
+              iconPosition="start"
+              sx={{ textTransform: "none", fontWeight: 600 }}
+            />
+            <Tab
+              icon={<Home />}
+              label="Endereço"
+              iconPosition="start"
+              sx={{ textTransform: "none", fontWeight: 600 }}
+            />
+            <Tab
+              icon={<Extension />}
+              label="Extras"
+              iconPosition="start"
+              sx={{ textTransform: "none", fontWeight: 600 }}
+            />
             <Tab
               icon={<AccountBalance />}
-              label="Crédito do Cliente"
+              label="Crédito"
               iconPosition="start"
+              sx={{ textTransform: "none", fontWeight: 600 }}
             />
           </Tabs>
 
@@ -610,23 +707,6 @@ function Clientes() {
                   value={currentCliente.nomeCompleto}
                   onChange={handleChange}
                   required
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      backgroundColor: !currentCliente.nomeCompleto
-                        ? "#ffebee"
-                        : "transparent",
-                      "&.Mui-focused fieldset": {
-                        borderColor: !currentCliente.nomeCompleto
-                          ? "#d32f2f"
-                          : undefined,
-                      },
-                    },
-                    "& .MuiInputLabel-root": {
-                      color: !currentCliente.nomeCompleto
-                        ? "#d32f2f"
-                        : undefined,
-                    },
-                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -672,34 +752,17 @@ function Clientes() {
                   onChange={handleChange}
                   required
                   InputLabelProps={{ shrink: true }}
-                  placeholder="dd/mm/aaaa"
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      backgroundColor: !currentCliente.dataNascimento
-                        ? "#ffebee"
-                        : "transparent",
-                      "&.Mui-focused fieldset": {
-                        borderColor: !currentCliente.dataNascimento
-                          ? "#d32f2f"
-                          : undefined,
-                      },
-                    },
-                    "& .MuiInputLabel-root": {
-                      color: !currentCliente.dataNascimento
-                        ? "#d32f2f"
-                        : undefined,
-                    },
-                  }}
                 />
               </Grid>
 
               <Grid item xs={12}>
+                <Divider sx={{ my: 1 }} />
                 <Typography
                   variant="subtitle2"
                   color="text.secondary"
-                  sx={{ mb: 1 }}
+                  sx={{ mb: 2 }}
                 >
-                  Contatos*
+                  Contatos
                 </Typography>
               </Grid>
 
@@ -716,7 +779,7 @@ function Clientes() {
               <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
-                  label="Número"
+                  label="Telefone"
                   name="telefone"
                   value={currentCliente.telefone}
                   onChange={handleChange}
@@ -734,8 +797,8 @@ function Clientes() {
 
               <Grid item xs={12} sm={4}>
                 <FormControl fullWidth>
-                  <InputLabel>Email</InputLabel>
-                  <Select defaultValue="email" label="Email">
+                  <InputLabel>Tipo Email</InputLabel>
+                  <Select defaultValue="email" label="Tipo Email">
                     <MenuItem value="email">Email</MenuItem>
                   </Select>
                 </FormControl>
@@ -764,7 +827,8 @@ function Clientes() {
                   value={currentCliente.cep}
                   onChange={handleCEPChange}
                   inputProps={{ maxLength: 8 }}
-                  helperText="Digite o CEP para buscar automaticamente"
+                  helperText="Digite o CEP para buscar"
+                  placeholder="00000000"
                   InputProps={{
                     endAdornment: cepLoading && <CircularProgress size={20} />,
                   }}
@@ -777,6 +841,7 @@ function Clientes() {
                   name="rua"
                   value={currentCliente.rua}
                   onChange={handleChange}
+                  disabled={cepLoading}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -804,6 +869,7 @@ function Clientes() {
                   name="bairro"
                   value={currentCliente.bairro}
                   onChange={handleChange}
+                  disabled={cepLoading}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -813,6 +879,7 @@ function Clientes() {
                   name="cidade"
                   value={currentCliente.cidade}
                   onChange={handleChange}
+                  disabled={cepLoading}
                 />
               </Grid>
             </Grid>
@@ -830,6 +897,7 @@ function Clientes() {
                   rows={4}
                   value={currentCliente.preferencias}
                   onChange={handleChange}
+                  placeholder="Descreva as preferências do cliente..."
                 />
               </Grid>
               <Grid item xs={12}>
@@ -841,23 +909,43 @@ function Clientes() {
                   rows={4}
                   value={currentCliente.observacoes}
                   onChange={handleChange}
+                  placeholder="Adicione observações relevantes..."
                 />
               </Grid>
             </Grid>
           </TabPanel>
 
-          {/* Aba Crédito do Cliente */}
+          {/* Aba Crédito */}
           <TabPanel value={tabValue} index={3}>
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography variant="body1" color="text.secondary">
-                Funcionalidade em desenvolvimento
+            <Box sx={{ textAlign: "center", py: 8 }}>
+              <AccountBalance sx={{ fontSize: 60, color: "#9ca3af", mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Funcionalidade em Desenvolvimento
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Gerenciamento de crédito estará disponível em breve
               </Typography>
             </Box>
           </TabPanel>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button onClick={handleSave} variant="contained">
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={handleCloseDialog}
+            sx={{ textTransform: "none", color: "#6b7280" }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            sx={{
+              textTransform: "none",
+              bgcolor: "#2563eb",
+              "&:hover": { bgcolor: "#1d4ed8" },
+              boxShadow: "none",
+            }}
+          >
             Salvar
           </Button>
         </DialogActions>

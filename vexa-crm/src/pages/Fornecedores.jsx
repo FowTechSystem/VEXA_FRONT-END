@@ -31,23 +31,22 @@ function Fornecedores() {
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentFornecedor, setCurrentFornecedor] = useState({
-    Nome: "",
-    RazaoSocial: "",
-    Cnpj: "",
-    NomeRepresentante: "",
-    Telefone: "",
-    WhatsApp: "",
-    Email: "",
-    Endereco: "",
-    CategoriaProdutos: "",
-    CondicaoPagamento: "",
-    Observacoes: "",
-    Cep: "",
-    Rua: "",
-    Numero: "",
-    Complemento: "",
-    Bairro: "",
-    Cidade: "",
+    nome: "",
+    razaoSocial: "",
+    cnpj: "",
+    nomeRepresentante: "",
+    telefone: "",
+    whatsApp: "",
+    email: "",
+    categoriaProdutos: "",
+    condicaoPagamento: "",
+    observacoes: "",
+    cep: "",
+    rua: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
   });
   const [editMode, setEditMode] = useState(false);
   const [tabValue, setTabValue] = useState(0);
@@ -96,12 +95,12 @@ function Fornecedores() {
     if (fornecedor) {
       setCurrentFornecedor({
         ...fornecedor,
-        cep: fornecedor.endereco?.cep || "",
-        rua: fornecedor.endereco?.rua || "",
-        numero: fornecedor.endereco?.numero || "",
-        complemento: fornecedor.endereco?.complemento || "",
-        bairro: fornecedor.endereco?.bairro || "",
-        cidade: fornecedor.endereco?.cidade || "",
+        cep: fornecedor.cep || "",
+        rua: fornecedor.rua || "",
+        numero: fornecedor.numero || "",
+        complemento: fornecedor.complemento || "",
+        bairro: fornecedor.bairro || "",
+        cidade: fornecedor.cidade || "",
       });
       setEditMode(true);
     } else {
@@ -113,7 +112,6 @@ function Fornecedores() {
         telefone: "",
         whatsApp: "",
         email: "",
-        endereco: "",
         categoriaProdutos: "",
         condicaoPagamento: "",
         observacoes: "",
@@ -138,23 +136,18 @@ function Fornecedores() {
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!currentFornecedor.nome || currentFornecedor.nome.trim() === "") {
       newErrors.nome = "Nome é obrigatório";
     }
-
     if (!currentFornecedor.cnpj || currentFornecedor.cnpj.trim() === "") {
       newErrors.cnpj = "CNPJ é obrigatório";
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       const fornecedorData = {
@@ -177,16 +170,6 @@ function Fornecedores() {
         DataCadastro: new Date().toISOString(),
       };
 
-      // ← ADICIONAR ESTAS 3 LINHAS
-      console.log("🔍 Estado atual:", currentFornecedor);
-      console.log("📦 Dados que serão enviados:", fornecedorData);
-      console.log(
-        "📝 Nome específico:",
-        fornecedorData.nome,
-        "| Tamanho:",
-        fornecedorData.nome?.length
-      );
-
       if (editMode) {
         await FornecedorService.update(currentFornecedor.id, fornecedorData);
       } else {
@@ -197,11 +180,9 @@ function Fornecedores() {
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar fornecedor:", error);
-
       const errorMessage = error.response?.data?.errors
         ? JSON.stringify(error.response.data.errors, null, 2)
         : error.response?.data?.mensagem || error.message;
-
       alert(`Erro ao salvar: ${errorMessage}`);
     }
   };
@@ -224,12 +205,8 @@ function Fornecedores() {
       ...currentFornecedor,
       [name]: value,
     });
-
     if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: null,
-      });
+      setErrors({ ...errors, [name]: null });
     }
   };
 
@@ -239,12 +216,17 @@ function Fornecedores() {
 
   const buscarCep = async () => {
     const cep = currentFornecedor.cep.replace(/\D/g, "");
+    if (cep.length !== 8) return;
 
     setCepLoading(true);
-
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await response.json();
+
+      if (data.erro) {
+        alert("CEP não encontrado");
+        return;
+      }
 
       setCurrentFornecedor({
         ...currentFornecedor,
@@ -255,133 +237,170 @@ function Fornecedores() {
       });
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
+      alert("Erro ao buscar CEP");
     } finally {
       setCepLoading(false);
     }
   };
 
   return (
-    <Box>
-      {/* Botão Novo Fornecedor no topo à direita */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "flex-end",
-          mb: 2,
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
+    <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Box
           sx={{
-            textTransform: "none",
-            fontWeight: 600,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
           }}
         >
-          NOVO FORNECEDOR
-        </Button>
-      </Box>
-
-      {/* Barra de pesquisa */}
-      <Box
-        sx={{
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-          p: 2,
-          mb: 2,
-          bgcolor: "white",
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            display: "block",
-            mb: 1,
-            color: "text.secondary",
-            fontWeight: 500,
-          }}
-        >
-          Pesquisar por...
-        </Typography>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <TextField
-            fullWidth
-            placeholder="Digite o nome ou CNPJ do fornecedor..."
-            value={searchTerm}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Typography variant="h4" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+            Fornecedores
+          </Typography>
           <Button
             variant="contained"
-            startIcon={<Search />}
+            startIcon={<Add />}
+            onClick={() => handleOpenDialog()}
             sx={{
               textTransform: "none",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
+              bgcolor: "#2563eb",
+              "&:hover": { bgcolor: "#1d4ed8" },
+              borderRadius: "8px",
+              px: 3,
+              py: 1,
+              boxShadow: "none",
             }}
           >
-            PESQUISAR
+            Novo Fornecedor
           </Button>
         </Box>
-      </Box>
 
-      {/* Contador */}
-      <Typography
-        variant="body2"
-        sx={{
-          mb: 2,
-          fontWeight: 600,
-          color: "text.secondary",
-        }}
-      >
-        TOTAL: {fornecedoresFiltrados.length} fornecedor(es)
-      </Typography>
+        {/* Search Bar */}
+        <TextField
+          fullWidth
+          placeholder="Buscar por nome ou CNPJ..."
+          value={searchTerm}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ color: "#9ca3af" }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            bgcolor: "white",
+            borderRadius: "10px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": { border: "1px solid #e5e7eb" },
+              "&:hover fieldset": { border: "1px solid #d1d5db" },
+              "&.Mui-focused fieldset": { border: "1px solid #2563eb" },
+            },
+          }}
+        />
+
+        {/* Contador */}
+        <Typography
+          variant="body2"
+          sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
+        >
+          {fornecedoresFiltrados.length}{" "}
+          {fornecedoresFiltrados.length === 1 ? "fornecedor" : "fornecedores"}
+        </Typography>
+      </Box>
 
       {/* Tabela */}
       <TableContainer
         component={Paper}
         elevation={0}
-        sx={{ border: "1px solid #e0e0e0" }}
+        sx={{
+          borderRadius: "12px",
+          border: "1px solid #e5e7eb",
+          overflow: "hidden",
+        }}
       >
         <Table>
           <TableHead>
-            <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-              <TableCell sx={{ fontWeight: 700 }}>Nome</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Telefone</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>CNPJ</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>
-                Ações
+            <TableRow sx={{ bgcolor: "#f9fafb" }}>
+              <TableCell
+                sx={{
+                  fontWeight: 600,
+                  color: "#374151",
+                  fontSize: "13px",
+                  py: 2,
+                }}
+              >
+                NOME
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                EMAIL
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                TELEFONE
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                CNPJ
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                AÇÕES
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {fornecedoresFiltrados.length > 0 ? (
-              fornecedoresFiltrados.map((fornecedor) => (
-                <TableRow key={fornecedor.id} hover>
-                  <TableCell>{fornecedor.nome}</TableCell>
-                  <TableCell>{fornecedor.email || ""}</TableCell>
-                  <TableCell>{fornecedor.telefone || ""}</TableCell>
-                  <TableCell>{fornecedor.cnpj || ""}</TableCell>
+              fornecedoresFiltrados.map((fornecedor, index) => (
+                <TableRow
+                  key={fornecedor.id}
+                  sx={{
+                    "&:hover": { bgcolor: "#f9fafb" },
+                    borderBottom:
+                      index === fornecedoresFiltrados.length - 1
+                        ? "none"
+                        : "1px solid #f3f4f6",
+                  }}
+                >
+                  <TableCell
+                    sx={{ color: "#111827", fontWeight: 500, py: 2.5 }}
+                  >
+                    {fornecedor.nome}
+                  </TableCell>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {fornecedor.email || "—"}
+                  </TableCell>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {fornecedor.telefone || "—"}
+                  </TableCell>
+                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                    {fornecedor.cnpj || "—"}
+                  </TableCell>
                   <TableCell align="right">
                     <IconButton
                       size="small"
                       onClick={() => handleOpenDialog(fornecedor)}
-                      sx={{ color: "#1976d2" }}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                      }}
                     >
                       <Edit fontSize="small" />
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => handleDelete(fornecedor.id)}
-                      sx={{ color: "#d32f2f" }}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                      }}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
@@ -390,8 +409,17 @@ function Fornecedores() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  Nenhum fornecedor cadastrado
+                <TableCell
+                  colSpan={5}
+                  align="center"
+                  sx={{ py: 8, color: "#9ca3af" }}
+                >
+                  <Typography variant="body1">
+                    Nenhum fornecedor encontrado
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Clique em "Novo Fornecedor" para cadastrar
+                  </Typography>
                 </TableCell>
               </TableRow>
             )}
@@ -399,22 +427,31 @@ function Fornecedores() {
         </Table>
       </TableContainer>
 
-      {/* Dialog de Cadastro/Edição */}
+      {/* Dialog */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
           {editMode ? "Editar Fornecedor" : "Novo Fornecedor"}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ borderBottom: 1, borderColor: "divider", mt: 2 }}>
             <Tabs value={tabValue} onChange={handleTabChange}>
-              <Tab label="GERAL" />
-              <Tab label="ENDEREÇO" />
-              <Tab label="EXTRAS" />
+              <Tab
+                label="Geral"
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+              <Tab
+                label="Endereço"
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+              <Tab
+                label="Extras"
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
             </Tabs>
           </Box>
 
@@ -510,6 +547,7 @@ function Fornecedores() {
                   onChange={handleChange}
                   onBlur={buscarCep}
                   disabled={cepLoading}
+                  placeholder="00000-000"
                 />
               </Grid>
 
@@ -607,9 +645,24 @@ function Fornecedores() {
             </Grid>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button onClick={handleSave} variant="contained">
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={handleCloseDialog}
+            sx={{ textTransform: "none", color: "#6b7280" }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            sx={{
+              textTransform: "none",
+              bgcolor: "#2563eb",
+              "&:hover": { bgcolor: "#1d4ed8" },
+              boxShadow: "none",
+            }}
+          >
             Salvar
           </Button>
         </DialogActions>
