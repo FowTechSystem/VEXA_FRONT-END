@@ -1,4 +1,3 @@
-// src/pages/Fornecedores.jsx
 import React, { useEffect, useState } from "react";
 import {
   Box,
@@ -56,6 +55,15 @@ function Fornecedores() {
   const fetchFornecedores = async () => {
     try {
       const response = await FornecedorService.getAll();
+
+      // 🔍 DEBUG - pode remover depois que funcionar
+      console.log("Response completo:", response);
+      console.log("Primeiro fornecedor:", response.fornecedor?.[0]);
+      console.log(
+        "Endereços do primeiro:",
+        response.fornecedor?.[0]?.enderecos
+      );
+
       const data =
         response.fornecedor ||
         response.items ||
@@ -93,14 +101,18 @@ function Fornecedores() {
 
   const handleOpenDialog = (fornecedor = null) => {
     if (fornecedor) {
+      // ✅ CORREÇÃO: Pega o primeiro endereço do array
+      const primeiroEndereco = fornecedor.enderecos?.[0] || {};
+
       setCurrentFornecedor({
         ...fornecedor,
-        cep: fornecedor.cep || "",
-        rua: fornecedor.rua || "",
-        numero: fornecedor.numero || "",
-        complemento: fornecedor.complemento || "",
-        bairro: fornecedor.bairro || "",
-        cidade: fornecedor.cidade || "",
+        // ✅ Busca os dados do endereço corretamente
+        cep: primeiroEndereco.cep || "",
+        rua: primeiroEndereco.rua || "",
+        numero: primeiroEndereco.numero || "",
+        complemento: primeiroEndereco.complemento || "",
+        bairro: primeiroEndereco.bairro || "",
+        cidade: primeiroEndereco.cidade || "",
       });
       setEditMode(true);
     } else {

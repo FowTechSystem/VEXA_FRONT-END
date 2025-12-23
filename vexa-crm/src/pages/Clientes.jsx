@@ -22,7 +22,6 @@ import {
   FormControl,
   InputLabel,
   Pagination,
-  Stack,
   Avatar,
   Tabs,
   Tab,
@@ -43,6 +42,19 @@ import {
   AccountBalance,
 } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
+import { showSuccess, showError, showWarning } from "../utils/notifications";
+import {
+  successMessages,
+  errorMessages,
+  confirmMessages,
+  entityNames,
+  validationMessages,
+} from "../utils/entityMessages";
+import {
+  validateCPF,
+  validateCNPJ,
+  validateRequired,
+} from "../utils/validators";
 
 // Componente de Tab Panel
 function TabPanel({ children, value, index }) {
@@ -70,11 +82,10 @@ function Clientes() {
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
 
-  // Estados para validação de CPF
+  // Estados para validação
   const [cpfError, setCpfError] = useState("");
   const [cpfChecking, setCpfChecking] = useState(false);
-
-  // Estado para loading do CEP
+  const [cnpjError, setCnpjError] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
 
   const [currentCliente, setCurrentCliente] = useState({
@@ -99,41 +110,17 @@ function Clientes() {
   const [editMode, setEditMode] = useState(false);
 
   // ============================================
-  // VALIDAÇÃO DE CPF
+  // VERIFICAR CPF EXISTENTE
   // ============================================
-  const validarCPF = (cpf) => {
-    cpf = cpf.replace(/[^\d]/g, "");
-
-    if (cpf.length !== 11) return false;
-    if (/^(\d)\1{10}$/.test(cpf)) return false;
-
-    let soma = 0;
-    for (let i = 0; i < 9; i++) {
-      soma += parseInt(cpf.charAt(i)) * (10 - i);
-    }
-    let resto = (soma * 10) % 11;
-    if (resto === 10 || resto === 11) resto = 0;
-    if (resto !== parseInt(cpf.charAt(9))) return false;
-
-    soma = 0;
-    for (let i = 0; i < 10; i++) {
-      soma += parseInt(cpf.charAt(i)) * (11 - i);
-    }
-    resto = (soma * 10) % 11;
-    if (resto === 10 || resto === 11) resto = 0;
-    if (resto !== parseInt(cpf.charAt(10))) return false;
-
-    return true;
-  };
-
   const verificarCPFExistente = async (cpf) => {
     if (!cpf || cpf.length < 11) {
       setCpfError("");
       return;
     }
 
-    if (!validarCPF(cpf)) {
-      setCpfError("CPF inválido");
+    const validation = validateCPF(cpf);
+    if (!validation.valid) {
+      setCpfError(validation.message);
       return;
     }
 
@@ -150,7 +137,9 @@ function Clientes() {
         data.clientes.length > 0 &&
         (!editMode || data.clientes[0].id !== currentCliente.id)
       ) {
-        setCpfError("CPF já cadastrado para: " + data.clientes[0].nomeCompleto);
+        setCpfError(
+          validationMessages.cpfDuplicate(data.clientes[0].nomeCompleto)
+        );
       } else {
         setCpfError("");
       }
@@ -177,21 +166,22 @@ function Clientes() {
       const data = await response.json();
 
       if (data.erro) {
-        alert("CEP não encontrado");
+        showError("CEP não encontrado");
         return;
       }
 
-      setCurrentCliente({
-        ...currentCliente,
+      setCurrentCliente((prev) => ({
+        ...prev,
         cep: cepLimpo,
         rua: data.logradouro || "",
         bairro: data.bairro || "",
         cidade: data.localidade || "",
-        complemento: data.complemento || currentCliente.complemento,
-      });
+        complemento: data.complemento || prev.complemento,
+      }));
+      showSuccess("Endereço carregado com sucesso!");
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
-      alert("Erro ao buscar CEP. Tente novamente.");
+      showError("Erro ao buscar CEP. Tente novamente.");
     } finally {
       setCepLoading(false);
     }
@@ -211,6 +201,23 @@ function Clientes() {
       setTimeout(() => verificarCPFExistente(cpf), 500);
     } else {
       setCpfError("");
+    }
+  };
+
+  const handleCNPJChange = (e) => {
+    const cnpj = e.target.value.replace(/[^\d]/g, "");
+    setCurrentCliente({
+      ...currentCliente,
+      cnpj: cnpj,
+    });
+
+    if (cnpj.length > 0 && cnpj.length < 14) {
+      setCnpjError(validationMessages.exactLength("CNPJ", 14));
+    } else if (cnpj.length === 14) {
+      const validation = validateCNPJ(cnpj);
+      setCnpjError(validation.valid ? "" : validation.message);
+    } else {
+      setCnpjError("");
     }
   };
 
@@ -240,6 +247,7 @@ function Clientes() {
       setTotalRegistros(data.totalRegistros);
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
+      showError(errorMessages.fetch(entityNames.clientes));
       setClientes([]);
     }
   }, [filtro, valorBusca, paginaAtual]);
@@ -264,6 +272,12 @@ function Clientes() {
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validar tamanho (máx 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showError("Imagem deve ter no máximo 5MB");
+        return;
+      }
+
       setFotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -276,6 +290,7 @@ function Clientes() {
   const handleOpenDialog = (cliente = null) => {
     setTabValue(0);
     setCpfError("");
+    setCnpjError("");
 
     if (cliente) {
       setCurrentCliente({
@@ -334,23 +349,33 @@ function Clientes() {
     setFotoPreview(null);
     setFotoFile(null);
     setCpfError("");
+    setCnpjError("");
   };
 
   const handleSave = async () => {
-    if (!currentCliente.nomeCompleto.trim()) {
-      alert("Nome é obrigatório");
+    // Validações
+    const nomeValidation = validateRequired(
+      currentCliente.nomeCompleto,
+      "Nome"
+    );
+    if (!nomeValidation.valid) {
+      showError(nomeValidation.message);
       setTabValue(0);
       return;
     }
 
-    if (!currentCliente.dataNascimento) {
-      alert("Data de Nascimento é obrigatória");
+    const dataNascValidation = validateRequired(
+      currentCliente.dataNascimento,
+      "Data de Nascimento"
+    );
+    if (!dataNascValidation.valid) {
+      showError(dataNascValidation.message);
       setTabValue(0);
       return;
     }
 
-    if (cpfError) {
-      alert("Corrija os erros antes de salvar");
+    if (cpfError || cnpjError) {
+      showWarning("Corrija os erros antes de salvar");
       setTabValue(0);
       return;
     }
@@ -370,31 +395,46 @@ function Clientes() {
 
       if (editMode) {
         await clientesService.update(currentCliente.id, clienteData);
+        showSuccess(successMessages.update(entityNames.cliente));
       } else {
         await clientesService.create(clienteData);
+        showSuccess(successMessages.create(entityNames.cliente));
       }
 
       fetchClientes();
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
+
       if (error.response) {
-        console.error("Detalhes do erro:", error.response.data);
-        alert(
-          "Erro ao salvar: " +
-            JSON.stringify(error.response.data.errors || error.response.data)
+        const errorData = error.response.data;
+        if (errorData.errors) {
+          const firstError = Object.values(errorData.errors)[0];
+          showError(firstError[0] || errorMessages.create(entityNames.cliente));
+        } else {
+          showError(
+            errorData.message || errorMessages.create(entityNames.cliente)
+          );
+        }
+      } else {
+        showError(
+          editMode
+            ? errorMessages.update(entityNames.cliente)
+            : errorMessages.create(entityNames.cliente)
         );
       }
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir este cliente?")) {
+    if (window.confirm(confirmMessages.delete(entityNames.cliente))) {
       try {
         await clientesService.delete(id);
+        showSuccess(successMessages.delete(entityNames.cliente));
         fetchClientes();
       } catch (error) {
         console.error("Erro ao excluir cliente:", error);
+        showError(errorMessages.delete(entityNames.cliente));
       }
     }
   };
@@ -423,7 +463,7 @@ function Clientes() {
           }}
         >
           <Typography variant="h4" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
-            Clientes
+            {entityNames.clientes}
           </Typography>
           <Button
             variant="contained"
@@ -439,7 +479,7 @@ function Clientes() {
               boxShadow: "none",
             }}
           >
-            Novo Cliente
+            Novo {entityNames.cliente}
           </Button>
         </Box>
 
@@ -628,7 +668,9 @@ function Clientes() {
         fullWidth
       >
         <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
-          {editMode ? "Editar Cliente" : "Novo Cliente"}
+          {editMode
+            ? `Editar ${entityNames.cliente}`
+            : `Novo ${entityNames.cliente}`}
         </DialogTitle>
         <DialogContent>
           {/* Foto do Cliente */}
@@ -707,6 +749,7 @@ function Clientes() {
                   value={currentCliente.nomeCompleto}
                   onChange={handleChange}
                   required
+                  inputProps={{ maxLength: 200 }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -717,7 +760,7 @@ function Clientes() {
                   value={currentCliente.cpf}
                   onChange={handleCPFChange}
                   error={!!cpfError}
-                  helperText={cpfError || (cpfChecking ? "Verificando..." : "")}
+                  helperText={cpfError || ""}
                   inputProps={{ maxLength: 11 }}
                   InputProps={{
                     endAdornment: cpfChecking && <CircularProgress size={20} />,
@@ -739,7 +782,10 @@ function Clientes() {
                   label="CNPJ"
                   name="cnpj"
                   value={currentCliente.cnpj}
-                  onChange={handleChange}
+                  onChange={handleCNPJChange}
+                  error={!!cnpjError}
+                  helperText={cnpjError || ""}
+                  inputProps={{ maxLength: 14 }}
                 />
               </Grid>
               <Grid item xs={12} sm={3}>
@@ -783,6 +829,7 @@ function Clientes() {
                   name="telefone"
                   value={currentCliente.telefone}
                   onChange={handleChange}
+                  inputProps={{ maxLength: 20 }}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -792,6 +839,7 @@ function Clientes() {
                   name="whatsApp"
                   value={currentCliente.whatsApp}
                   onChange={handleChange}
+                  inputProps={{ maxLength: 20 }}
                 />
               </Grid>
 
@@ -827,7 +875,6 @@ function Clientes() {
                   value={currentCliente.cep}
                   onChange={handleCEPChange}
                   inputProps={{ maxLength: 8 }}
-                  helperText="Digite o CEP para buscar"
                   placeholder="00000000"
                   InputProps={{
                     endAdornment: cepLoading && <CircularProgress size={20} />,
@@ -842,6 +889,7 @@ function Clientes() {
                   value={currentCliente.rua}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  inputProps={{ maxLength: 150 }}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -851,6 +899,7 @@ function Clientes() {
                   name="numero"
                   value={currentCliente.numero}
                   onChange={handleChange}
+                  inputProps={{ maxLength: 10 }}
                 />
               </Grid>
               <Grid item xs={12} sm={8}>
@@ -860,6 +909,7 @@ function Clientes() {
                   name="complemento"
                   value={currentCliente.complemento}
                   onChange={handleChange}
+                  inputProps={{ maxLength: 100 }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -870,6 +920,7 @@ function Clientes() {
                   value={currentCliente.bairro}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  inputProps={{ maxLength: 100 }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -880,6 +931,7 @@ function Clientes() {
                   value={currentCliente.cidade}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  inputProps={{ maxLength: 100 }}
                 />
               </Grid>
             </Grid>

@@ -1,7 +1,8 @@
-// src/App.jsx
+// src/App.jsx - CORREÇÃO
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material";
+import { Toaster } from "react-hot-toast";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -26,11 +27,41 @@ const theme = createTheme({
 });
 
 function App() {
-  // REMOVA O useEffect - estava causando o problema!
-
   return (
     <ThemeProvider theme={theme}>
       <BrowserRouter>
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          toastOptions={{
+            duration: 4000,
+            style: {
+              borderRadius: "10px",
+              background: "#fff",
+              color: "#1a1a1a",
+              padding: "16px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+              fontSize: "14px",
+              maxWidth: "500px",
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: "#10b981",
+                secondary: "#fff",
+              },
+            },
+            error: {
+              duration: 4000,
+              iconTheme: {
+                primary: "#ef4444",
+                secondary: "#fff",
+              },
+            },
+          }}
+        />
+
         <Routes>
           <Route path="/login" element={<Login />} />
 
