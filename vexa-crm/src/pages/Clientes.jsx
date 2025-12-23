@@ -293,6 +293,8 @@ function Clientes() {
     setCnpjError("");
 
     if (cliente) {
+      const primeiroEndereco = cliente.enderecos?.[0] || {};
+
       setCurrentCliente({
         id: cliente.id,
         nomeCompleto: cliente.nomeCompleto,
@@ -305,12 +307,12 @@ function Clientes() {
         dataNascimento: cliente.dataNascimento
           ? cliente.dataNascimento.split("T")[0]
           : "",
-        rua: cliente.rua || "",
-        numero: cliente.numero || "",
-        complemento: cliente.complemento || "",
-        bairro: cliente.bairro || "",
-        cidade: cliente.cidade || "",
-        cep: cliente.cep || "",
+        rua: primeiroEndereco.rua || "",
+        numero: primeiroEndereco.numero || "",
+        complemento: primeiroEndereco.complemento || "",
+        bairro: primeiroEndereco.bairro || "",
+        cidade: primeiroEndereco.cidade || "",
+        cep: primeiroEndereco.cep || "",
         preferencias: cliente.preferencias || "",
         observacoes: cliente.observacoes || "",
         fotoUrl: cliente.fotoUrl || "",
