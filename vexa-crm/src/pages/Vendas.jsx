@@ -1,288 +1,179 @@
-// src/pages/Vendas.jsx
-import React, { useEffect, useState } from "react";
+// src/pages/Vendas.jsx (SUBSTITUIR O EXISTENTE)
+import React, { useState } from "react";
 import {
   Box,
   Button,
   Card,
-  CardContent,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Grid,
-  Autocomplete,
+  Alert,
+  IconButton,
+  Fade,
 } from "@mui/material";
-import { Add, Visibility } from "@mui/icons-material";
-import { vendasService } from "../api/vendasService";
-import { clientesService } from "../api/clientesService";
-import { produtosService } from "../api/produtosService";
+import { Add, Refresh } from "@mui/icons-material";
+import { useVendas } from "../hooks/useVendas";
+import { VendasTable } from "../components/Vendas/VendasTable";
+import { NovaVendaDialog } from "../components/Vendas/NovaVendaDialog";
 
 function Vendas() {
-  const [vendas, setVendas] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [currentVenda, setCurrentVenda] = useState({
-    clienteId: null,
-    produtoId: null,
-    quantidade: 1,
-    valorTotal: 0,
-    dataVenda: new Date().toISOString().split("T")[0],
-  });
+  const {
+    vendas,
+    clientes,
+    produtos,
+    loading,
+    error,
+    createVenda,
+    refetch,
+    clearError,
+  } = useVendas();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  // MOVA TODAS AS FUNÇÕES PARA ANTES DO useEffect
-  const fetchVendas = async () => {
-    try {
-      const data = await vendasService.getAll();
-      setVendas(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar vendas:", error);
-      setVendas([]);
-    }
+  const handleViewDetails = (venda) => {
+    console.log("Ver detalhes da venda:", venda);
+    // TODO: Implementar modal de detalhes
   };
 
-  const fetchClientes = async () => {
-    try {
-      const data = await clientesService.getAll();
-      setClientes(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar clientes:", error);
-      setClientes([]);
-    }
+  const handleEdit = (venda) => {
+    console.log("Editar venda:", venda);
+    // TODO: Implementar edição
   };
 
-  const fetchProdutos = async () => {
-    try {
-      const data = await produtosService.getAll();
-      setProdutos(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Erro ao buscar produtos:", error);
-      setProdutos([]);
-    }
-  };
-
-  useEffect(() => {
-    fetchVendas();
-    fetchClientes();
-    fetchProdutos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleOpenDialog = () => {
-    setCurrentVenda({
-      clienteId: null,
-      produtoId: null,
-      quantidade: 1,
-      valorTotal: 0,
-      dataVenda: new Date().toISOString().split("T")[0],
-    });
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-  };
-
-  const handleSave = async () => {
-    try {
-      await vendasService.create(currentVenda);
-      fetchVendas();
-      handleCloseDialog();
-    } catch (error) {
-      console.error("Erro ao salvar venda:", error);
-    }
-  };
-
-  const handleChange = (field, value) => {
-    setCurrentVenda({
-      ...currentVenda,
-      [field]: value,
-    });
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Concluída":
-        return "success";
-      case "Pendente":
-        return "warning";
-      case "Cancelada":
-        return "error";
-      default:
-        return "default";
-    }
+  const handleDelete = (venda) => {
+    console.log("Excluir venda:", venda);
+    // TODO: Implementar exclusão com confirmação
   };
 
   return (
     <Box>
       <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
+        display="flex"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        mb={3}
       >
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Vendas
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleOpenDialog}
-        >
-          Nova Venda
-        </Button>
+        <Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            gutterBottom
+            sx={{ color: "text.primary" }}
+          >
+            Vendas
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Gerencie todas as vendas do seu negócio
+          </Typography>
+        </Box>
+        <Box display="flex" gap={1}>
+          <IconButton
+            onClick={refetch}
+            disabled={loading}
+            sx={{
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              "&:hover": {
+                bgcolor: "action.hover",
+              },
+            }}
+          >
+            <Refresh />
+          </IconButton>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setDialogOpen(true)}
+            sx={{
+              textTransform: "none",
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              fontWeight: 600,
+              boxShadow: 2,
+              "&:hover": {
+                boxShadow: 4,
+              },
+            }}
+          >
+            Nova Venda
+          </Button>
+        </Box>
       </Box>
 
-      <Card>
-        <CardContent>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <strong>ID</strong>
-                  </TableCell>
-                  <TableCell>
-                    <strong>Cliente</strong>
-                  </TableCell>
-                  <TableCell>
-                    <strong>Data</strong>
-                  </TableCell>
-                  <TableCell align="right">
-                    <strong>Valor Total</strong>
-                  </TableCell>
-                  <TableCell align="center">
-                    <strong>Status</strong>
-                  </TableCell>
-                  <TableCell align="right">
-                    <strong>Ações</strong>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {Array.isArray(vendas) && vendas.length > 0 ? (
-                  vendas.map((venda) => (
-                    <TableRow key={venda.id}>
-                      <TableCell>#{venda.id}</TableCell>
-                      <TableCell>{venda.nomeCliente}</TableCell>
-                      <TableCell>
-                        {new Date(venda.dataVenda).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography sx={{ fontWeight: 600 }}>
-                          R$ {parseFloat(venda.valorTotal).toFixed(2)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={venda.status || "Concluída"}
-                          size="small"
-                          color={getStatusColor(venda.status || "Concluída")}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          startIcon={<Visibility />}
-                          variant="outlined"
-                        >
-                          Detalhes
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      Nenhuma venda cadastrada
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
+      {error && (
+        <Fade in={!!error}>
+          <Alert
+            severity="error"
+            sx={{ mb: 3, borderRadius: 2 }}
+            onClose={clearError}
+          >
+            {error}
+          </Alert>
+        </Fade>
+      )}
+
+      <Box display="flex" gap={2} mb={3}>
+        <Card
+          sx={{
+            flex: 1,
+            p: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Total de Vendas
+          </Typography>
+          <Typography variant="h5" fontWeight={700}>
+            {vendas.length}
+          </Typography>
+        </Card>
+        <Card
+          sx={{
+            flex: 1,
+            p: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Valor Total
+          </Typography>
+          <Typography variant="h5" fontWeight={700} color="primary">
+            R${" "}
+            {vendas
+              .reduce((acc, v) => acc + parseFloat(v.valorTotal || 0), 0)
+              .toFixed(2)}
+          </Typography>
+        </Card>
+      </Box>
+
+      <Card
+        elevation={0}
+        sx={{
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          overflow: "hidden",
+        }}
+      >
+        <VendasTable
+          vendas={vendas}
+          loading={loading}
+          onViewDetails={handleViewDetails}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       </Card>
 
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Nova Venda</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Autocomplete
-                options={clientes}
-                getOptionLabel={(option) =>
-                  option.nomeCompleto || option.nome || ""
-                }
-                onChange={(e, value) => handleChange("clienteId", value?.id)}
-                renderInput={(params) => (
-                  <TextField {...params} label="Cliente" fullWidth />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={8}>
-              <Autocomplete
-                options={produtos}
-                getOptionLabel={(option) => option.nome || ""}
-                onChange={(e, value) => handleChange("produtoId", value?.id)}
-                renderInput={(params) => (
-                  <TextField {...params} label="Produto" fullWidth />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Quantidade"
-                type="number"
-                value={currentVenda.quantidade}
-                onChange={(e) => handleChange("quantidade", e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Valor Total"
-                type="number"
-                value={currentVenda.valorTotal}
-                onChange={(e) => handleChange("valorTotal", e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Data da Venda"
-                type="date"
-                value={currentVenda.dataVenda}
-                onChange={(e) => handleChange("dataVenda", e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button onClick={handleSave} variant="contained">
-            Salvar
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <NovaVendaDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        clientes={clientes}
+        produtos={produtos}
+        onSave={createVenda}
+      />
     </Box>
   );
 }
