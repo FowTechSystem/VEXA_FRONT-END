@@ -20,23 +20,135 @@ import {
   Chip,
   Paper,
   InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Autocomplete,
+  Avatar,
+  Stack,
+  Divider,
 } from "@mui/material";
-import { Add, Edit, Delete, Inventory, Search } from "@mui/icons-material";
+import {
+  Add,
+  Edit,
+  Delete,
+  Inventory,
+  Search,
+  Image as ImageIcon,
+  Close,
+} from "@mui/icons-material";
 import { produtosService } from "../api/produtosService";
+
+// Dados para loja de roupas e acessórios
+const CATEGORIAS = [
+  "Camisetas",
+  "Blusas",
+  "Vestidos",
+  "Saias",
+  "Calças",
+  "Shorts",
+  "Jaquetas e Casacos",
+  "Conjuntos",
+  "Moda Íntima",
+  "Moda Praia",
+  "Acessórios",
+  "Bolsas",
+  "Calçados",
+  "Joias e Bijuterias",
+  "Cintos",
+  "Óculos",
+  "Bonés e Chapéus",
+];
+
+const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
+const TAMANHOS_CALCADOS = [
+  "33",
+  "34",
+  "35",
+  "36",
+  "37",
+  "38",
+  "39",
+  "40",
+  "41",
+  "42",
+  "43",
+  "44",
+];
+
+const CORES = [
+  "Preto",
+  "Branco",
+  "Azul",
+  "Vermelho",
+  "Verde",
+  "Amarelo",
+  "Rosa",
+  "Roxo",
+  "Laranja",
+  "Marrom",
+  "Cinza",
+  "Bege",
+  "Nude",
+  "Vinho",
+  "Azul Marinho",
+  "Off-white",
+  "Estampado",
+  "Multicolor",
+];
+
+const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
+
+const MATERIAIS = [
+  "Algodão",
+  "Poliéster",
+  "Viscose",
+  "Linho",
+  "Seda",
+  "Jeans",
+  "Couro",
+  "Couro Sintético",
+  "Malha",
+  "Lã",
+  "Elastano",
+  "Tecido Misto",
+];
 
 function Produtos() {
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
     descricao: "",
-    preco: "",
-    estoque: "",
     categoria: "",
+    genero: "",
+    marca: "",
+    precoCusto: "",
+    precoVenda: "",
+    precoPromocional: "",
+    emPromocao: false,
+    cores: [],
+    tamanhos: [],
+    material: "",
+    sku: "",
+    codigoBarras: "",
+    estoqueTotal: "",
+    estoqueMinimo: "",
+    peso: "",
+    largura: "",
+    altura: "",
+    comprimento: "",
+    imagemPrincipal: "",
+    imagensAdicionais: [],
+    fornecedor: "",
+    observacoes: "",
+    ativo: true,
   });
-  const [editMode, setEditMode] = useState(false);
 
   const fetchProdutos = async () => {
     try {
@@ -66,7 +178,9 @@ function Produtos() {
         (produto) =>
           produto.nome?.toLowerCase().includes(termo) ||
           produto.categoria?.toLowerCase().includes(termo) ||
-          produto.descricao?.toLowerCase().includes(termo)
+          produto.descricao?.toLowerCase().includes(termo) ||
+          produto.sku?.toLowerCase().includes(termo) ||
+          produto.marca?.toLowerCase().includes(termo)
       );
       setProdutosFiltrados(filtrados);
     }
@@ -80,9 +194,29 @@ function Produtos() {
       setCurrentProduto({
         nome: "",
         descricao: "",
-        preco: "",
-        estoque: "",
         categoria: "",
+        genero: "",
+        marca: "",
+        precoCusto: "",
+        precoVenda: "",
+        precoPromocional: "",
+        emPromocao: false,
+        cores: [],
+        tamanhos: [],
+        material: "",
+        sku: "",
+        codigoBarras: "",
+        estoqueTotal: "",
+        estoqueMinimo: "",
+        peso: "",
+        largura: "",
+        altura: "",
+        comprimento: "",
+        imagemPrincipal: "",
+        imagensAdicionais: [],
+        fornecedor: "",
+        observacoes: "",
+        ativo: true,
       });
       setEditMode(false);
     }
@@ -91,32 +225,54 @@ function Produtos() {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setCurrentProduto({
-      nome: "",
-      descricao: "",
-      preco: "",
-      estoque: "",
-      categoria: "",
-    });
   };
 
   const handleSave = async () => {
-    // Validação
-    if (!currentProduto.nome.trim()) {
+    if (!currentProduto.nome?.trim()) {
       alert("Nome do produto é obrigatório");
       return;
     }
 
-    if (!currentProduto.preco || parseFloat(currentProduto.preco) <= 0) {
-      alert("Preço deve ser maior que zero");
+    if (!currentProduto.categoria) {
+      alert("Categoria é obrigatória");
+      return;
+    }
+
+    if (
+      !currentProduto.precoVenda ||
+      parseFloat(currentProduto.precoVenda) <= 0
+    ) {
+      alert("Preço de venda deve ser maior que zero");
+      return;
+    }
+
+    if (currentProduto.cores.length === 0) {
+      alert("Selecione pelo menos uma cor");
+      return;
+    }
+
+    if (currentProduto.tamanhos.length === 0) {
+      alert("Selecione pelo menos um tamanho");
       return;
     }
 
     try {
+      const produtoParaSalvar = {
+        ...currentProduto,
+        margemLucro: currentProduto.precoCusto
+          ? (
+              ((parseFloat(currentProduto.precoVenda) -
+                parseFloat(currentProduto.precoCusto)) /
+                parseFloat(currentProduto.precoVenda)) *
+              100
+            ).toFixed(2)
+          : 0,
+      };
+
       if (editMode) {
-        await produtosService.update(currentProduto.id, currentProduto);
+        await produtosService.update(currentProduto.id, produtoParaSalvar);
       } else {
-        await produtosService.create(currentProduto);
+        await produtosService.create(produtoParaSalvar);
       }
       fetchProdutos();
       handleCloseDialog();
@@ -139,10 +295,35 @@ function Produtos() {
   };
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setCurrentProduto({
       ...currentProduto,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+  };
+
+  const handleMultipleChange = (name, value) => {
+    setCurrentProduto({
+      ...currentProduto,
+      [name]: value,
+    });
+  };
+
+  const calcularMargemLucro = () => {
+    if (currentProduto.precoCusto && currentProduto.precoVenda) {
+      const custo = parseFloat(currentProduto.precoCusto);
+      const venda = parseFloat(currentProduto.precoVenda);
+      const margem = ((venda - custo) / venda) * 100;
+      return margem.toFixed(2);
+    }
+    return "0.00";
+  };
+
+  const getTamanhosDisponiveis = () => {
+    if (currentProduto.categoria === "Calçados") {
+      return TAMANHOS_CALCADOS;
+    }
+    return TAMANHOS_ROUPA;
   };
 
   return (
@@ -178,10 +359,9 @@ function Produtos() {
           </Button>
         </Box>
 
-        {/* Search Bar */}
         <TextField
           fullWidth
-          placeholder="Buscar por nome, categoria ou descrição..."
+          placeholder="Buscar por nome, categoria, marca, SKU ou descrição..."
           value={searchTerm}
           onChange={handleSearch}
           InputProps={{
@@ -202,7 +382,6 @@ function Produtos() {
           }}
         />
 
-        {/* Contador */}
         <Typography
           variant="body2"
           sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
@@ -239,6 +418,11 @@ function Produtos() {
                 sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
               >
                 CATEGORIA
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                VARIAÇÕES
               </TableCell>
               <TableCell
                 align="right"
@@ -278,18 +462,17 @@ function Produtos() {
                     <Box
                       sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                     >
-                      <Box
+                      <Avatar
+                        src={produto.imagemPrincipal}
                         sx={{
                           bgcolor: "#eff6ff",
-                          borderRadius: "8px",
-                          p: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          width: 48,
+                          height: 48,
+                          border: "2px solid #e5e7eb",
                         }}
                       >
-                        <Inventory sx={{ color: "#2563eb", fontSize: 20 }} />
-                      </Box>
+                        <Inventory sx={{ color: "#2563eb", fontSize: 24 }} />
+                      </Avatar>
                       <Box>
                         <Typography
                           variant="body2"
@@ -298,7 +481,7 @@ function Produtos() {
                           {produto.nome}
                         </Typography>
                         <Typography variant="caption" sx={{ color: "#6b7280" }}>
-                          {produto.descricao || "—"}
+                          {produto.marca || "—"} • SKU: {produto.sku || "—"}
                         </Typography>
                       </Box>
                     </Box>
@@ -315,21 +498,80 @@ function Produtos() {
                       }}
                     />
                   </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {produto.cores?.slice(0, 3).map((cor, i) => (
+                        <Chip
+                          key={i}
+                          label={cor}
+                          size="small"
+                          sx={{
+                            bgcolor: "#f3f4f6",
+                            fontSize: "11px",
+                            height: "20px",
+                          }}
+                        />
+                      ))}
+                      {produto.cores?.length > 3 && (
+                        <Chip
+                          label={`+${produto.cores.length - 3}`}
+                          size="small"
+                          sx={{
+                            bgcolor: "#f3f4f6",
+                            fontSize: "11px",
+                            height: "20px",
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </TableCell>
                   <TableCell
                     align="right"
                     sx={{ color: "#111827", fontWeight: 500 }}
                   >
-                    R$ {parseFloat(produto.preco || 0).toFixed(2)}
+                    {produto.emPromocao && produto.precoPromocional ? (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            textDecoration: "line-through",
+                            color: "#9ca3af",
+                            display: "block",
+                          }}
+                        >
+                          R$ {parseFloat(produto.precoVenda || 0).toFixed(2)}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#dc2626", fontWeight: 600 }}
+                        >
+                          R${" "}
+                          {parseFloat(produto.precoPromocional || 0).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      `R$ ${parseFloat(produto.precoVenda || 0).toFixed(2)}`
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     <Chip
-                      label={produto.estoque || 0}
+                      label={produto.estoqueTotal || 0}
                       size="small"
                       sx={{
                         bgcolor:
-                          (produto.estoque || 0) > 10 ? "#dcfce7" : "#fef3c7",
+                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueMinimo || 10)
+                            ? "#dcfce7"
+                            : (produto.estoqueTotal || 0) > 0
+                            ? "#fef3c7"
+                            : "#fee2e2",
                         color:
-                          (produto.estoque || 0) > 10 ? "#16a34a" : "#d97706",
+                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueMinimo || 10)
+                            ? "#16a34a"
+                            : (produto.estoqueTotal || 0) > 0
+                            ? "#d97706"
+                            : "#dc2626",
                         fontWeight: 500,
                         fontSize: "12px",
                       }}
@@ -362,7 +604,7 @@ function Produtos() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   align="center"
                   sx={{ py: 8, color: "#9ca3af" }}
                 >
@@ -380,88 +622,669 @@ function Produtos() {
         </Table>
       </TableContainer>
 
-      {/* Dialog */}
+      {/* Dialog - Formulário Reorganizado */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: "12px", maxHeight: "90vh" },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
+        <DialogTitle
+          sx={{
+            fontWeight: 600,
+            fontSize: "20px",
+            borderBottom: "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 2,
+          }}
+        >
           {editMode ? "Editar Produto" : "Novo Produto"}
+          <IconButton onClick={handleCloseDialog} size="small">
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ p: 3 }}>
+            {/* SEÇÃO 1: INFORMAÇÕES BÁSICAS */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                📋 Informações Básicas
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Nome do Produto"
+                    name="nome"
+                    value={currentProduto.nome}
+                    onChange={handleChange}
+                    placeholder="Ex: Vestido Longo Floral Verão"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth required sx={{ bgcolor: "white" }}>
+                    <InputLabel>Categoria</InputLabel>
+                    <Select
+                      name="categoria"
+                      value={currentProduto.categoria}
+                      onChange={handleChange}
+                      label="Categoria"
+                    >
+                      {CATEGORIAS.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Marca"
+                    name="marca"
+                    value={currentProduto.marca}
+                    onChange={handleChange}
+                    placeholder="Ex: Zara"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth sx={{ bgcolor: "white" }}>
+                    <InputLabel>Gênero</InputLabel>
+                    <Select
+                      name="genero"
+                      value={currentProduto.genero}
+                      onChange={handleChange}
+                      label="Gênero"
+                    >
+                      {GENEROS.map((gen) => (
+                        <MenuItem key={gen} value={gen}>
+                          {gen}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Descrição"
+                    name="descricao"
+                    multiline
+                    rows={3}
+                    value={currentProduto.descricao}
+                    onChange={handleChange}
+                    placeholder="Descreva o produto, características e diferenciais..."
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 2: IDENTIFICAÇÃO */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                🏷️ Identificação
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="SKU"
+                    name="sku"
+                    value={currentProduto.sku}
+                    onChange={handleChange}
+                    placeholder="VEST-001-AZ-M"
+                    helperText="Código único do produto"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Código de Barras"
+                    name="codigoBarras"
+                    value={currentProduto.codigoBarras}
+                    onChange={handleChange}
+                    placeholder="7891234567890"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Fornecedor"
+                    name="fornecedor"
+                    value={currentProduto.fornecedor}
+                    onChange={handleChange}
+                    placeholder="Nome do fornecedor"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 3: VARIAÇÕES */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                🎨 Variações do Produto
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <Autocomplete
+                    multiple
+                    options={CORES}
+                    value={currentProduto.cores}
+                    onChange={(event, newValue) => {
+                      handleMultipleChange("cores", newValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Cores Disponíveis *"
+                        placeholder="Selecione"
+                        sx={{ bgcolor: "white" }}
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          label={option}
+                          {...getTagProps({ index })}
+                          size="small"
+                        />
+                      ))
+                    }
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Autocomplete
+                    multiple
+                    options={getTamanhosDisponiveis()}
+                    value={currentProduto.tamanhos}
+                    onChange={(event, newValue) => {
+                      handleMultipleChange("tamanhos", newValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Tamanhos Disponíveis *"
+                        placeholder="Selecione"
+                        sx={{ bgcolor: "white" }}
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          label={option}
+                          {...getTagProps({ index })}
+                          size="small"
+                        />
+                      ))
+                    }
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth sx={{ bgcolor: "white" }}>
+                    <InputLabel>Material</InputLabel>
+                    <Select
+                      name="material"
+                      value={currentProduto.material}
+                      onChange={handleChange}
+                      label="Material"
+                    >
+                      {MATERIAIS.map((mat) => (
+                        <MenuItem key={mat} value={mat}>
+                          {mat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 4: PRECIFICAÇÃO */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                💰 Preços
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Preço de Custo"
+                    name="precoCusto"
+                    type="number"
+                    value={currentProduto.precoCusto}
+                    onChange={handleChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">R$</InputAdornment>
+                      ),
+                    }}
+                    inputProps={{ step: "0.01", min: "0" }}
+                    helperText="Quanto você paga"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Preço de Venda"
+                    name="precoVenda"
+                    type="number"
+                    value={currentProduto.precoVenda}
+                    onChange={handleChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">R$</InputAdornment>
+                      ),
+                    }}
+                    inputProps={{ step: "0.01", min: "0" }}
+                    helperText="Preço normal"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Preço Promocional"
+                    name="precoPromocional"
+                    type="number"
+                    value={currentProduto.precoPromocional}
+                    onChange={handleChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">R$</InputAdornment>
+                      ),
+                    }}
+                    inputProps={{ step: "0.01", min: "0" }}
+                    helperText="Preço em promoção"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Margem de Lucro"
+                    value={calcularMargemLucro() + "%"}
+                    InputProps={{ readOnly: true }}
+                    helperText="Calculado automaticamente"
+                    sx={{
+                      bgcolor: "#dcfce7",
+                      "& .MuiInputBase-input": {
+                        fontWeight: 600,
+                        color: "#16a34a",
+                      },
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 5: ESTOQUE */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                📦 Controle de Estoque
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Estoque Total"
+                    name="estoqueTotal"
+                    type="number"
+                    value={currentProduto.estoqueTotal}
+                    onChange={handleChange}
+                    inputProps={{ min: "0" }}
+                    helperText="Quantidade total disponível"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Estoque Mínimo"
+                    name="estoqueMinimo"
+                    type="number"
+                    value={currentProduto.estoqueMinimo}
+                    onChange={handleChange}
+                    inputProps={{ min: "0" }}
+                    helperText="Alerta quando atingir este valor"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 6: DIMENSÕES */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                📏 Dimensões e Peso (para cálculo de frete)
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={6} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Peso (kg)"
+                    name="peso"
+                    type="number"
+                    value={currentProduto.peso}
+                    onChange={handleChange}
+                    inputProps={{ step: "0.01", min: "0" }}
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={6} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Largura (cm)"
+                    name="largura"
+                    type="number"
+                    value={currentProduto.largura}
+                    onChange={handleChange}
+                    inputProps={{ min: "0" }}
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={6} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Altura (cm)"
+                    name="altura"
+                    type="number"
+                    value={currentProduto.altura}
+                    onChange={handleChange}
+                    inputProps={{ min: "0" }}
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={6} md={3}>
+                  <TextField
+                    fullWidth
+                    label="Comprimento (cm)"
+                    name="comprimento"
+                    type="number"
+                    value={currentProduto.comprimento}
+                    onChange={handleChange}
+                    inputProps={{ min: "0" }}
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 7: IMAGEM */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                🖼️ Imagem do Produto
+              </Typography>
+
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={8}>
+                  <TextField
+                    fullWidth
+                    label="URL da Imagem Principal"
+                    name="imagemPrincipal"
+                    value={currentProduto.imagemPrincipal}
+                    onChange={handleChange}
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <ImageIcon sx={{ color: "#9ca3af" }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Cole a URL da imagem principal"
+                    sx={{ bgcolor: "white" }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: 120,
+                      bgcolor: "white",
+                      borderRadius: "8px",
+                      border: "2px dashed #d1d5db",
+                      p: 2,
+                    }}
+                  >
+                    {currentProduto.imagemPrincipal ? (
+                      <Avatar
+                        src={currentProduto.imagemPrincipal}
+                        sx={{
+                          width: 90,
+                          height: 90,
+                          border: "3px solid #e5e7eb",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <Inventory sx={{ fontSize: 40, color: "#9ca3af" }} />
+                      </Avatar>
+                    ) : (
+                      <Box sx={{ textAlign: "center", color: "#9ca3af" }}>
+                        <ImageIcon sx={{ fontSize: 40, mb: 1 }} />
+                        <Typography variant="caption">
+                          Preview da imagem
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* SEÇÃO 8: OBSERVAÇÕES */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                bgcolor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                📝 Observações
+              </Typography>
+
               <TextField
                 fullWidth
-                label="Nome do Produto *"
-                name="nome"
-                value={currentProduto.nome}
-                onChange={handleChange}
-                placeholder="Ex: Notebook Dell Inspiron"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descrição"
-                name="descricao"
+                label="Observações Internas"
+                name="observacoes"
                 multiline
                 rows={3}
-                value={currentProduto.descricao}
+                value={currentProduto.observacoes}
                 onChange={handleChange}
-                placeholder="Descreva as características do produto..."
+                placeholder="Informações internas, cuidados especiais, notas importantes..."
+                sx={{ bgcolor: "white" }}
               />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Preço *"
-                name="preco"
-                type="number"
-                value={currentProduto.preco}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">R$</InputAdornment>
-                  ),
-                }}
-                inputProps={{
-                  step: "0.01",
-                  min: "0",
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Estoque"
-                name="estoque"
-                type="number"
-                value={currentProduto.estoque}
-                onChange={handleChange}
-                inputProps={{
-                  min: "0",
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Categoria"
-                name="categoria"
-                value={currentProduto.categoria}
-                onChange={handleChange}
-                placeholder="Ex: Eletrônicos"
-              />
-            </Grid>
-          </Grid>
+            </Paper>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 3,
+            pt: 2,
+            borderTop: "1px solid #e5e7eb",
+            bgcolor: "#fafafa",
+          }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>
@@ -473,9 +1296,10 @@ function Produtos() {
               bgcolor: "#2563eb",
               "&:hover": { bgcolor: "#1d4ed8" },
               boxShadow: "none",
+              px: 4,
             }}
           >
-            Salvar
+            {editMode ? "Atualizar Produto" : "Salvar Produto"}
           </Button>
         </DialogActions>
       </Dialog>
