@@ -21,6 +21,12 @@ import {
   AccountCircle,
   Assessment,
   Settings,
+  Warehouse,
+  ShoppingBag,
+  AttachMoney,
+  Receipt,
+  LocalShipping,
+  PointOfSale,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -28,10 +34,15 @@ const drawerWidth = 260;
 
 const menuItems = [
   { text: "Dashboard", icon: <Dashboard />, path: "/" },
+  { text: "Caixa / PDV", icon: <PointOfSale />, path: "/caixa" },
+  { text: "Vendas", icon: <ShoppingCart />, path: "/vendas" },
   { text: "Clientes", icon: <People />, path: "/clientes" },
   { text: "Produtos", icon: <Inventory />, path: "/produtos" },
-  { text: "Vendas", icon: <ShoppingCart />, path: "/vendas" },
-  { text: "Fornecedores", icon: <Store />, path: "/fornecedores" },
+  { text: "Estoque", icon: <Warehouse />, path: "/estoque" },
+  { text: "Compras", icon: <ShoppingBag />, path: "/compras" },
+  { text: "Fornecedores", icon: <LocalShipping />, path: "/fornecedores" },
+  { text: "Financeiro", icon: <AttachMoney />, path: "/financeiro" },
+  { text: "Fiscal", icon: <Receipt />, path: "/fiscal" },
   { text: "Usuários", icon: <AccountCircle />, path: "/usuarios" },
 ];
 
@@ -167,7 +178,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
           align="center"
           display="block"
         >
-          © 2025 Todos os direitos reservados
+          © 2026 Todos os direitos reservados
         </Typography>
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-// src/App.jsx - CORREÇÃO
+// src/App.jsx - CORRIGIDO COM TODAS AS ROTAS
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material";
@@ -6,10 +6,15 @@ import { Toaster } from "react-hot-toast";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Caixa from "./pages/Caixa";
+import Vendas from "./pages/Vendas";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
-import Vendas from "./pages/Vendas";
+import Estoque from "./pages/Estoque";
+import Compras from "./pages/Compras";
 import Fornecedores from "./pages/Fornecedores";
+import Financeiro from "./pages/Financeiro";
+import Fiscal from "./pages/Fiscal";
 import Usuarios from "./pages/Usuarios";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -74,10 +79,15 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="caixa" element={<Caixa />} />
+            <Route path="vendas" element={<Vendas />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="produtos" element={<Produtos />} />
-            <Route path="vendas" element={<Vendas />} />
+            <Route path="estoque" element={<Estoque />} />
+            <Route path="compras" element={<Compras />} />
             <Route path="fornecedores" element={<Fornecedores />} />
+            <Route path="financeiro" element={<Financeiro />} />
+            <Route path="fiscal" element={<Fiscal />} />
             <Route path="usuarios" element={<Usuarios />} />
           </Route>
 
