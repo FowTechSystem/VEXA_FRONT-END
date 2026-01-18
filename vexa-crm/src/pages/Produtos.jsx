@@ -27,7 +27,8 @@ import {
   Autocomplete,
   Avatar,
   Stack,
-  Divider,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   Add,
@@ -115,12 +116,22 @@ const MATERIAIS = [
   "Tecido Misto",
 ];
 
+// Componente TabPanel
+function TabPanel({ children, value, index }) {
+  return (
+    <div role="tabpanel" hidden={value !== index}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
 function Produtos() {
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
@@ -163,10 +174,6 @@ function Produtos() {
     }
   };
 
-  // useEffect(() => {
-  //   fetchProdutos();
-  // }, []);
-
   const handleSearch = (e) => {
     const termo = e.target.value.toLowerCase();
     setSearchTerm(termo);
@@ -180,7 +187,7 @@ function Produtos() {
           produto.categoria?.toLowerCase().includes(termo) ||
           produto.descricao?.toLowerCase().includes(termo) ||
           produto.sku?.toLowerCase().includes(termo) ||
-          produto.marca?.toLowerCase().includes(termo)
+          produto.marca?.toLowerCase().includes(termo),
       );
       setProdutosFiltrados(filtrados);
     }
@@ -220,11 +227,17 @@ function Produtos() {
       });
       setEditMode(false);
     }
+    setTabValue(0);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setTabValue(0);
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   const handleSave = async () => {
@@ -563,15 +576,15 @@ function Produtos() {
                           (produto.estoqueMinimo || 10)
                             ? "#dcfce7"
                             : (produto.estoqueTotal || 0) > 0
-                            ? "#fef3c7"
-                            : "#fee2e2",
+                              ? "#fef3c7"
+                              : "#fee2e2",
                         color:
                           (produto.estoqueTotal || 0) >
                           (produto.estoqueMinimo || 10)
                             ? "#16a34a"
                             : (produto.estoqueTotal || 0) > 0
-                            ? "#d97706"
-                            : "#dc2626",
+                              ? "#d97706"
+                              : "#dc2626",
                         fontWeight: 500,
                         fontSize: "12px",
                       }}
@@ -622,7 +635,7 @@ function Produtos() {
         </Table>
       </TableContainer>
 
-      {/* Dialog - Formulário Reorganizado */}
+      {/* Dialog - Com Tabs */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -636,11 +649,12 @@ function Produtos() {
           sx={{
             fontWeight: 600,
             fontSize: "20px",
-            borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             py: 2,
+            px: 3,
+            borderBottom: "1px solid #e5e7eb",
           }}
         >
           {editMode ? "Editar Produto" : "Novo Produto"}
@@ -649,632 +663,465 @@ function Produtos() {
           </IconButton>
         </DialogTitle>
 
+        {/* Tabs Navigation */}
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{
+            borderBottom: "1px solid #e5e7eb",
+            px: 2,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+              minHeight: 48,
+              color: "#6b7280",
+            },
+            "& .Mui-selected": {
+              color: "#2563eb",
+            },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563eb",
+            },
+          }}
+        >
+          <Tab label="Informações Básicas" />
+          <Tab label="Variações e Preços" />
+          <Tab label="Estoque e Dimensões" />
+          <Tab label="Imagem e Extras" />
+        </Tabs>
+
         <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3 }}>
-            {/* SEÇÃO 1: INFORMAÇÕES BÁSICAS */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                📋 Informações Básicas
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Nome do Produto"
-                    name="nome"
-                    value={currentProduto.nome}
-                    onChange={handleChange}
-                    placeholder="Ex: Vestido Longo Floral Verão"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth required sx={{ bgcolor: "white" }}>
-                    <InputLabel>Categoria</InputLabel>
-                    <Select
-                      name="categoria"
-                      value={currentProduto.categoria}
-                      onChange={handleChange}
-                      label="Categoria"
-                    >
-                      {CATEGORIAS.map((cat) => (
-                        <MenuItem key={cat} value={cat}>
-                          {cat}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Marca"
-                    name="marca"
-                    value={currentProduto.marca}
-                    onChange={handleChange}
-                    placeholder="Ex: Zara"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth sx={{ bgcolor: "white" }}>
-                    <InputLabel>Gênero</InputLabel>
-                    <Select
-                      name="genero"
-                      value={currentProduto.genero}
-                      onChange={handleChange}
-                      label="Gênero"
-                    >
-                      {GENEROS.map((gen) => (
-                        <MenuItem key={gen} value={gen}>
-                          {gen}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Descrição"
-                    name="descricao"
-                    multiline
-                    rows={3}
-                    value={currentProduto.descricao}
-                    onChange={handleChange}
-                    placeholder="Descreva o produto, características e diferenciais..."
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
+          {/* ABA 1: INFORMAÇÕES BÁSICAS */}
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Nome do Produto"
+                  name="nome"
+                  value={currentProduto.nome}
+                  onChange={handleChange}
+                  placeholder="Ex: Vestido Longo Floral Verão"
+                  size="small"
+                />
               </Grid>
-            </Paper>
 
-            {/* SEÇÃO 2: IDENTIFICAÇÃO */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                🏷️ Identificação
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="SKU"
-                    name="sku"
-                    value={currentProduto.sku}
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth required size="small">
+                  <InputLabel>Categoria</InputLabel>
+                  <Select
+                    name="categoria"
+                    value={currentProduto.categoria}
                     onChange={handleChange}
-                    placeholder="VEST-001-AZ-M"
-                    helperText="Código único do produto"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Código de Barras"
-                    name="codigoBarras"
-                    value={currentProduto.codigoBarras}
-                    onChange={handleChange}
-                    placeholder="7891234567890"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Fornecedor"
-                    name="fornecedor"
-                    value={currentProduto.fornecedor}
-                    onChange={handleChange}
-                    placeholder="Nome do fornecedor"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* SEÇÃO 3: VARIAÇÕES */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                🎨 Variações do Produto
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <Autocomplete
-                    multiple
-                    options={CORES}
-                    value={currentProduto.cores}
-                    onChange={(event, newValue) => {
-                      handleMultipleChange("cores", newValue);
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Cores Disponíveis *"
-                        placeholder="Selecione"
-                        sx={{ bgcolor: "white" }}
-                      />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          label={option}
-                          {...getTagProps({ index })}
-                          size="small"
-                        />
-                      ))
-                    }
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <Autocomplete
-                    multiple
-                    options={getTamanhosDisponiveis()}
-                    value={currentProduto.tamanhos}
-                    onChange={(event, newValue) => {
-                      handleMultipleChange("tamanhos", newValue);
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Tamanhos Disponíveis *"
-                        placeholder="Selecione"
-                        sx={{ bgcolor: "white" }}
-                      />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          label={option}
-                          {...getTagProps({ index })}
-                          size="small"
-                        />
-                      ))
-                    }
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth sx={{ bgcolor: "white" }}>
-                    <InputLabel>Material</InputLabel>
-                    <Select
-                      name="material"
-                      value={currentProduto.material}
-                      onChange={handleChange}
-                      label="Material"
-                    >
-                      {MATERIAIS.map((mat) => (
-                        <MenuItem key={mat} value={mat}>
-                          {mat}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* SEÇÃO 4: PRECIFICAÇÃO */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                💰 Preços
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Preço de Custo"
-                    name="precoCusto"
-                    type="number"
-                    value={currentProduto.precoCusto}
-                    onChange={handleChange}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">R$</InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    helperText="Quanto você paga"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Preço de Venda"
-                    name="precoVenda"
-                    type="number"
-                    value={currentProduto.precoVenda}
-                    onChange={handleChange}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">R$</InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    helperText="Preço normal"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Preço Promocional"
-                    name="precoPromocional"
-                    type="number"
-                    value={currentProduto.precoPromocional}
-                    onChange={handleChange}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">R$</InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    helperText="Preço em promoção"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Margem de Lucro"
-                    value={calcularMargemLucro() + "%"}
-                    InputProps={{ readOnly: true }}
-                    helperText="Calculado automaticamente"
-                    sx={{
-                      bgcolor: "#dcfce7",
-                      "& .MuiInputBase-input": {
-                        fontWeight: 600,
-                        color: "#16a34a",
-                      },
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* SEÇÃO 5: ESTOQUE */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                📦 Controle de Estoque
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Estoque Total"
-                    name="estoqueTotal"
-                    type="number"
-                    value={currentProduto.estoqueTotal}
-                    onChange={handleChange}
-                    inputProps={{ min: "0" }}
-                    helperText="Quantidade total disponível"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Estoque Mínimo"
-                    name="estoqueMinimo"
-                    type="number"
-                    value={currentProduto.estoqueMinimo}
-                    onChange={handleChange}
-                    inputProps={{ min: "0" }}
-                    helperText="Alerta quando atingir este valor"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* SEÇÃO 6: DIMENSÕES */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                📏 Dimensões e Peso (para cálculo de frete)
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Peso (kg)"
-                    name="peso"
-                    type="number"
-                    value={currentProduto.peso}
-                    onChange={handleChange}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Largura (cm)"
-                    name="largura"
-                    type="number"
-                    value={currentProduto.largura}
-                    onChange={handleChange}
-                    inputProps={{ min: "0" }}
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Altura (cm)"
-                    name="altura"
-                    type="number"
-                    value={currentProduto.altura}
-                    onChange={handleChange}
-                    inputProps={{ min: "0" }}
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Comprimento (cm)"
-                    name="comprimento"
-                    type="number"
-                    value={currentProduto.comprimento}
-                    onChange={handleChange}
-                    inputProps={{ min: "0" }}
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* SEÇÃO 7: IMAGEM */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                🖼️ Imagem do Produto
-              </Typography>
-
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={8}>
-                  <TextField
-                    fullWidth
-                    label="URL da Imagem Principal"
-                    name="imagemPrincipal"
-                    value={currentProduto.imagemPrincipal}
-                    onChange={handleChange}
-                    placeholder="https://exemplo.com/imagem.jpg"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <ImageIcon sx={{ color: "#9ca3af" }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    helperText="Cole a URL da imagem principal"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: 120,
-                      bgcolor: "white",
-                      borderRadius: "8px",
-                      border: "2px dashed #d1d5db",
-                      p: 2,
-                    }}
+                    label="Categoria"
                   >
-                    {currentProduto.imagemPrincipal ? (
-                      <Avatar
-                        src={currentProduto.imagemPrincipal}
-                        sx={{
-                          width: 90,
-                          height: 90,
-                          border: "3px solid #e5e7eb",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        <Inventory sx={{ fontSize: 40, color: "#9ca3af" }} />
-                      </Avatar>
-                    ) : (
-                      <Box sx={{ textAlign: "center", color: "#9ca3af" }}>
-                        <ImageIcon sx={{ fontSize: 40, mb: 1 }} />
-                        <Typography variant="caption">
-                          Preview da imagem
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </Grid>
+                    {CATEGORIAS.map((cat) => (
+                      <MenuItem key={cat} value={cat}>
+                        {cat}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
-            </Paper>
 
-            {/* SEÇÃO 8: OBSERVAÇÕES */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                📝 Observações
-              </Typography>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Marca"
+                  name="marca"
+                  value={currentProduto.marca}
+                  onChange={handleChange}
+                  placeholder="Ex: Zara"
+                  size="small"
+                />
+              </Grid>
 
-              <TextField
-                fullWidth
-                label="Observações Internas"
-                name="observacoes"
-                multiline
-                rows={3}
-                value={currentProduto.observacoes}
-                onChange={handleChange}
-                placeholder="Informações internas, cuidados especiais, notas importantes..."
-                sx={{ bgcolor: "white" }}
-              />
-            </Paper>
-          </Box>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Gênero</InputLabel>
+                  <Select
+                    name="genero"
+                    value={currentProduto.genero}
+                    onChange={handleChange}
+                    label="Gênero"
+                  >
+                    {GENEROS.map((gen) => (
+                      <MenuItem key={gen} value={gen}>
+                        {gen}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="SKU"
+                  name="sku"
+                  value={currentProduto.sku}
+                  onChange={handleChange}
+                  placeholder="VEST-001-AZ-M"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Código de Barras"
+                  name="codigoBarras"
+                  value={currentProduto.codigoBarras}
+                  onChange={handleChange}
+                  placeholder="7891234567890"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Fornecedor"
+                  name="fornecedor"
+                  value={currentProduto.fornecedor}
+                  onChange={handleChange}
+                  placeholder="Nome do fornecedor"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Descrição"
+                  name="descricao"
+                  multiline
+                  rows={3}
+                  value={currentProduto.descricao}
+                  onChange={handleChange}
+                  placeholder="Descreva o produto, características e diferenciais..."
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 2: VARIAÇÕES E PREÇOS */}
+          <TabPanel value={tabValue} index={1}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  multiple
+                  options={CORES}
+                  value={currentProduto.cores}
+                  onChange={(event, newValue) => {
+                    handleMultipleChange("cores", newValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Cores Disponíveis *"
+                      placeholder="Selecione"
+                      size="small"
+                    />
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        label={option}
+                        {...getTagProps({ index })}
+                        size="small"
+                      />
+                    ))
+                  }
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  multiple
+                  options={getTamanhosDisponiveis()}
+                  value={currentProduto.tamanhos}
+                  onChange={(event, newValue) => {
+                    handleMultipleChange("tamanhos", newValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Tamanhos Disponíveis *"
+                      placeholder="Selecione"
+                      size="small"
+                    />
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        label={option}
+                        {...getTagProps({ index })}
+                        size="small"
+                      />
+                    ))
+                  }
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Material</InputLabel>
+                  <Select
+                    name="material"
+                    value={currentProduto.material}
+                    onChange={handleChange}
+                    label="Material"
+                  >
+                    {MATERIAIS.map((mat) => (
+                      <MenuItem key={mat} value={mat}>
+                        {mat}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  label="Preço de Custo"
+                  name="precoCusto"
+                  type="number"
+                  value={currentProduto.precoCusto}
+                  onChange={handleChange}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">R$</InputAdornment>
+                    ),
+                  }}
+                  inputProps={{ step: "0.01", min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Preço de Venda"
+                  name="precoVenda"
+                  type="number"
+                  value={currentProduto.precoVenda}
+                  onChange={handleChange}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">R$</InputAdornment>
+                    ),
+                  }}
+                  inputProps={{ step: "0.01", min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  label="Preço Promocional"
+                  name="precoPromocional"
+                  type="number"
+                  value={currentProduto.precoPromocional}
+                  onChange={handleChange}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">R$</InputAdornment>
+                    ),
+                  }}
+                  inputProps={{ step: "0.01", min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  label="Margem de Lucro"
+                  value={calcularMargemLucro() + "%"}
+                  InputProps={{ readOnly: true }}
+                  size="small"
+                  sx={{
+                    bgcolor: "#dcfce7",
+                    "& .MuiInputBase-input": {
+                      fontWeight: 600,
+                      color: "#16a34a",
+                    },
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 3: ESTOQUE E DIMENSÕES */}
+          <TabPanel value={tabValue} index={2}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Estoque Total"
+                  name="estoqueTotal"
+                  type="number"
+                  value={currentProduto.estoqueTotal}
+                  onChange={handleChange}
+                  inputProps={{ min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Estoque Mínimo"
+                  name="estoqueMinimo"
+                  type="number"
+                  value={currentProduto.estoqueMinimo}
+                  onChange={handleChange}
+                  inputProps={{ min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Peso (kg)"
+                  name="peso"
+                  type="number"
+                  value={currentProduto.peso}
+                  onChange={handleChange}
+                  inputProps={{ step: "0.01", min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Largura (cm)"
+                  name="largura"
+                  type="number"
+                  value={currentProduto.largura}
+                  onChange={handleChange}
+                  inputProps={{ min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Altura (cm)"
+                  name="altura"
+                  type="number"
+                  value={currentProduto.altura}
+                  onChange={handleChange}
+                  inputProps={{ min: "0" }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Comprimento (cm)"
+                  name="comprimento"
+                  type="number"
+                  value={currentProduto.comprimento}
+                  onChange={handleChange}
+                  inputProps={{ min: "0" }}
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 4: IMAGEM E EXTRAS */}
+          <TabPanel value={tabValue} index={3}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="URL da Imagem Principal"
+                  name="imagemPrincipal"
+                  value={currentProduto.imagemPrincipal}
+                  onChange={handleChange}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <ImageIcon sx={{ color: "#9ca3af" }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    minHeight: 100,
+                    bgcolor: "#f9fafb",
+                    borderRadius: "8px",
+                    border: "2px dashed #d1d5db",
+                  }}
+                >
+                  {currentProduto.imagemPrincipal ? (
+                    <Avatar
+                      src={currentProduto.imagemPrincipal}
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        border: "2px solid #e5e7eb",
+                      }}
+                    >
+                      <Inventory sx={{ fontSize: 40, color: "#9ca3af" }} />
+                    </Avatar>
+                  ) : (
+                    <Box sx={{ textAlign: "center", color: "#9ca3af" }}>
+                      <ImageIcon sx={{ fontSize: 40 }} />
+                      <Typography variant="caption" display="block">
+                        Preview
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Observações Internas"
+                  name="observacoes"
+                  multiline
+                  rows={4}
+                  value={currentProduto.observacoes}
+                  onChange={handleChange}
+                  placeholder="Informações internas, cuidados especiais, notas importantes..."
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
         </DialogContent>
 
         <DialogActions
           sx={{
             px: 3,
-            pb: 3,
+            pb: 2.5,
             pt: 2,
             borderTop: "1px solid #e5e7eb",
-            bgcolor: "#fafafa",
           }}
         >
           <Button

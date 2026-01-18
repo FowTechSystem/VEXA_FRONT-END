@@ -21,8 +21,17 @@ import {
   InputAdornment,
   Paper,
 } from "@mui/material";
-import { Add, Edit, Delete, Search } from "@mui/icons-material";
+import { Add, Edit, Delete, Search, Close } from "@mui/icons-material";
 import { FornecedorService } from "../api/fornecedorService";
+
+// Componente TabPanel
+function TabPanel({ children, value, index }) {
+  return (
+    <div role="tabpanel" hidden={value !== index}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 function Fornecedores() {
   const [fornecedores, setFornecedores] = useState([]);
@@ -56,12 +65,11 @@ function Fornecedores() {
     try {
       const response = await FornecedorService.getAll();
 
-      // 🔍 DEBUG - pode remover depois que funcionar
       console.log("Response completo:", response);
       console.log("Primeiro fornecedor:", response.fornecedor?.[0]);
       console.log(
         "Endereços do primeiro:",
-        response.fornecedor?.[0]?.enderecos
+        response.fornecedor?.[0]?.enderecos,
       );
 
       const data =
@@ -93,7 +101,7 @@ function Fornecedores() {
       const filtrados = fornecedores.filter(
         (fornecedor) =>
           fornecedor.nome?.toLowerCase().includes(termo) ||
-          fornecedor.cnpj?.toLowerCase().includes(termo)
+          fornecedor.cnpj?.toLowerCase().includes(termo),
       );
       setFornecedoresFiltrados(filtrados);
     }
@@ -101,12 +109,10 @@ function Fornecedores() {
 
   const handleOpenDialog = (fornecedor = null) => {
     if (fornecedor) {
-      // ✅ CORREÇÃO: Pega o primeiro endereço do array
       const primeiroEndereco = fornecedor.enderecos?.[0] || {};
 
       setCurrentFornecedor({
         ...fornecedor,
-        // ✅ Busca os dados do endereço corretamente
         cep: primeiroEndereco.cep || "",
         rua: primeiroEndereco.rua || "",
         numero: primeiroEndereco.numero || "",
@@ -144,6 +150,7 @@ function Fornecedores() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setErrors({});
+    setTabValue(0);
   };
 
   const validateForm = () => {
@@ -439,98 +446,137 @@ function Fornecedores() {
         </Table>
       </TableContainer>
 
-      {/* Dialog */}
+      {/* Dialog - Formulário com layout da imagem */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: "12px", maxHeight: "90vh" },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
-          {editMode ? "Editar Fornecedor" : "Novo Fornecedor"}
+        <DialogTitle
+          sx={{
+            fontWeight: 600,
+            fontSize: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 2,
+            px: 3,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          Novo Fornecedor
+          <IconButton onClick={handleCloseDialog} size="small">
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent>
-          <Box sx={{ borderBottom: 1, borderColor: "divider", mt: 2 }}>
-            <Tabs value={tabValue} onChange={handleTabChange}>
-              <Tab
-                label="Geral"
-                sx={{ textTransform: "none", fontWeight: 600 }}
-              />
-              <Tab
-                label="Endereço"
-                sx={{ textTransform: "none", fontWeight: 600 }}
-              />
-              <Tab
-                label="Extras"
-                sx={{ textTransform: "none", fontWeight: 600 }}
-              />
-            </Tabs>
-          </Box>
 
-          {/* ABA GERAL */}
-          {tabValue === 0 && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+        {/* Tabs Navigation */}
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{
+            borderBottom: "1px solid #e5e7eb",
+            px: 2,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+              minHeight: 48,
+              color: "#6b7280",
+            },
+            "& .Mui-selected": {
+              color: "#2563eb",
+            },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563eb",
+            },
+          }}
+        >
+          <Tab label="Geral" />
+          <Tab label="Endereço" />
+          <Tab label="Extras" />
+        </Tabs>
+
+        <DialogContent sx={{ p: 0 }}>
+          {/* ABA 1: GERAL */}
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
+                  required
                   label="Nome *"
                   name="nome"
                   value={currentFornecedor.nome}
                   onChange={handleChange}
                   error={!!errors.nome}
                   helperText={errors.nome}
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="Razão Social"
                   name="razaoSocial"
                   value={currentFornecedor.razaoSocial}
                   onChange={handleChange}
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
+                  required
                   label="CNPJ *"
                   name="cnpj"
                   value={currentFornecedor.cnpj}
                   onChange={handleChange}
                   error={!!errors.cnpj}
                   helperText={errors.cnpj}
+                  placeholder="00.000.000/0000-00"
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="Nome do Representante"
                   name="nomeRepresentante"
                   value={currentFornecedor.nomeRepresentante}
                   onChange={handleChange}
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="Telefone"
                   name="telefone"
                   value={currentFornecedor.telefone}
                   onChange={handleChange}
+                  placeholder="(00) 0000-0000"
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="WhatsApp"
                   name="whatsApp"
                   value={currentFornecedor.whatsApp}
                   onChange={handleChange}
+                  placeholder="(00) 00000-0000"
+                  size="small"
                 />
               </Grid>
 
@@ -542,15 +588,17 @@ function Fornecedores() {
                   type="email"
                   value={currentFornecedor.email}
                   onChange={handleChange}
+                  placeholder="fornecedor@exemplo.com"
+                  size="small"
                 />
               </Grid>
             </Grid>
-          )}
+          </TabPanel>
 
-          {/* ABA ENDEREÇO */}
-          {tabValue === 1 && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={4}>
+          {/* ABA 2: ENDEREÇO */}
+          <TabPanel value={tabValue} index={1}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="CEP"
@@ -560,10 +608,11 @@ function Fornecedores() {
                   onBlur={buscarCep}
                   disabled={cepLoading}
                   placeholder="00000-000"
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={8}>
+              <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
                   label="Rua"
@@ -571,30 +620,35 @@ function Fornecedores() {
                   value={currentFornecedor.rua}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="Número"
                   name="numero"
                   value={currentFornecedor.numero}
                   onChange={handleChange}
+                  placeholder="Nº"
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={8}>
+              <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
                   label="Complemento"
                   name="complemento"
                   value={currentFornecedor.complemento}
                   onChange={handleChange}
+                  placeholder="Apto, Sala, etc"
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Bairro"
@@ -602,10 +656,11 @@ function Fornecedores() {
                   value={currentFornecedor.bairro}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  size="small"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Cidade"
@@ -613,14 +668,15 @@ function Fornecedores() {
                   value={currentFornecedor.cidade}
                   onChange={handleChange}
                   disabled={cepLoading}
+                  size="small"
                 />
               </Grid>
             </Grid>
-          )}
+          </TabPanel>
 
-          {/* ABA EXTRAS */}
-          {tabValue === 2 && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+          {/* ABA 3: EXTRAS */}
+          <TabPanel value={tabValue} index={2}>
+            <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -629,6 +685,7 @@ function Fornecedores() {
                   value={currentFornecedor.categoriaProdutos}
                   onChange={handleChange}
                   placeholder="Ex: Eletrônicos, Roupas, Alimentos..."
+                  size="small"
                 />
               </Grid>
 
@@ -640,6 +697,7 @@ function Fornecedores() {
                   value={currentFornecedor.condicaoPagamento}
                   onChange={handleChange}
                   placeholder="Ex: 30/60/90 dias, À vista..."
+                  size="small"
                 />
               </Grid>
 
@@ -652,16 +710,30 @@ function Fornecedores() {
                   onChange={handleChange}
                   multiline
                   rows={4}
+                  placeholder="Informações adicionais sobre o fornecedor"
+                  size="small"
                 />
               </Grid>
             </Grid>
-          )}
+          </TabPanel>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 2.5,
+            pt: 2,
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>
@@ -673,6 +745,7 @@ function Fornecedores() {
               bgcolor: "#2563eb",
               "&:hover": { bgcolor: "#1d4ed8" },
               boxShadow: "none",
+              px: 4,
             }}
           >
             Salvar

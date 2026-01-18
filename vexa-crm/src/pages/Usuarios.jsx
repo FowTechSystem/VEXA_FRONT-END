@@ -27,9 +27,29 @@ import {
   MenuItem,
   Switch,
   FormControlLabel,
+  Tabs,
+  Tab,
+  Divider,
 } from "@mui/material";
-import { Add, Edit, Delete, Search, Person, Close } from "@mui/icons-material";
+import {
+  Add,
+  Edit,
+  Delete,
+  Search,
+  Person,
+  Close,
+  CameraAlt,
+} from "@mui/icons-material";
 import api from "../api/axiosConfig";
+
+// Componente TabPanel
+function TabPanel({ children, value, index }) {
+  return (
+    <div role="tabpanel" hidden={value !== index}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -37,6 +57,7 @@ function Usuarios() {
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
   const [currentUsuario, setCurrentUsuario] = useState({
     nome: "",
     email: "",
@@ -46,6 +67,18 @@ function Usuarios() {
     cargo: "",
     departamento: "",
     ativo: true,
+    cpf: "",
+    dataNascimento: "",
+    endereco: {
+      cep: "",
+      rua: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+    },
+    observacoes: "",
   });
 
   const PERFIS = ["Administrador", "Gerente", "Vendedor", "Suporte"];
@@ -99,7 +132,7 @@ function Usuarios() {
         (usuario) =>
           usuario.nome?.toLowerCase().includes(termo) ||
           usuario.email?.toLowerCase().includes(termo) ||
-          usuario.perfil?.toLowerCase().includes(termo)
+          usuario.perfil?.toLowerCase().includes(termo),
       );
       setUsuariosFiltrados(filtrados);
     }
@@ -107,7 +140,18 @@ function Usuarios() {
 
   const handleOpenDialog = (usuario = null) => {
     if (usuario) {
-      setCurrentUsuario(usuario);
+      setCurrentUsuario({
+        ...usuario,
+        endereco: usuario.endereco || {
+          cep: "",
+          rua: "",
+          numero: "",
+          complemento: "",
+          bairro: "",
+          cidade: "",
+          estado: "",
+        },
+      });
       setEditMode(true);
     } else {
       setCurrentUsuario({
@@ -119,14 +163,28 @@ function Usuarios() {
         cargo: "",
         departamento: "",
         ativo: true,
+        cpf: "",
+        dataNascimento: "",
+        endereco: {
+          cep: "",
+          rua: "",
+          numero: "",
+          complemento: "",
+          bairro: "",
+          cidade: "",
+          estado: "",
+        },
+        observacoes: "",
       });
       setEditMode(false);
     }
+    setTabValue(0);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setTabValue(0);
   };
 
   const handleChange = (e) => {
@@ -135,6 +193,21 @@ function Usuarios() {
       ...currentUsuario,
       [name]: e.target.type === "checkbox" ? checked : value,
     });
+  };
+
+  const handleEnderecoChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentUsuario({
+      ...currentUsuario,
+      endereco: {
+        ...currentUsuario.endereco,
+        [name]: value,
+      },
+    });
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   const handleSave = async () => {
@@ -427,7 +500,7 @@ function Usuarios() {
         </Table>
       </TableContainer>
 
-      {/* Dialog - Formulário Organizado */}
+      {/* Dialog - Formulário com Abas */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -441,11 +514,12 @@ function Usuarios() {
           sx={{
             fontWeight: 600,
             fontSize: "20px",
-            borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             py: 2,
+            px: 3,
+            borderBottom: "1px solid #e5e7eb",
           }}
         >
           {editMode ? "Editar Usuário" : "Novo Usuário"}
@@ -454,187 +528,398 @@ function Usuarios() {
           </IconButton>
         </DialogTitle>
 
+        {/* Avatar Section */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            pt: 3,
+            pb: 2,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 100,
+              height: 100,
+              bgcolor: "#d1d5db",
+              mb: 1.5,
+            }}
+          >
+            <Person sx={{ fontSize: 50, color: "#fff" }} />
+          </Avatar>
+          <Button
+            startIcon={<CameraAlt />}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              fontSize: "13px",
+              "&:hover": { bgcolor: "transparent" },
+            }}
+          >
+            Adicionar Foto
+          </Button>
+        </Box>
+
+        {/* Tabs Navigation */}
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{
+            borderBottom: "1px solid #e5e7eb",
+            px: 2,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+              minHeight: 48,
+            },
+            "& .Mui-selected": {
+              color: "#2563eb",
+            },
+          }}
+        >
+          <Tab
+            icon={<Person sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Geral"
+          />
+          <Tab
+            icon={<span style={{ fontSize: 18 }}>🏠</span>}
+            iconPosition="start"
+            label="Endereço"
+          />
+          <Tab
+            icon={<span style={{ fontSize: 18 }}>➕</span>}
+            iconPosition="start"
+            label="Extras"
+          />
+          <Tab
+            icon={<span style={{ fontSize: 18 }}>💳</span>}
+            iconPosition="start"
+            label="Configurações"
+          />
+        </Tabs>
+
         <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3 }}>
-            {/* SEÇÃO 1: INFORMAÇÕES PESSOAIS */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                👤 Informações Pessoais
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Nome Completo"
-                    name="nome"
-                    value={currentUsuario.nome}
-                    onChange={handleChange}
-                    placeholder="Ex: João Silva"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Email"
-                    name="email"
-                    type="email"
-                    value={currentUsuario.email}
-                    onChange={handleChange}
-                    placeholder="joao@exemplo.com"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Telefone"
-                    name="telefone"
-                    value={currentUsuario.telefone}
-                    onChange={handleChange}
-                    placeholder="(11) 99999-9999"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label={editMode ? "Nova Senha (opcional)" : "Senha *"}
-                    name="senha"
-                    type="password"
-                    value={currentUsuario.senha}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    helperText={
-                      editMode
-                        ? "Deixe em branco para manter a senha atual"
-                        : "Mínimo 6 caracteres"
-                    }
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
+          {/* ABA 1: GERAL */}
+          <TabPanel value={tabValue} index={0}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Nome**"
+                  name="nome"
+                  value={currentUsuario.nome}
+                  onChange={handleChange}
+                  placeholder="Nome completo do usuário"
+                  size="small"
+                />
               </Grid>
-            </Paper>
 
-            {/* SEÇÃO 2: INFORMAÇÕES PROFISSIONAIS */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                mb: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                💼 Informações Profissionais
-              </Typography>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth required sx={{ bgcolor: "white" }}>
-                    <InputLabel>Perfil de Acesso</InputLabel>
-                    <Select
-                      name="perfil"
-                      value={currentUsuario.perfil}
-                      onChange={handleChange}
-                      label="Perfil de Acesso"
-                    >
-                      {PERFIS.map((perfil) => (
-                        <MenuItem key={perfil} value={perfil}>
-                          {perfil}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Cargo"
-                    name="cargo"
-                    value={currentUsuario.cargo}
-                    onChange={handleChange}
-                    placeholder="Ex: Vendedor"
-                    sx={{ bgcolor: "white" }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth sx={{ bgcolor: "white" }}>
-                    <InputLabel>Departamento</InputLabel>
-                    <Select
-                      name="departamento"
-                      value={currentUsuario.departamento}
-                      onChange={handleChange}
-                      label="Departamento"
-                    >
-                      {DEPARTAMENTOS.map((dept) => (
-                        <MenuItem key={dept} value={dept}>
-                          {dept}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  required
+                  label="CPF"
+                  name="cpf"
+                  value={currentUsuario.cpf}
+                  onChange={handleChange}
+                  placeholder="000.000.000-00"
+                  size="small"
+                />
               </Grid>
-            </Paper>
 
-            {/* SEÇÃO 3: STATUS */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                bgcolor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "12px",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1f2937",
-                  mb: 3,
-                  fontSize: "16px",
-                }}
-              >
-                ⚙️ Status
-              </Typography>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="RG"
+                  name="rg"
+                  value={currentUsuario.rg || ""}
+                  onChange={handleChange}
+                  placeholder="RG"
+                  size="small"
+                />
+              </Grid>
 
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="CNPJ"
+                  name="cnpj"
+                  placeholder="00.000.000/0000-00"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Data Nascimento**"
+                  name="dataNascimento"
+                  type="date"
+                  value={currentUsuario.dataNascimento}
+                  onChange={handleChange}
+                  InputLabelProps={{ shrink: true }}
+                  placeholder="dd/mm/aaaa"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="WhatsApp"
+                  name="telefone"
+                  value={currentUsuario.telefone}
+                  onChange={handleChange}
+                  placeholder="(00) 00000-0000"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo</InputLabel>
+                  <Select label="Tipo" defaultValue="Celular">
+                    <MenuItem value="Celular">Celular</MenuItem>
+                    <MenuItem value="Fixo">Fixo</MenuItem>
+                    <MenuItem value="Comercial">Comercial</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Telefone"
+                  placeholder="(00) 0000-0000"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo Email</InputLabel>
+                  <Select label="Tipo Email" defaultValue="Email">
+                    <MenuItem value="Email">Email</MenuItem>
+                    <MenuItem value="Pessoal">Pessoal</MenuItem>
+                    <MenuItem value="Comercial">Comercial</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={currentUsuario.email}
+                  onChange={handleChange}
+                  placeholder="usuario@exemplo.com"
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 2: ENDEREÇO */}
+          <TabPanel value={tabValue} index={1}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="CEP"
+                  name="cep"
+                  value={currentUsuario.endereco.cep}
+                  onChange={handleEnderecoChange}
+                  placeholder="00000-000"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="Endereço"
+                  name="rua"
+                  value={currentUsuario.endereco.rua}
+                  onChange={handleEnderecoChange}
+                  placeholder="Rua, Avenida..."
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Número"
+                  name="numero"
+                  value={currentUsuario.endereco.numero}
+                  onChange={handleEnderecoChange}
+                  placeholder="Nº"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  label="Complemento"
+                  name="complemento"
+                  value={currentUsuario.endereco.complemento}
+                  onChange={handleEnderecoChange}
+                  placeholder="Apto, Bloco, etc"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Bairro"
+                  name="bairro"
+                  value={currentUsuario.endereco.bairro}
+                  onChange={handleEnderecoChange}
+                  placeholder="Bairro"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Cidade"
+                  name="cidade"
+                  value={currentUsuario.endereco.cidade}
+                  onChange={handleEnderecoChange}
+                  placeholder="Cidade"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Estado</InputLabel>
+                  <Select
+                    name="estado"
+                    value={currentUsuario.endereco.estado}
+                    onChange={handleEnderecoChange}
+                    label="Estado"
+                  >
+                    <MenuItem value="SP">São Paulo</MenuItem>
+                    <MenuItem value="RJ">Rio de Janeiro</MenuItem>
+                    <MenuItem value="MG">Minas Gerais</MenuItem>
+                    <MenuItem value="RS">Rio Grande do Sul</MenuItem>
+                    <MenuItem value="BA">Bahia</MenuItem>
+                    {/* Adicione outros estados conforme necessário */}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="País"
+                  defaultValue="Brasil"
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 3: EXTRAS (Informações Profissionais) */}
+          <TabPanel value={tabValue} index={2}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth required size="small">
+                  <InputLabel>Perfil de Acesso</InputLabel>
+                  <Select
+                    name="perfil"
+                    value={currentUsuario.perfil}
+                    onChange={handleChange}
+                    label="Perfil de Acesso"
+                  >
+                    {PERFIS.map((perfil) => (
+                      <MenuItem key={perfil} value={perfil}>
+                        {perfil}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Cargo"
+                  name="cargo"
+                  value={currentUsuario.cargo}
+                  onChange={handleChange}
+                  placeholder="Ex: Vendedor"
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Departamento</InputLabel>
+                  <Select
+                    name="departamento"
+                    value={currentUsuario.departamento}
+                    onChange={handleChange}
+                    label="Departamento"
+                  >
+                    {DEPARTAMENTOS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label={editMode ? "Nova Senha (opcional)" : "Senha *"}
+                  name="senha"
+                  type="password"
+                  value={currentUsuario.senha}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  helperText={
+                    editMode
+                      ? "Deixe em branco para manter a senha atual"
+                      : "Mínimo 6 caracteres"
+                  }
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Observações"
+                  name="observacoes"
+                  value={currentUsuario.observacoes}
+                  onChange={handleChange}
+                  placeholder="Informações adicionais sobre o usuário"
+                  multiline
+                  rows={4}
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          </TabPanel>
+
+          {/* ABA 4: CONFIGURAÇÕES (Status) */}
+          <TabPanel value={tabValue} index={3}>
+            <Box sx={{ py: 2 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -665,17 +950,42 @@ function Usuarios() {
                   </Box>
                 }
               />
-            </Paper>
-          </Box>
+
+              <Divider sx={{ my: 3 }} />
+
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 2, color: "#374151" }}
+              >
+                Permissões de Acesso
+              </Typography>
+
+              <FormControlLabel
+                control={<Switch defaultChecked size="small" />}
+                label="Visualizar relatórios"
+              />
+              <FormControlLabel
+                control={<Switch defaultChecked size="small" />}
+                label="Gerenciar clientes"
+              />
+              <FormControlLabel
+                control={<Switch size="small" />}
+                label="Acesso financeiro"
+              />
+              <FormControlLabel
+                control={<Switch size="small" />}
+                label="Configurações do sistema"
+              />
+            </Box>
+          </TabPanel>
         </DialogContent>
 
         <DialogActions
           sx={{
             px: 3,
-            pb: 3,
+            pb: 2.5,
             pt: 2,
             borderTop: "1px solid #e5e7eb",
-            bgcolor: "#fafafa",
           }}
         >
           <Button
@@ -700,7 +1010,7 @@ function Usuarios() {
               px: 4,
             }}
           >
-            {editMode ? "Atualizar Usuário" : "Salvar Usuário"}
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>

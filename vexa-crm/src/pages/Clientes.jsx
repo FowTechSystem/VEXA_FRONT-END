@@ -25,7 +25,6 @@ import {
   Avatar,
   Tabs,
   Tab,
-  Divider,
   CircularProgress,
   Paper,
   InputAdornment,
@@ -35,11 +34,12 @@ import {
   Edit,
   Delete,
   Search,
-  PhotoCamera,
+  CameraAlt,
   Person,
   Home,
   Extension,
   AccountBalance,
+  Close,
 } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
@@ -59,8 +59,8 @@ import {
 // Componente de Tab Panel
 function TabPanel({ children, value, index }) {
   return (
-    <div hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    <div role="tabpanel" hidden={value !== index}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }
@@ -138,7 +138,7 @@ function Clientes() {
         (!editMode || data.clientes[0].id !== currentCliente.id)
       ) {
         setCpfError(
-          validationMessages.cpfDuplicate(data.clientes[0].nomeCompleto)
+          validationMessages.cpfDuplicate(data.clientes[0].nomeCompleto),
         );
       } else {
         setCpfError("");
@@ -161,7 +161,7 @@ function Clientes() {
     setCepLoading(true);
     try {
       const response = await fetch(
-        `https://viacep.com.br/ws/${cepLimpo}/json/`
+        `https://viacep.com.br/ws/${cepLimpo}/json/`,
       );
       const data = await response.json();
 
@@ -358,7 +358,7 @@ function Clientes() {
     // Validações
     const nomeValidation = validateRequired(
       currentCliente.nomeCompleto,
-      "Nome"
+      "Nome",
     );
     if (!nomeValidation.valid) {
       showError(nomeValidation.message);
@@ -368,7 +368,7 @@ function Clientes() {
 
     const dataNascValidation = validateRequired(
       currentCliente.dataNascimento,
-      "Data de Nascimento"
+      "Data de Nascimento",
     );
     if (!dataNascValidation.valid) {
       showError(dataNascValidation.message);
@@ -415,14 +415,14 @@ function Clientes() {
           showError(firstError[0] || errorMessages.create(entityNames.cliente));
         } else {
           showError(
-            errorData.message || errorMessages.create(entityNames.cliente)
+            errorData.message || errorMessages.create(entityNames.cliente),
           );
         }
       } else {
         showError(
           editMode
             ? errorMessages.update(entityNames.cliente)
-            : errorMessages.create(entityNames.cliente)
+            : errorMessages.create(entityNames.cliente),
         );
       }
     }
@@ -662,99 +662,141 @@ function Clientes() {
         </Box>
       )}
 
-      {/* Dialog */}
+      {/* Dialog - Seguindo padrão da imagem */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: "12px", maxHeight: "90vh" },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 600, fontSize: "20px" }}>
-          {editMode
-            ? `Editar ${entityNames.cliente}`
-            : `Novo ${entityNames.cliente}`}
+        <DialogTitle
+          sx={{
+            fontWeight: 600,
+            fontSize: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 2,
+            px: 3,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          Novo Cliente
+          <IconButton onClick={handleCloseDialog} size="small">
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent>
-          {/* Foto do Cliente */}
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 3, mt: 2 }}>
-            <Box sx={{ textAlign: "center" }}>
-              <Avatar
-                src={fotoPreview}
-                sx={{ width: 120, height: 120, mb: 2, mx: "auto" }}
-              >
-                {!fotoPreview && <Person sx={{ fontSize: 60 }} />}
-              </Avatar>
-              <input
-                accept="image/*"
-                style={{ display: "none" }}
-                id="foto-upload"
-                type="file"
-                onChange={handleFotoChange}
-              />
-              <label htmlFor="foto-upload">
-                <Button
-                  variant="outlined"
-                  component="span"
-                  startIcon={<PhotoCamera />}
-                  size="small"
-                  sx={{
-                    textTransform: "none",
-                    borderColor: "#e5e7eb",
-                    color: "#6b7280",
-                    "&:hover": { borderColor: "#d1d5db", bgcolor: "#f9fafb" },
-                  }}
-                >
-                  {fotoPreview ? "Alterar Foto" : "Adicionar Foto"}
-                </Button>
-              </label>
-            </Box>
-          </Box>
 
-          <Divider sx={{ mb: 2 }} />
+        {/* Avatar Section */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            pt: 3,
+            pb: 2,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <Avatar
+            src={fotoPreview}
+            sx={{
+              width: 100,
+              height: 100,
+              bgcolor: "#d1d5db",
+              mb: 1.5,
+            }}
+          >
+            {!fotoPreview && <Person sx={{ fontSize: 50, color: "#fff" }} />}
+          </Avatar>
+          <input
+            accept="image/*"
+            style={{ display: "none" }}
+            id="foto-upload"
+            type="file"
+            onChange={handleFotoChange}
+          />
+          <label htmlFor="foto-upload">
+            <Button
+              component="span"
+              startIcon={<CameraAlt />}
+              sx={{
+                textTransform: "none",
+                color: "#6b7280",
+                fontSize: "13px",
+                "&:hover": { bgcolor: "transparent" },
+              }}
+            >
+              Adicionar Foto
+            </Button>
+          </label>
+        </Box>
 
-          {/* Tabs */}
-          <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
-            <Tab
-              icon={<Person />}
-              label="Geral"
-              iconPosition="start"
-              sx={{ textTransform: "none", fontWeight: 600 }}
-            />
-            <Tab
-              icon={<Home />}
-              label="Endereço"
-              iconPosition="start"
-              sx={{ textTransform: "none", fontWeight: 600 }}
-            />
-            <Tab
-              icon={<Extension />}
-              label="Extras"
-              iconPosition="start"
-              sx={{ textTransform: "none", fontWeight: 600 }}
-            />
-            <Tab
-              icon={<AccountBalance />}
-              label="Crédito"
-              iconPosition="start"
-              sx={{ textTransform: "none", fontWeight: 600 }}
-            />
-          </Tabs>
+        {/* Tabs Navigation */}
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{
+            borderBottom: "1px solid #e5e7eb",
+            px: 2,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+              minHeight: 48,
+              color: "#6b7280",
+            },
+            "& .Mui-selected": {
+              color: "#2563eb",
+            },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563eb",
+            },
+          }}
+        >
+          <Tab
+            icon={<Person sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Geral"
+          />
+          <Tab
+            icon={<Home sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Endereço"
+          />
+          <Tab
+            icon={<Extension sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Extras"
+          />
+          <Tab
+            icon={<AccountBalance sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label="Crédito"
+          />
+        </Tabs>
 
+        <DialogContent sx={{ p: 0 }}>
           {/* Aba Geral */}
           <TabPanel value={tabValue} index={0}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Nome*"
+                  label="Nome**"
                   name="nomeCompleto"
                   value={currentCliente.nomeCompleto}
                   onChange={handleChange}
                   required
-                  inputProps={{ maxLength: 200 }}
+                  size="small"
+                  placeholder="Nome completo do cliente"
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
                   label="CPF"
@@ -763,22 +805,27 @@ function Clientes() {
                   onChange={handleCPFChange}
                   error={!!cpfError}
                   helperText={cpfError || ""}
-                  inputProps={{ maxLength: 11 }}
+                  size="small"
+                  placeholder="000.000.000-00"
                   InputProps={{
                     endAdornment: cpfChecking && <CircularProgress size={20} />,
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
                   label="RG"
                   name="rg"
                   value={currentCliente.rg}
                   onChange={handleChange}
+                  size="small"
+                  placeholder="RG"
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
                   label="CNPJ"
@@ -787,73 +834,73 @@ function Clientes() {
                   onChange={handleCNPJChange}
                   error={!!cnpjError}
                   helperText={cnpjError || ""}
-                  inputProps={{ maxLength: 14 }}
+                  size="small"
+                  placeholder="00.000.000/0000-00"
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
-                  label="Data Nascimento*"
+                  label="Data Nascimento**"
                   name="dataNascimento"
                   type="date"
                   value={currentCliente.dataNascimento}
                   onChange={handleChange}
                   required
+                  size="small"
                   InputLabelProps={{ shrink: true }}
+                  placeholder="dd/mm/aaaa"
                 />
               </Grid>
 
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Typography
-                  variant="subtitle2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Contatos
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Tipo</InputLabel>
-                  <Select defaultValue="celular" label="Tipo">
-                    <MenuItem value="celular">Celular</MenuItem>
-                    <MenuItem value="residencial">Residencial</MenuItem>
-                    <MenuItem value="comercial">Comercial</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  label="Telefone"
-                  name="telefone"
-                  value={currentCliente.telefone}
-                  onChange={handleChange}
-                  inputProps={{ maxLength: 20 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="WhatsApp"
                   name="whatsApp"
                   value={currentCliente.whatsApp}
                   onChange={handleChange}
-                  inputProps={{ maxLength: 20 }}
+                  size="small"
+                  placeholder="(00) 00000-0000"
                 />
               </Grid>
 
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Tipo Email</InputLabel>
-                  <Select defaultValue="email" label="Tipo Email">
-                    <MenuItem value="email">Email</MenuItem>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo</InputLabel>
+                  <Select defaultValue="Celular" label="Tipo">
+                    <MenuItem value="Celular">Celular</MenuItem>
+                    <MenuItem value="Fixo">Fixo</MenuItem>
+                    <MenuItem value="Comercial">Comercial</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={8}>
+
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Telefone"
+                  name="telefone"
+                  value={currentCliente.telefone}
+                  onChange={handleChange}
+                  size="small"
+                  placeholder="(00) 0000-0000"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tipo Email</InputLabel>
+                  <Select defaultValue="Email" label="Tipo Email">
+                    <MenuItem value="Email">Email</MenuItem>
+                    <MenuItem value="Pessoal">Pessoal</MenuItem>
+                    <MenuItem value="Comercial">Comercial</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
                   label="Email"
@@ -861,6 +908,8 @@ function Clientes() {
                   type="email"
                   value={currentCliente.email}
                   onChange={handleChange}
+                  size="small"
+                  placeholder="cliente@exemplo.com"
                 />
               </Grid>
             </Grid>
@@ -869,52 +918,59 @@ function Clientes() {
           {/* Aba Endereço */}
           <TabPanel value={tabValue} index={1}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="CEP"
                   name="cep"
                   value={currentCliente.cep}
                   onChange={handleCEPChange}
-                  inputProps={{ maxLength: 8 }}
-                  placeholder="00000000"
+                  size="small"
+                  placeholder="00000-000"
                   InputProps={{
                     endAdornment: cepLoading && <CircularProgress size={20} />,
                   }}
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
+
+              <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
-                  label="Rua"
+                  label="Endereço"
                   name="rua"
                   value={currentCliente.rua}
                   onChange={handleChange}
                   disabled={cepLoading}
-                  inputProps={{ maxLength: 150 }}
+                  size="small"
+                  placeholder="Rua, Avenida..."
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   label="Número"
                   name="numero"
                   value={currentCliente.numero}
                   onChange={handleChange}
-                  inputProps={{ maxLength: 10 }}
+                  size="small"
+                  placeholder="Nº"
                 />
               </Grid>
-              <Grid item xs={12} sm={8}>
+
+              <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
                   label="Complemento"
                   name="complemento"
                   value={currentCliente.complemento}
                   onChange={handleChange}
-                  inputProps={{ maxLength: 100 }}
+                  size="small"
+                  placeholder="Apto, Bloco, etc"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Bairro"
@@ -922,10 +978,12 @@ function Clientes() {
                   value={currentCliente.bairro}
                   onChange={handleChange}
                   disabled={cepLoading}
-                  inputProps={{ maxLength: 100 }}
+                  size="small"
+                  placeholder="Bairro"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Cidade"
@@ -933,7 +991,8 @@ function Clientes() {
                   value={currentCliente.cidade}
                   onChange={handleChange}
                   disabled={cepLoading}
-                  inputProps={{ maxLength: 100 }}
+                  size="small"
+                  placeholder="Cidade"
                 />
               </Grid>
             </Grid>
@@ -951,6 +1010,7 @@ function Clientes() {
                   rows={4}
                   value={currentCliente.preferencias}
                   onChange={handleChange}
+                  size="small"
                   placeholder="Descreva as preferências do cliente..."
                 />
               </Grid>
@@ -963,6 +1023,7 @@ function Clientes() {
                   rows={4}
                   value={currentCliente.observacoes}
                   onChange={handleChange}
+                  size="small"
                   placeholder="Adicione observações relevantes..."
                 />
               </Grid>
@@ -983,10 +1044,22 @@ function Clientes() {
           </TabPanel>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 2.5,
+            pt: 2,
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>
@@ -998,6 +1071,7 @@ function Clientes() {
               bgcolor: "#2563eb",
               "&:hover": { bgcolor: "#1d4ed8" },
               boxShadow: "none",
+              px: 4,
             }}
           >
             Salvar
