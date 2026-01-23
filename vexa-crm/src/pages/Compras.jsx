@@ -1,9 +1,9 @@
+// src/pages/Produtos.jsx
 import React, { useState } from "react";
 import {
   Box,
   Button,
   Typography,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -11,176 +11,321 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
   Grid,
-  FormControl,
-  InputLabel,
+  Chip,
+  Paper,
+  InputAdornment,
   Select,
   MenuItem,
-  InputAdornment,
+  FormControl,
+  InputLabel,
+  Autocomplete,
+  Avatar,
+  Stack,
+  Tabs,
+  Tab,
+  Divider,
 } from "@mui/material";
 import {
-  ShoppingCart,
   Add,
   Edit,
   Delete,
+  Inventory,
+  Search,
   Close,
   AttachMoney,
-  CheckCircle,
-  HourglassEmpty,
+  Category,
+  Palette,
 } from "@mui/icons-material";
+import { produtosService } from "../api/produtosService";
 
-const STATUS_PEDIDO = {
-  rascunho: { label: "Rascunho", color: "#6b7280", bgcolor: "#f3f4f6" },
-  enviado: { label: "Enviado", color: "#2563eb", bgcolor: "#eff6ff" },
-  aprovado: { label: "Aprovado", color: "#16a34a", bgcolor: "#dcfce7" },
-  recebido: { label: "Recebido", color: "#059669", bgcolor: "#d1fae5" },
-  cancelado: { label: "Cancelado", color: "#dc2626", bgcolor: "#fee2e2" },
-};
+// Dados para loja de roupas e acessórios
+const CATEGORIAS = [
+  "Camisetas",
+  "Blusas",
+  "Vestidos",
+  "Saias",
+  "Calças",
+  "Shorts",
+  "Jaquetas e Casacos",
+  "Conjuntos",
+  "Moda Íntima",
+  "Moda Praia",
+  "Acessórios",
+  "Bolsas",
+  "Calçados",
+  "Joias e Bijuterias",
+  "Cintos",
+  "Óculos",
+  "Bonés e Chapéus",
+];
 
-function Compras() {
+const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
+const TAMANHOS_CALCADOS = [
+  "33",
+  "34",
+  "35",
+  "36",
+  "37",
+  "38",
+  "39",
+  "40",
+  "41",
+  "42",
+  "43",
+  "44",
+];
+
+const CORES = [
+  "Preto",
+  "Branco",
+  "Azul",
+  "Vermelho",
+  "Verde",
+  "Amarelo",
+  "Rosa",
+  "Roxo",
+  "Laranja",
+  "Marrom",
+  "Cinza",
+  "Bege",
+  "Nude",
+  "Vinho",
+  "Azul Marinho",
+  "Off-white",
+  "Estampado",
+  "Multicolor",
+];
+
+const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
+
+const MATERIAIS = [
+  "Algodão",
+  "Poliéster",
+  "Viscose",
+  "Linho",
+  "Seda",
+  "Jeans",
+  "Couro",
+  "Couro Sintético",
+  "Malha",
+  "Lã",
+  "Elastano",
+  "Tecido Misto",
+];
+
+function Produtos() {
+  const [produtos, setProdutos] = useState([]);
+  const [produtosFiltrados, setProdutosFiltrados] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [pedidos, setPedidos] = useState([]);
-  const [fornecedores] = useState([
-    { id: 1, nome: "Fornecedor ABC Ltda" },
-    { id: 2, nome: "Distribuidora XYZ" },
-    { id: 3, nome: "Atacado Nacional" },
-  ]);
+  const [tabValue, setTabValue] = useState(0);
 
-  const [currentPedido, setCurrentPedido] = useState({
-    fornecedorId: "",
-    numeroPedido: "",
-    dataEmissao: new Date().toISOString().split("T")[0],
-    dataEntregaPrevista: "",
-    status: "rascunho",
-    itens: [],
-    valorTotal: 0,
-    frete: 0,
-    desconto: 0,
+  const [currentProduto, setCurrentProduto] = useState({
+    nome: "",
+    descricao: "",
+    categoria: "",
+    genero: "",
+    marca: "",
+    precoCusto: "",
+    precoVenda: "",
+    precoPromocional: "",
+    emPromocao: false,
+    cores: [],
+    tamanhos: [],
+    material: "",
+    sku: "",
+    codigoBarras: "",
+    estoqueTotal: "",
+    estoqueMinimo: "",
+    peso: "",
+    largura: "",
+    altura: "",
+    comprimento: "",
+    imagemPrincipal: "",
+    imagensAdicionais: [],
+    fornecedor: "",
     observacoes: "",
+    ativo: true,
   });
 
-  const [novoItem, setNovoItem] = useState({
-    produto: "",
-    quantidade: "",
-    precoUnitario: "",
-  });
+  const fetchProdutos = async () => {
+    try {
+      const data = await produtosService.getAll();
+      const produtosArray = Array.isArray(data) ? data : [];
+      setProdutos(produtosArray);
+      setProdutosFiltrados(produtosArray);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+      setProdutos([]);
+      setProdutosFiltrados([]);
+    }
+  };
 
-  const handleOpenDialog = (pedido = null) => {
-    if (pedido) {
-      setCurrentPedido(pedido);
+  const handleSearch = (e) => {
+    const termo = e.target.value.toLowerCase();
+    setSearchTerm(termo);
+
+    if (termo === "") {
+      setProdutosFiltrados(produtos);
+    } else {
+      const filtrados = produtos.filter(
+        (produto) =>
+          produto.nome?.toLowerCase().includes(termo) ||
+          produto.categoria?.toLowerCase().includes(termo) ||
+          produto.descricao?.toLowerCase().includes(termo) ||
+          produto.sku?.toLowerCase().includes(termo) ||
+          produto.marca?.toLowerCase().includes(termo),
+      );
+      setProdutosFiltrados(filtrados);
+    }
+  };
+
+  const handleOpenDialog = (produto = null) => {
+    if (produto) {
+      setCurrentProduto(produto);
       setEditMode(true);
     } else {
-      setCurrentPedido({
-        fornecedorId: "",
-        numeroPedido: `PED-${Date.now()}`,
-        dataEmissao: new Date().toISOString().split("T")[0],
-        dataEntregaPrevista: "",
-        status: "rascunho",
-        itens: [],
-        valorTotal: 0,
-        frete: 0,
-        desconto: 0,
+      setCurrentProduto({
+        nome: "",
+        descricao: "",
+        categoria: "",
+        genero: "",
+        marca: "",
+        precoCusto: "",
+        precoVenda: "",
+        precoPromocional: "",
+        emPromocao: false,
+        cores: [],
+        tamanhos: [],
+        material: "",
+        sku: "",
+        codigoBarras: "",
+        estoqueTotal: "",
+        estoqueMinimo: "",
+        peso: "",
+        largura: "",
+        altura: "",
+        comprimento: "",
+        imagemPrincipal: "",
+        imagensAdicionais: [],
+        fornecedor: "",
         observacoes: "",
+        ativo: true,
       });
       setEditMode(false);
     }
+    setTabValue(0);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setNovoItem({ produto: "", quantidade: "", precoUnitario: "" });
+  };
+
+  const handleSave = async () => {
+    if (!currentProduto.nome?.trim()) {
+      alert("Nome do produto é obrigatório");
+      return;
+    }
+
+    if (!currentProduto.categoria) {
+      alert("Categoria é obrigatória");
+      return;
+    }
+
+    if (
+      !currentProduto.precoVenda ||
+      parseFloat(currentProduto.precoVenda) <= 0
+    ) {
+      alert("Preço de venda deve ser maior que zero");
+      return;
+    }
+
+    if (currentProduto.cores.length === 0) {
+      alert("Selecione pelo menos uma cor");
+      return;
+    }
+
+    if (currentProduto.tamanhos.length === 0) {
+      alert("Selecione pelo menos um tamanho");
+      return;
+    }
+
+    try {
+      const produtoParaSalvar = {
+        ...currentProduto,
+        margemLucro: currentProduto.precoCusto
+          ? (
+              ((parseFloat(currentProduto.precoVenda) -
+                parseFloat(currentProduto.precoCusto)) /
+                parseFloat(currentProduto.precoVenda)) *
+              100
+            ).toFixed(2)
+          : 0,
+      };
+
+      if (editMode) {
+        await produtosService.update(currentProduto.id, produtoParaSalvar);
+      } else {
+        await produtosService.create(produtoParaSalvar);
+      }
+      fetchProdutos();
+      handleCloseDialog();
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+      alert("Erro ao salvar produto. Tente novamente.");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Deseja realmente excluir este produto?")) {
+      try {
+        await produtosService.delete(id);
+        fetchProdutos();
+      } catch (error) {
+        console.error("Erro ao excluir produto:", error);
+        alert("Erro ao excluir produto.");
+      }
+    }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCurrentPedido({
-      ...currentPedido,
+    setCurrentProduto({
+      ...currentProduto,
       [name]: value,
     });
   };
 
-  const handleAdicionarItem = () => {
-    if (!novoItem.produto || !novoItem.quantidade || !novoItem.precoUnitario) {
-      alert("Preencha todos os campos do item");
-      return;
-    }
-
-    const item = {
-      id: Date.now(),
-      produto: novoItem.produto,
-      quantidade: parseInt(novoItem.quantidade),
-      precoUnitario: parseFloat(novoItem.precoUnitario),
-      subtotal:
-        parseInt(novoItem.quantidade) * parseFloat(novoItem.precoUnitario),
-    };
-
-    setCurrentPedido({
-      ...currentPedido,
-      itens: [...currentPedido.itens, item],
-    });
-
-    setNovoItem({ produto: "", quantidade: "", precoUnitario: "" });
-  };
-
-  const handleRemoverItem = (itemId) => {
-    setCurrentPedido({
-      ...currentPedido,
-      itens: currentPedido.itens.filter((item) => item.id !== itemId),
+  const handleMultipleChange = (name, value) => {
+    setCurrentProduto({
+      ...currentProduto,
+      [name]: value,
     });
   };
 
-  const calcularTotal = () => {
-    const subtotal = currentPedido.itens.reduce(
-      (acc, item) => acc + item.subtotal,
-      0
-    );
-    return (
-      subtotal +
-      parseFloat(currentPedido.frete || 0) -
-      parseFloat(currentPedido.desconto || 0)
-    );
+  const calcularMargemLucro = () => {
+    if (currentProduto.precoCusto && currentProduto.precoVenda) {
+      const custo = parseFloat(currentProduto.precoCusto);
+      const venda = parseFloat(currentProduto.precoVenda);
+      const margem = ((venda - custo) / venda) * 100;
+      return margem.toFixed(2);
+    }
+    return "0.00";
   };
 
-  const handleSave = () => {
-    if (!currentPedido.fornecedorId) {
-      alert("Selecione um fornecedor");
-      return;
+  const getTamanhosDisponiveis = () => {
+    if (currentProduto.categoria === "Calçados") {
+      return TAMANHOS_CALCADOS;
     }
-
-    if (currentPedido.itens.length === 0) {
-      alert("Adicione pelo menos um item");
-      return;
-    }
-
-    const pedidoParaSalvar = {
-      ...currentPedido,
-      valorTotal: calcularTotal(),
-      id: editMode ? currentPedido.id : Date.now(),
-    };
-
-    if (editMode) {
-      setPedidos(
-        pedidos.map((p) => (p.id === currentPedido.id ? pedidoParaSalvar : p))
-      );
-    } else {
-      setPedidos([...pedidos, pedidoParaSalvar]);
-    }
-
-    handleCloseDialog();
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm("Deseja realmente excluir este pedido?")) {
-      setPedidos(pedidos.filter((p) => p.id !== id));
-    }
+    return TAMANHOS_ROUPA;
   };
 
   return (
@@ -197,10 +342,10 @@ function Compras() {
         >
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
-              Compras
+              Produtos
             </Typography>
             <Typography variant="body2" sx={{ color: "#6b7280", mt: 1 }}>
-              Gestão de pedidos de compra
+              Gestão de produtos do estoque
             </Typography>
           </Box>
           <Button
@@ -213,10 +358,11 @@ function Compras() {
               "&:hover": { bgcolor: "#1d4ed8" },
               borderRadius: "8px",
               px: 3,
+              py: 1,
               boxShadow: "none",
             }}
           >
-            Novo Pedido
+            Novo Produto
           </Button>
         </Box>
 
@@ -232,13 +378,13 @@ function Compras() {
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <ShoppingCart sx={{ color: "#2563eb", mr: 1 }} />
+                <Inventory sx={{ color: "#2563eb", mr: 1 }} />
                 <Typography variant="body2" sx={{ color: "#6b7280" }}>
-                  Total de Pedidos
+                  Total de Produtos
                 </Typography>
               </Box>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {pedidos.length}
+                {produtos.length}
               </Typography>
             </Paper>
           </Grid>
@@ -253,13 +399,13 @@ function Compras() {
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <HourglassEmpty sx={{ color: "#d97706", mr: 1 }} />
+                <Category sx={{ color: "#16a34a", mr: 1 }} />
                 <Typography variant="body2" sx={{ color: "#6b7280" }}>
-                  Aguardando Entrega
+                  Categorias
                 </Typography>
               </Box>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {pedidos.filter((p) => p.status === "aprovado").length}
+                {new Set(produtos.map((p) => p.categoria)).size}
               </Typography>
             </Paper>
           </Grid>
@@ -274,13 +420,17 @@ function Compras() {
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <CheckCircle sx={{ color: "#16a34a", mr: 1 }} />
+                <Palette sx={{ color: "#d97706", mr: 1 }} />
                 <Typography variant="body2" sx={{ color: "#6b7280" }}>
-                  Recebidos
+                  Estoque Baixo
                 </Typography>
               </Box>
               <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {pedidos.filter((p) => p.status === "recebido").length}
+                {
+                  produtos.filter(
+                    (p) => (p.estoqueTotal || 0) <= (p.estoqueMinimo || 10),
+                  ).length
+                }
               </Typography>
             </Paper>
           </Grid>
@@ -305,17 +455,53 @@ function Compras() {
                 sx={{ fontWeight: 600, color: "#16a34a" }}
               >
                 R${" "}
-                {pedidos
-                  .reduce((acc, p) => acc + (p.valorTotal || 0), 0)
+                {produtos
+                  .reduce(
+                    (acc, p) =>
+                      acc + (p.precoVenda || 0) * (p.estoqueTotal || 0),
+                    0,
+                  )
                   .toFixed(2)}
               </Typography>
             </Paper>
           </Grid>
         </Grid>
+
+        <TextField
+          fullWidth
+          placeholder="Buscar por nome, categoria, marca, SKU ou descrição..."
+          value={searchTerm}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ color: "#9ca3af" }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            bgcolor: "white",
+            borderRadius: "10px",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": { border: "1px solid #e5e7eb" },
+              "&:hover fieldset": { border: "1px solid #d1d5db" },
+              "&.Mui-focused fieldset": { border: "1px solid #2563eb" },
+            },
+          }}
+        />
+
+        <Typography
+          variant="body2"
+          sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
+        >
+          {produtosFiltrados.length}{" "}
+          {produtosFiltrados.length === 1 ? "produto" : "produtos"}
+        </Typography>
       </Box>
 
-      {/* Tabela de Pedidos */}
-      <Paper
+      {/* Tabela */}
+      <TableContainer
+        component={Paper}
         elevation={0}
         sx={{
           borderRadius: "12px",
@@ -323,129 +509,232 @@ function Compras() {
           overflow: "hidden",
         }}
       >
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
-                  Nº PEDIDO
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
-                  FORNECEDOR
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
-                  DATA EMISSÃO
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
-                  PREVISÃO ENTREGA
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f9fafb" }}>
+              <TableCell
+                sx={{
+                  fontWeight: 600,
+                  color: "#374151",
+                  fontSize: "13px",
+                  py: 2,
+                }}
+              >
+                PRODUTO
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                CATEGORIA
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                VARIAÇÕES
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                PREÇO
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                ESTOQUE
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                AÇÕES
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Array.isArray(produtosFiltrados) &&
+            produtosFiltrados.length > 0 ? (
+              produtosFiltrados.map((produto, index) => (
+                <TableRow
+                  key={produto.id}
+                  sx={{
+                    "&:hover": { bgcolor: "#f9fafb" },
+                    borderBottom:
+                      index === produtosFiltrados.length - 1
+                        ? "none"
+                        : "1px solid #f3f4f6",
+                  }}
                 >
-                  VALOR TOTAL
-                </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 600, color: "#374151" }}
-                >
-                  STATUS
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
-                >
-                  AÇÕES
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pedidos.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    align="center"
-                    sx={{ py: 8, color: "#9ca3af" }}
-                  >
-                    <ShoppingCart sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-                    <Typography variant="body1">
-                      Nenhum pedido de compra
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Clique em "Novo Pedido" para começar
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                pedidos.map((pedido) => {
-                  const fornecedor = fornecedores.find(
-                    (f) => f.id === pedido.fornecedorId
-                  );
-                  const status = STATUS_PEDIDO[pedido.status];
-                  return (
-                    <TableRow
-                      key={pedido.id}
-                      sx={{ "&:hover": { bgcolor: "#f9fafb" } }}
+                  <TableCell sx={{ py: 2.5 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                     >
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {pedido.numeroPedido}
+                      <Avatar
+                        src={produto.imagemPrincipal}
+                        sx={{
+                          bgcolor: "#eff6ff",
+                          width: 48,
+                          height: 48,
+                          border: "2px solid #e5e7eb",
+                        }}
+                      >
+                        <Inventory sx={{ color: "#2563eb", fontSize: 24 }} />
+                      </Avatar>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 500, color: "#111827" }}
+                        >
+                          {produto.nome}
                         </Typography>
-                      </TableCell>
-                      <TableCell>{fornecedor?.nome || "—"}</TableCell>
-                      <TableCell>
-                        {new Date(pedido.dataEmissao).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {pedido.dataEntregaPrevista
-                          ? new Date(
-                              pedido.dataEntregaPrevista
-                            ).toLocaleDateString()
-                          : "—"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 500 }}>
-                        R$ {pedido.valorTotal.toFixed(2)}
-                      </TableCell>
-                      <TableCell align="center">
+                        <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                          {produto.marca || "—"} • SKU: {produto.sku || "—"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={produto.categoria || "Sem categoria"}
+                      size="small"
+                      sx={{
+                        bgcolor: "#eff6ff",
+                        color: "#2563eb",
+                        fontWeight: 500,
+                        fontSize: "12px",
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {produto.cores?.slice(0, 3).map((cor, i) => (
                         <Chip
-                          label={status.label}
+                          key={i}
+                          label={cor}
                           size="small"
                           sx={{
-                            bgcolor: status.bgcolor,
-                            color: status.color,
-                            fontWeight: 500,
+                            bgcolor: "#f3f4f6",
+                            fontSize: "11px",
+                            height: "20px",
                           }}
                         />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton
+                      ))}
+                      {produto.cores?.length > 3 && (
+                        <Chip
+                          label={`+${produto.cores.length - 3}`}
                           size="small"
-                          onClick={() => handleOpenDialog(pedido)}
+                          sx={{
+                            bgcolor: "#f3f4f6",
+                            fontSize: "11px",
+                            height: "20px",
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ color: "#111827", fontWeight: 500 }}
+                  >
+                    {produto.emPromocao && produto.precoPromocional ? (
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            textDecoration: "line-through",
+                            color: "#9ca3af",
+                            display: "block",
+                          }}
                         >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(pedido.id)}
-                          sx={{ color: "#dc2626" }}
+                          R$ {parseFloat(produto.precoVenda || 0).toFixed(2)}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#dc2626", fontWeight: 600 }}
                         >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                          R${" "}
+                          {parseFloat(produto.precoPromocional || 0).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      `R$ ${parseFloat(produto.precoVenda || 0).toFixed(2)}`
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={produto.estoqueTotal || 0}
+                      size="small"
+                      sx={{
+                        bgcolor:
+                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueMinimo || 10)
+                            ? "#dcfce7"
+                            : (produto.estoqueTotal || 0) > 0
+                              ? "#fef3c7"
+                              : "#fee2e2",
+                        color:
+                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueMinimo || 10)
+                            ? "#16a34a"
+                            : (produto.estoqueTotal || 0) > 0
+                              ? "#d97706"
+                              : "#dc2626",
+                        fontWeight: 500,
+                        fontSize: "12px",
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(produto)}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                      }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDelete(produto.id)}
+                      sx={{
+                        color: "#6b7280",
+                        "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                      }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  align="center"
+                  sx={{ py: 8, color: "#9ca3af" }}
+                >
+                  <Inventory sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
+                  <Typography variant="body1">
+                    Nenhum produto encontrado
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Clique em "Novo Produto" para cadastrar
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {/* Dialog de Pedido */}
+      {/* Dialog Normal com Abas - FUNDO BRANCO */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="lg"
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: { borderRadius: "12px", maxHeight: "90vh" },
@@ -460,327 +749,514 @@ function Compras() {
             alignItems: "center",
           }}
         >
-          {editMode ? "Editar Pedido" : "Novo Pedido de Compra"}
+          {editMode ? "Editar Produto" : "Novo Produto"}
           <IconButton onClick={handleCloseDialog} size="small">
             <Close />
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ pt: 3 }}>
-          {/* Informações do Pedido */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              mb: 3,
-              bgcolor: "#f9fafb",
-              border: "1px solid #e5e7eb",
-              borderRadius: "12px",
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                color: "#1f2937",
-                mb: 3,
-                fontSize: "16px",
-              }}
-            >
-              📋 Informações do Pedido
-            </Typography>
+        {/* Abas */}
+        <Tabs
+          value={tabValue}
+          onChange={(e, newValue) => setTabValue(newValue)}
+          sx={{
+            borderBottom: "1px solid #e5e7eb",
+            px: 3,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "14px",
+            },
+          }}
+        >
+          <Tab label="Geral" />
+          <Tab label="Variações e Preços" />
+          <Tab label="Estoque e Dimensões" />
+          <Tab label="Imagem e Extras" />
+        </Tabs>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Número do Pedido"
-                  name="numeroPedido"
-                  value={currentPedido.numeroPedido}
-                  onChange={handleChange}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
+        <DialogContent sx={{ pt: 3, bgcolor: "white" }}>
+          {/* ABA 1 - Geral */}
+          {tabValue === 0 && (
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  mb: 3,
+                  fontSize: "16px",
+                }}
+              >
+                📦 Informações Básicas
+              </Typography>
 
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth required sx={{ bgcolor: "white" }}>
-                  <InputLabel>Fornecedor</InputLabel>
-                  <Select
-                    name="fornecedorId"
-                    value={currentPedido.fornecedorId}
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Nome do Produto"
+                    name="nome"
+                    value={currentProduto.nome}
                     onChange={handleChange}
+                    placeholder="Ex: Vestido Floral"
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Categoria</InputLabel>
+                    <Select
+                      name="categoria"
+                      value={currentProduto.categoria}
+                      onChange={handleChange}
+                      label="Categoria"
+                    >
+                      {CATEGORIAS.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Marca"
+                    name="marca"
+                    value={currentProduto.marca}
+                    onChange={handleChange}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Gênero</InputLabel>
+                    <Select
+                      name="genero"
+                      value={currentProduto.genero}
+                      onChange={handleChange}
+                      label="Gênero"
+                    >
+                      {GENEROS.map((gen) => (
+                        <MenuItem key={gen} value={gen}>
+                          {gen}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Material</InputLabel>
+                    <Select
+                      name="material"
+                      value={currentProduto.material}
+                      onChange={handleChange}
+                      label="Material"
+                    >
+                      {MATERIAIS.map((mat) => (
+                        <MenuItem key={mat} value={mat}>
+                          {mat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="SKU"
+                    name="sku"
+                    value={currentProduto.sku}
+                    onChange={handleChange}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Código de Barras"
+                    name="codigoBarras"
+                    value={currentProduto.codigoBarras}
+                    onChange={handleChange}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
                     label="Fornecedor"
-                  >
-                    {fornecedores.map((fornecedor) => (
-                      <MenuItem key={fornecedor.id} value={fornecedor.id}>
-                        {fornecedor.nome}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth sx={{ bgcolor: "white" }}>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    name="status"
-                    value={currentPedido.status}
+                    name="fornecedor"
+                    value={currentProduto.fornecedor}
                     onChange={handleChange}
-                    label="Status"
-                  >
-                    {Object.entries(STATUS_PEDIDO).map(([key, value]) => (
-                      <MenuItem key={key} value={key}>
-                        {value.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+                  />
+                </Grid>
 
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Data de Emissão"
-                  name="dataEmissao"
-                  type="date"
-                  value={currentPedido.dataEmissao}
-                  onChange={handleChange}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ bgcolor: "white" }}
-                />
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Descrição"
+                    name="descricao"
+                    multiline
+                    rows={3}
+                    value={currentProduto.descricao}
+                    onChange={handleChange}
+                  />
+                </Grid>
               </Grid>
+            </Box>
+          )}
 
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Previsão de Entrega"
-                  name="dataEntregaPrevista"
-                  type="date"
-                  value={currentPedido.dataEntregaPrevista}
-                  onChange={handleChange}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-
-          {/* Itens do Pedido */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              mb: 3,
-              bgcolor: "#f9fafb",
-              border: "1px solid #e5e7eb",
-              borderRadius: "12px",
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                color: "#1f2937",
-                mb: 3,
-                fontSize: "16px",
-              }}
-            >
-              🛒 Itens do Pedido
-            </Typography>
-
-            {/* Adicionar Item */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={5}>
-                <TextField
-                  fullWidth
-                  label="Produto"
-                  value={novoItem.produto}
-                  onChange={(e) =>
-                    setNovoItem({ ...novoItem, produto: e.target.value })
-                  }
-                  placeholder="Nome do produto"
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
-              <Grid item xs={6} md={2}>
-                <TextField
-                  fullWidth
-                  label="Quantidade"
-                  type="number"
-                  value={novoItem.quantidade}
-                  onChange={(e) =>
-                    setNovoItem({ ...novoItem, quantidade: e.target.value })
-                  }
-                  inputProps={{ min: "1" }}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <TextField
-                  fullWidth
-                  label="Preço Unit."
-                  type="number"
-                  value={novoItem.precoUnitario}
-                  onChange={(e) =>
-                    setNovoItem({ ...novoItem, precoUnitario: e.target.value })
-                  }
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">R$</InputAdornment>
-                    ),
-                  }}
-                  inputProps={{ step: "0.01", min: "0" }}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleAdicionarItem}
+          {/* ABA 2 - Variações e Preços */}
+          {tabValue === 1 && (
+            <Stack spacing={4}>
+              <Box>
+                <Typography
+                  variant="h6"
                   sx={{
-                    height: "56px",
-                    textTransform: "none",
-                    bgcolor: "#2563eb",
-                    "&:hover": { bgcolor: "#1d4ed8" },
-                    boxShadow: "none",
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
                   }}
                 >
-                  <Add />
-                </Button>
-              </Grid>
-            </Grid>
+                  🎨 Variações do Produto
+                </Typography>
 
-            {/* Lista de Itens */}
-            {currentPedido.itens.length > 0 && (
-              <TableContainer sx={{ bgcolor: "white", borderRadius: "8px" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                      <TableCell sx={{ fontWeight: 600 }}>Produto</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600 }}>
-                        Quantidade
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        Preço Unit.
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        Subtotal
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600 }}>
-                        Ação
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {currentPedido.itens.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.produto}</TableCell>
-                        <TableCell align="center">{item.quantidade}</TableCell>
-                        <TableCell align="right">
-                          R$ {item.precoUnitario.toFixed(2)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 500 }}>
-                          R$ {item.subtotal.toFixed(2)}
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      multiple
+                      options={CORES}
+                      value={currentProduto.cores}
+                      onChange={(event, newValue) =>
+                        handleMultipleChange("cores", newValue)
+                      }
+                      renderInput={(params) => (
+                        <TextField {...params} label="Cores *" />
+                      )}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            label={option}
+                            {...getTagProps({ index })}
                             size="small"
-                            onClick={() => handleRemoverItem(item.id)}
-                            sx={{ color: "#dc2626" }}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Paper>
+                          />
+                        ))
+                      }
+                    />
+                  </Grid>
 
-          {/* Totais */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              mb: 2,
-              bgcolor: "#f9fafb",
-              border: "1px solid #e5e7eb",
-              borderRadius: "12px",
-            }}
-          >
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Frete"
-                  name="frete"
-                  type="number"
-                  value={currentPedido.frete}
-                  onChange={handleChange}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">R$</InputAdornment>
-                    ),
-                  }}
-                  inputProps={{ step: "0.01", min: "0" }}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      multiple
+                      options={getTamanhosDisponiveis()}
+                      value={currentProduto.tamanhos}
+                      onChange={(event, newValue) =>
+                        handleMultipleChange("tamanhos", newValue)
+                      }
+                      renderInput={(params) => (
+                        <TextField {...params} label="Tamanhos *" />
+                      )}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            label={option}
+                            {...getTagProps({ index })}
+                            size="small"
+                          />
+                        ))
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
 
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Desconto"
-                  name="desconto"
-                  type="number"
-                  value={currentPedido.desconto}
-                  onChange={handleChange}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">R$</InputAdornment>
-                    ),
-                  }}
-                  inputProps={{ step: "0.01", min: "0" }}
-                  sx={{ bgcolor: "white" }}
-                />
-              </Grid>
+              <Divider />
 
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Valor Total"
-                  value={`R$ ${calcularTotal().toFixed(2)}`}
-                  InputProps={{ readOnly: true }}
+              <Box>
+                <Typography
+                  variant="h6"
                   sx={{
-                    bgcolor: "#dcfce7",
-                    "& .MuiInputBase-input": {
-                      fontWeight: 600,
-                      color: "#16a34a",
-                      fontSize: "18px",
-                    },
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
                   }}
-                />
-              </Grid>
+                >
+                  💰 Precificação
+                </Typography>
 
-              <Grid item xs={12}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="Preço de Custo"
+                      name="precoCusto"
+                      type="number"
+                      value={currentProduto.precoCusto}
+                      onChange={handleChange}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">R$</InputAdornment>
+                        ),
+                      }}
+                      inputProps={{ step: "0.01", min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      required
+                      label="Preço de Venda"
+                      name="precoVenda"
+                      type="number"
+                      value={currentProduto.precoVenda}
+                      onChange={handleChange}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">R$</InputAdornment>
+                        ),
+                      }}
+                      inputProps={{ step: "0.01", min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="Preço Promocional"
+                      name="precoPromocional"
+                      type="number"
+                      value={currentProduto.precoPromocional}
+                      onChange={handleChange}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">R$</InputAdornment>
+                        ),
+                      }}
+                      inputProps={{ step: "0.01", min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Margem de Lucro"
+                      value={calcularMargemLucro() + "%"}
+                      InputProps={{ readOnly: true }}
+                      sx={{
+                        bgcolor: "#dcfce7",
+                        "& .MuiInputBase-input": {
+                          fontWeight: 600,
+                          color: "#16a34a",
+                        },
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            </Stack>
+          )}
+
+          {/* ABA 3 - Estoque e Dimensões */}
+          {tabValue === 2 && (
+            <Stack spacing={4}>
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
+                  }}
+                >
+                  📊 Controle de Estoque
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Estoque Total"
+                      name="estoqueTotal"
+                      type="number"
+                      value={currentProduto.estoqueTotal}
+                      onChange={handleChange}
+                      inputProps={{ min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Estoque Mínimo"
+                      name="estoqueMinimo"
+                      type="number"
+                      value={currentProduto.estoqueMinimo}
+                      onChange={handleChange}
+                      inputProps={{ min: "0" }}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
+                  }}
+                >
+                  📏 Dimensões e Peso
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Peso (kg)"
+                      name="peso"
+                      type="number"
+                      value={currentProduto.peso}
+                      onChange={handleChange}
+                      inputProps={{ step: "0.01", min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Largura (cm)"
+                      name="largura"
+                      type="number"
+                      value={currentProduto.largura}
+                      onChange={handleChange}
+                      inputProps={{ min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Altura (cm)"
+                      name="altura"
+                      type="number"
+                      value={currentProduto.altura}
+                      onChange={handleChange}
+                      inputProps={{ min: "0" }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      fullWidth
+                      label="Comprimento (cm)"
+                      name="comprimento"
+                      type="number"
+                      value={currentProduto.comprimento}
+                      onChange={handleChange}
+                      inputProps={{ min: "0" }}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            </Stack>
+          )}
+
+          {/* ABA 4 - Imagem e Extras */}
+          {tabValue === 3 && (
+            <Stack spacing={4}>
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
+                  }}
+                >
+                  🖼️ Imagem do Produto
+                </Typography>
+
+                <TextField
+                  fullWidth
+                  label="URL da Imagem Principal"
+                  name="imagemPrincipal"
+                  value={currentProduto.imagemPrincipal}
+                  onChange={handleChange}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                />
+
+                {currentProduto.imagemPrincipal && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      bgcolor: "#f9fafb",
+                      border: "2px dashed #d1d5db",
+                      borderRadius: 2,
+                      p: 2,
+                      minHeight: 200,
+                    }}
+                  >
+                    <img
+                      src={currentProduto.imagemPrincipal}
+                      alt="Preview"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "250px",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#1f2937",
+                    mb: 3,
+                    fontSize: "16px",
+                  }}
+                >
+                  📝 Observações Internas
+                </Typography>
+
                 <TextField
                   fullWidth
                   label="Observações"
                   name="observacoes"
                   multiline
-                  rows={2}
-                  value={currentPedido.observacoes}
+                  rows={4}
+                  value={currentProduto.observacoes}
                   onChange={handleChange}
-                  placeholder="Informações adicionais sobre o pedido..."
-                  sx={{ bgcolor: "white" }}
+                  placeholder="Informações internas sobre o produto..."
                 />
-              </Grid>
-            </Grid>
-          </Paper>
+              </Box>
+            </Stack>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e7eb" }}>
@@ -801,7 +1277,7 @@ function Compras() {
               px: 4,
             }}
           >
-            {editMode ? "Atualizar Pedido" : "Salvar Pedido"}
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>
@@ -809,4 +1285,4 @@ function Compras() {
   );
 }
 
-export default Compras;
+export default Produtos;

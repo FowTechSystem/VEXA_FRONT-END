@@ -39,8 +39,8 @@ const menuSections = [
   {
     title: "Operação",
     items: [
-      { text: "Caixa / PDV", icon: <PointOfSale />, path: "/caixa" },
-      { text: "Vendas", icon: <ShoppingCart />, path: "/vendas" },
+      { text: "Vendas", icon: <PointOfSale />, path: "/caixa" },
+      { text: "Caixa", icon: <ShoppingCart />, path: "/vendas" },
     ],
   },
   {
