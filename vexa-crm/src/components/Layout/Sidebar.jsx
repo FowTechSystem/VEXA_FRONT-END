@@ -17,11 +17,10 @@ import {
   People,
   ShoppingCart,
   Inventory,
-  Store,
+  Warehouse,
   AccountCircle,
   Assessment,
   Settings,
-  Warehouse,
   ShoppingBag,
   AttachMoney,
   Receipt,
@@ -32,141 +31,159 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 const drawerWidth = 260;
 
-const menuItems = [
-  { text: "Dashboard", icon: <Dashboard />, path: "/" },
-  { text: "Caixa / PDV", icon: <PointOfSale />, path: "/caixa" },
-  { text: "Vendas", icon: <ShoppingCart />, path: "/vendas" },
-  { text: "Clientes", icon: <People />, path: "/clientes" },
-  { text: "Produtos", icon: <Inventory />, path: "/produtos" },
-  { text: "Estoque", icon: <Warehouse />, path: "/estoque" },
-  { text: "Compras", icon: <ShoppingBag />, path: "/compras" },
-  { text: "Fornecedores", icon: <LocalShipping />, path: "/fornecedores" },
-  { text: "Financeiro", icon: <AttachMoney />, path: "/financeiro" },
-  { text: "Fiscal", icon: <Receipt />, path: "/fiscal" },
-  { text: "Usuários", icon: <AccountCircle />, path: "/usuarios" },
-];
-
-const secondaryItems = [
-  { text: "Relatórios", icon: <Assessment />, path: "/relatorios" },
-  { text: "Configurações", icon: <Settings />, path: "/configuracoes" },
+const menuSections = [
+  {
+    title: "Visão Geral",
+    items: [{ text: "Dashboard", icon: <Dashboard />, path: "/" }],
+  },
+  {
+    title: "Operação",
+    items: [
+      { text: "Caixa / PDV", icon: <PointOfSale />, path: "/caixa" },
+      { text: "Vendas", icon: <ShoppingCart />, path: "/vendas" },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { text: "Produtos", icon: <Inventory />, path: "/produtos" },
+      { text: "Estoque", icon: <Warehouse />, path: "/estoque" },
+      { text: "Compras", icon: <ShoppingBag />, path: "/compras" },
+    ],
+  },
+  {
+    title: "Financeiro & Fiscal",
+    items: [
+      { text: "Financeiro", icon: <AttachMoney />, path: "/financeiro" },
+      { text: "Fiscal", icon: <Receipt />, path: "/fiscal" },
+    ],
+  },
+  {
+    title: "Cadastros",
+    items: [
+      { text: "Usuários", icon: <AccountCircle />, path: "/usuarios" },
+      { text: "Clientes", icon: <People />, path: "/clientes" },
+      { text: "Fornecedores", icon: <LocalShipping />, path: "/fornecedores" },
+    ],
+  },
+  {
+    title: "Análises",
+    items: [{ text: "Relatórios", icon: <Assessment />, path: "/relatorios" }],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { text: "Configurações", icon: <Settings />, path: "/configuracoes" },
+    ],
+  },
 ];
 
 function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
-
   const isActive = (path) => location.pathname === path;
 
   const drawer = (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "#fff",
+      }}
+    >
       {/* Logo */}
       <Toolbar
         sx={{
-          backgroundColor: "primary.main",
+          bgcolor: "primary.main",
           color: "white",
           justifyContent: "center",
         }}
       >
-        <Typography
-          variant="h5"
-          sx={{
-            fontWeight: 700,
-            letterSpacing: 2,
-          }}
-        >
+        <Typography variant="h5" fontWeight={700} letterSpacing={2}>
           VEXA
         </Typography>
       </Toolbar>
 
       <Divider />
 
-      {/* Menu Principal */}
-      <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+      {/* Menu */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          // Esconde a scrollbar em todos os navegadores
+          "&::-webkit-scrollbar": {
+            display: "none",
+          },
+          msOverflowStyle: "none",
+          scrollbarWidth: "none",
+        }}
+      >
         <List sx={{ px: 1, pt: 2 }}>
-          {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                onClick={() => {
-                  navigate(item.path);
-                  if (onDrawerToggle) onDrawerToggle();
-                }}
+          {menuSections.map((section) => (
+            <Box key={section.title} sx={{ mb: 2 }}>
+              <Typography
+                variant="caption"
                 sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive(item.path)
-                    ? "primary.main"
-                    : "transparent",
-                  color: isActive(item.path) ? "white" : "inherit",
-                  "&:hover": {
-                    backgroundColor: isActive(item.path)
-                      ? "primary.dark"
-                      : "action.hover",
-                  },
+                  px: 2,
                   mb: 0.5,
+                  color: "text.secondary",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    color: isActive(item.path) ? "white" : "primary.main",
-                    minWidth: 40,
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive(item.path) ? 600 : 400,
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
+                {section.title}
+              </Typography>
 
-        <Divider sx={{ my: 2 }} />
-
-        {/* Menu Secundário */}
-        <List sx={{ px: 1 }}>
-          {secondaryItems.map((item) => (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                onClick={() => {
-                  navigate(item.path);
-                  if (onDrawerToggle) onDrawerToggle();
-                }}
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive(item.path)
-                    ? "primary.main"
-                    : "transparent",
-                  color: isActive(item.path) ? "white" : "inherit",
-                  "&:hover": {
-                    backgroundColor: isActive(item.path)
-                      ? "primary.dark"
-                      : "action.hover",
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive(item.path) ? "white" : "text.secondary",
-                    minWidth: 40,
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
+              {section.items.map((item) => (
+                <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                  <ListItemButton
+                    onClick={() => {
+                      navigate(item.path);
+                      if (onDrawerToggle) onDrawerToggle();
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      bgcolor: isActive(item.path)
+                        ? "primary.main"
+                        : "transparent",
+                      color: isActive(item.path) ? "white" : "text.primary",
+                      "&:hover": {
+                        bgcolor: isActive(item.path)
+                          ? "primary.dark"
+                          : "action.hover",
+                      },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 40,
+                        color: isActive(item.path) ? "white" : "text.secondary",
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontWeight: isActive(item.path) ? 600 : 400,
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </Box>
           ))}
         </List>
       </Box>
 
       {/* Footer */}
-      <Box sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
+      <Box sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}>
         <Typography
           variant="caption"
-          color="textSecondary"
+          color="text.secondary"
           align="center"
           display="block"
         >
@@ -174,7 +191,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         </Typography>
         <Typography
           variant="caption"
-          color="textSecondary"
+          color="text.secondary"
           align="center"
           display="block"
         >
@@ -186,7 +203,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* Desktop */}
       <Drawer
         variant="permanent"
         sx={{
@@ -194,7 +211,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
           display: { xs: "none", sm: "block" },
           "& .MuiDrawer-paper": {
             width: drawerWidth,
-            boxSizing: "border-box",
+            bgcolor: "#fff",
             borderRight: "1px solid",
             borderColor: "divider",
           },
@@ -203,19 +220,17 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         {drawer}
       </Drawer>
 
-      {/* Mobile Sidebar */}
+      {/* Mobile */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
         onClose={onDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Melhor performance no mobile
-        }}
+        ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: "block", sm: "none" },
           "& .MuiDrawer-paper": {
             width: drawerWidth,
-            boxSizing: "border-box",
+            bgcolor: "#fff",
           },
         }}
       >
