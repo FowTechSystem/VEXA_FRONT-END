@@ -1,5 +1,5 @@
 // src/components/Layout/Header.jsx
-import React, { useState } from "react"; // ADICIONE useState
+import React, { useState, useContext } from "react"; // ADICIONE useState
 import { useNavigate } from "react-router-dom";
 import {
   AppBar,
@@ -18,12 +18,16 @@ import {
   AccountCircle,
   Settings,
   Logout,
+  Brightness4,
+  Brightness7,
 } from "@mui/icons-material";
+import { ThemeContext } from "../../contexts/ThemeContext";
 import UserProfileDrawer from "../UserProfileDrawer"; // IMPORTE O DRAWER
 
 function Header({ onMenuClick }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false); // ADICIONE ESTE STATE
+  const { mode, toggleTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
 
   const handleMenu = (event) => {
@@ -81,6 +85,10 @@ function Header({ onMenuClick }) {
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <IconButton color="inherit" onClick={toggleTheme}>
+              {mode === "dark" ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
+
             <IconButton color="inherit">
               <Badge badgeContent={4} color="secondary">
                 <Notifications />
