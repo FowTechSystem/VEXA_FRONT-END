@@ -95,7 +95,13 @@ function Usuarios() {
     const fetchUsuarios = async () => {
       try {
         const response = await api.get("/usuarios");
-        const usuariosArray = Array.isArray(response.data) ? response.data : [];
+        console.log("Resposta completa:", response.data); // Debug
+
+        // A API retorna um objeto com a propriedade 'usuarios'
+        const usuariosArray = Array.isArray(response.data.usuarios)
+          ? response.data.usuarios
+          : [];
+
         setUsuarios(usuariosArray);
         setUsuariosFiltrados(usuariosArray);
       } catch (error) {
@@ -111,7 +117,12 @@ function Usuarios() {
   const recarregarUsuarios = async () => {
     try {
       const response = await api.get("/usuarios");
-      const usuariosArray = Array.isArray(response.data) ? response.data : [];
+
+      // Mesma correção aqui
+      const usuariosArray = Array.isArray(response.data.usuarios)
+        ? response.data.usuarios
+        : [];
+
       setUsuarios(usuariosArray);
       setUsuariosFiltrados(usuariosArray);
     } catch (error) {
