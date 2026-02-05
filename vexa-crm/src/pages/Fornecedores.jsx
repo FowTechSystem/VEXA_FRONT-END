@@ -10,6 +10,8 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  Avatar,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,6 +34,30 @@ function TabPanel({ children, value, index }) {
     </div>
   );
 }
+
+const getInitials = (nome) => {
+  if (!nome) return "?";
+  const parts = nome.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return nome.substring(0, 2).toUpperCase();
+};
+
+const getAvatarColor = (nome) => {
+  const colors = [
+    "#ef4444",
+    "#f59e0b",
+    "#10b981",
+    "#3b82f6",
+    "#8b5cf6",
+    "#ec4899",
+    "#06b6d4",
+    "#14b8a6",
+  ];
+  const index = nome?.charCodeAt(0) % colors.length || 0;
+  return colors[index];
+};
 
 function Fornecedores() {
   const [fornecedores, setFornecedores] = useState([]);
@@ -350,7 +376,7 @@ function Fornecedores() {
                   py: 2,
                 }}
               >
-                NOME
+                FORNECEDOR
               </TableCell>
               <TableCell
                 sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
@@ -360,12 +386,12 @@ function Fornecedores() {
               <TableCell
                 sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
               >
-                TELEFONE
+                CNPJ
               </TableCell>
               <TableCell
                 sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
               >
-                CNPJ
+                TELEFONE
               </TableCell>
               <TableCell
                 align="right"
@@ -388,19 +414,53 @@ function Fornecedores() {
                         : "1px solid #f3f4f6",
                   }}
                 >
-                  <TableCell
-                    sx={{ color: "#111827", fontWeight: 500, py: 2.5 }}
-                  >
-                    {fornecedor.nome}
+                  <TableCell sx={{ py: 2.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: getAvatarColor(fornecedor.nome),
+                          width: 40,
+                          height: 40,
+                          fontWeight: 600,
+                          fontSize: "14px",
+                        }}
+                      >
+                        {getInitials(fornecedor.nome)}
+                      </Avatar>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 500, color: "#111827" }}
+                      >
+                        {fornecedor.nome}
+                      </Typography>
+                    </Box>
                   </TableCell>
                   <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
                     {fornecedor.email || "—"}
                   </TableCell>
-                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
-                    {fornecedor.telefone || "—"}
+                  <TableCell>
+                    <Chip
+                      label={fornecedor.cnpj || "Sem CNPJ"}
+                      size="small"
+                      sx={{
+                        bgcolor: "#f3f4f6",
+                        color: "#374151",
+                        fontWeight: 500,
+                        fontSize: "12px",
+                      }}
+                    />
                   </TableCell>
-                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
-                    {fornecedor.cnpj || "—"}
+                  <TableCell>
+                    <Chip
+                      label={fornecedor.telefone || "Sem telefone"}
+                      size="small"
+                      sx={{
+                        bgcolor: "#f3f4f6",
+                        color: "#374151",
+                        fontWeight: 500,
+                        fontSize: "12px",
+                      }}
+                    />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
