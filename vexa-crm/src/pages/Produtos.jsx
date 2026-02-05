@@ -335,7 +335,7 @@ function Produtos() {
   };
 
   useEffect(() => {
-    fetchProdutos();
+    //etchProdutos();
   }, []);
 
   return (
