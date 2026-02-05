@@ -1,5 +1,5 @@
 // src/pages/Produtos.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -158,11 +158,16 @@ function Produtos() {
   });
 
   const fetchProdutos = async () => {
+    console.log("Iniciando fetchProdutos...");
     try {
+      console.log("Chamando produtosService.getAll()...");
       const data = await produtosService.getAll();
+      console.log("Dados recebidos:", data);
       const produtosArray = Array.isArray(data) ? data : [];
+      console.log("Produtos array:", produtosArray);
       setProdutos(produtosArray);
       setProdutosFiltrados(produtosArray);
+      console.log("Produtos carregados com sucesso");
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
       setProdutos([]);
@@ -328,6 +333,10 @@ function Produtos() {
     }
     return TAMANHOS_ROUPA;
   };
+
+  useEffect(() => {
+    //etchProdutos();
+  }, []);
 
   return (
     <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
