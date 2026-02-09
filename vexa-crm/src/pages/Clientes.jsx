@@ -43,6 +43,10 @@ import {
   Close,
 } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
+import { FornecedorService } from "../api/fornecedorService";
+import { CategoriaService } from "../api/categoriaService";
+import { MarcaService } from "../api/marcaService";
+import { Autocomplete } from "@mui/material";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
 import {
   successMessages,
