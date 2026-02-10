@@ -41,6 +41,12 @@ import {
   CameraAlt,
 } from "@mui/icons-material";
 import api from "../api/axiosConfig";
+import { showSuccess, showError } from "../utils/notifications";
+import {
+  successMessages,
+  errorMessages,
+  entityNames,
+} from "../utils/entityMessages";
 
 // Componente TabPanel
 function TabPanel({ children, value, index }) {
@@ -106,6 +112,7 @@ function Usuarios() {
         setUsuariosFiltrados(usuariosArray);
       } catch (error) {
         console.error("Erro ao buscar usuários:", error);
+        showError(errorMessages.fetch(entityNames.usuarios));
         setUsuarios([]);
         setUsuariosFiltrados([]);
       }
@@ -127,6 +134,7 @@ function Usuarios() {
       setUsuariosFiltrados(usuariosArray);
     } catch (error) {
       console.error("Erro ao buscar usuários:", error);
+      showError(errorMessages.fetch(entityNames.usuarios));
       setUsuarios([]);
       setUsuariosFiltrados([]);
     }
@@ -223,36 +231,55 @@ function Usuarios() {
 
   const handleSave = async () => {
     if (!currentUsuario.nome?.trim()) {
-      alert("Nome é obrigatório");
+      showError("Nome é obrigatório");
       return;
     }
 
     if (!currentUsuario.email?.trim()) {
-      alert("Email é obrigatório");
+      showError("Email é obrigatório");
       return;
     }
 
     if (!editMode && !currentUsuario.senha) {
-      alert("Senha é obrigatória para novos usuários");
+      showError("Senha é obrigatória para novos usuários");
       return;
     }
 
     if (!currentUsuario.perfil) {
-      alert("Perfil é obrigatório");
+      showError("Perfil é obrigatório");
       return;
     }
 
     try {
       if (editMode) {
         await api.put(`/usuarios/${currentUsuario.id}`, currentUsuario);
+        showSuccess(successMessages.update(entityNames.usuario));
       } else {
         await api.post("/usuarios", currentUsuario);
+        showSuccess(successMessages.create(entityNames.usuario));
       }
       recarregarUsuarios();
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar usuário:", error);
-      alert("Erro ao salvar usuário. Tente novamente.");
+
+      if (error.response) {
+        const errorData = error.response.data;
+        if (errorData.errors) {
+          const firstError = Object.values(errorData.errors)[0];
+          showError(firstError[0] || errorMessages.create(entityNames.usuario));
+        } else {
+          showError(
+            errorData.message || errorMessages.create(entityNames.usuario),
+          );
+        }
+      } else {
+        showError(
+          editMode
+            ? errorMessages.update(entityNames.usuario)
+            : errorMessages.create(entityNames.usuario),
+        );
+      }
     }
   };
 
@@ -260,10 +287,11 @@ function Usuarios() {
     if (window.confirm("Deseja realmente excluir este usuário?")) {
       try {
         await api.delete(`/usuarios/${id}`);
+        showSuccess(successMessages.delete(entityNames.usuario));
         recarregarUsuarios();
       } catch (error) {
         console.error("Erro ao excluir usuário:", error);
-        alert("Erro ao excluir usuário.");
+        showError(errorMessages.delete(entityNames.usuario));
       }
     }
   };

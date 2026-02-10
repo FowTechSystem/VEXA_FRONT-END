@@ -41,6 +41,14 @@ import {
   CloudUpload,
 } from "@mui/icons-material";
 import { produtosService } from "../api/produtosService";
+import { showSuccess, showError } from "../utils/notifications";
+import {
+  successMessages,
+  errorMessages,
+  confirmMessages,
+  entityNames,
+} from "../utils/entityMessages";
+import { validateRequired } from "../utils/validators";
 
 // Transição para o Dialog
 const Transition = React.forwardRef(function Transition(props, ref) {
@@ -236,13 +244,32 @@ function Produtos() {
   };
 
   const handleSave = async () => {
-    if (!currentProduto.nome?.trim()) {
-      alert("Nome do produto é obrigatório");
+    // Validações
+    const nomeValidation = validateRequired(
+      currentProduto.nome,
+      "Nome do Produto",
+    );
+    if (!nomeValidation.valid) {
+      showError(nomeValidation.message);
       return;
     }
 
-    if (!currentProduto.categoria) {
-      alert("Categoria é obrigatória");
+    const categoriaValidation = validateRequired(
+      currentProduto.categoria,
+      "Categoria",
+    );
+    if (!categoriaValidation.valid) {
+      showError(categoriaValidation.message);
+      return;
+    }
+
+    if (currentProduto.cores.length === 0) {
+      showError("Selecione pelo menos uma cor");
+      return;
+    }
+
+    if (currentProduto.tamanhos.length === 0) {
+      showError("Selecione pelo menos um tamanho");
       return;
     }
 
@@ -250,17 +277,7 @@ function Produtos() {
       !currentProduto.precoVenda ||
       parseFloat(currentProduto.precoVenda) <= 0
     ) {
-      alert("Preço de venda deve ser maior que zero");
-      return;
-    }
-
-    if (currentProduto.cores.length === 0) {
-      alert("Selecione pelo menos uma cor");
-      return;
-    }
-
-    if (currentProduto.tamanhos.length === 0) {
-      alert("Selecione pelo menos um tamanho");
+      showError("Preço de venda deve ser maior que zero");
       return;
     }
 
@@ -279,25 +296,45 @@ function Produtos() {
 
       if (editMode) {
         await produtosService.update(currentProduto.id, produtoParaSalvar);
+        showSuccess(successMessages.update(entityNames.produto));
       } else {
         await produtosService.create(produtoParaSalvar);
+        showSuccess(successMessages.create(entityNames.produto));
       }
       fetchProdutos();
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar produto:", error);
-      alert("Erro ao salvar produto. Tente novamente.");
+
+      if (error.response) {
+        const errorData = error.response.data;
+        if (errorData.errors) {
+          const firstError = Object.values(errorData.errors)[0];
+          showError(firstError[0] || errorMessages.create(entityNames.produto));
+        } else {
+          showError(
+            errorData.message || errorMessages.create(entityNames.produto),
+          );
+        }
+      } else {
+        showError(
+          editMode
+            ? errorMessages.update(entityNames.produto)
+            : errorMessages.create(entityNames.produto),
+        );
+      }
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir este produto?")) {
+    if (window.confirm(confirmMessages.delete(entityNames.produto))) {
       try {
         await produtosService.delete(id);
+        showSuccess(successMessages.delete(entityNames.produto));
         fetchProdutos();
       } catch (error) {
         console.error("Erro ao excluir produto:", error);
-        alert("Erro ao excluir produto.");
+        showError(errorMessages.delete(entityNames.produto));
       }
     }
   };

@@ -25,6 +25,13 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, Search, Close } from "@mui/icons-material";
 import { FornecedorService } from "../api/fornecedorService";
+import { showSuccess, showError } from "../utils/notifications";
+import {
+  successMessages,
+  errorMessages,
+  confirmMessages,
+  entityNames,
+} from "../utils/entityMessages";
 
 // Componente TabPanel
 function TabPanel({ children, value, index }) {
@@ -108,6 +115,7 @@ function Fornecedores() {
       setFornecedoresFiltrados(fornecedoresArray);
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error);
+      showError(errorMessages.fetch(entityNames.fornecedores));
       setFornecedores([]);
       setFornecedoresFiltrados([]);
     }
@@ -217,29 +225,48 @@ function Fornecedores() {
 
       if (editMode) {
         await FornecedorService.update(currentFornecedor.id, fornecedorData);
+        showSuccess(successMessages.update(entityNames.fornecedor));
       } else {
         await FornecedorService.create(fornecedorData);
+        showSuccess(successMessages.create(entityNames.fornecedor));
       }
 
       fetchFornecedores();
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar fornecedor:", error);
-      const errorMessage = error.response?.data?.errors
-        ? JSON.stringify(error.response.data.errors, null, 2)
-        : error.response?.data?.mensagem || error.message;
-      alert(`Erro ao salvar: ${errorMessage}`);
+
+      if (error.response) {
+        const errorData = error.response.data;
+        if (errorData.errors) {
+          const firstError = Object.values(errorData.errors)[0];
+          showError(
+            firstError[0] || errorMessages.create(entityNames.fornecedor),
+          );
+        } else {
+          showError(
+            errorData.message || errorMessages.create(entityNames.fornecedor),
+          );
+        }
+      } else {
+        showError(
+          editMode
+            ? errorMessages.update(entityNames.fornecedor)
+            : errorMessages.create(entityNames.fornecedor),
+        );
+      }
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir este fornecedor?")) {
+    if (window.confirm(confirmMessages.delete(entityNames.fornecedor))) {
       try {
         await FornecedorService.delete(id);
+        showSuccess(successMessages.delete(entityNames.fornecedor));
         fetchFornecedores();
       } catch (error) {
         console.error("Erro ao excluir fornecedor:", error);
-        alert("Erro ao excluir fornecedor");
+        showError(errorMessages.delete(entityNames.fornecedor));
       }
     }
   };
