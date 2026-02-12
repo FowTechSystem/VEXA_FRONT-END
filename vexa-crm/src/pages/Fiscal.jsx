@@ -35,6 +35,10 @@ import {
   Description,
   Close,
   Search,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 
 const TIPOS_NOTA = {
@@ -64,6 +68,11 @@ const STATUS_NOTA = {
 function Fiscal() {
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Estados para paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const notasPorPagina = 10;
+
   const [notas, setNotas] = useState([
     {
       id: 1,
@@ -87,6 +96,28 @@ function Fiscal() {
     valor: "",
     observacoes: "",
   });
+
+  // Filtrar notas
+  const notasFiltradas = notas.filter(
+    (n) =>
+      n.numero.includes(searchTerm) ||
+      n.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      n.chaveAcesso.includes(searchTerm),
+  );
+
+  // Cálculos de paginação
+  const totalPaginas = Math.ceil(notasFiltradas.length / notasPorPagina);
+  const indiceInicial = (paginaAtual - 1) * notasPorPagina;
+  const indiceFinal = indiceInicial + notasPorPagina;
+  const notasPaginadas = notasFiltradas.slice(indiceInicial, indiceFinal);
+
+  // Funções de navegação de página
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
 
   const handleOpenDialog = () => {
     setCurrentNota({
@@ -133,18 +164,19 @@ function Fiscal() {
     setTimeout(() => {
       setNotas((prev) =>
         prev.map((n) =>
-          n.id === novaNota.id ? { ...n, status: "autorizada" } : n
-        )
+          n.id === novaNota.id ? { ...n, status: "autorizada" } : n,
+        ),
       );
     }, 2000);
 
+    setPaginaAtual(1); // Volta para a primeira página
     handleCloseDialog();
   };
 
   const handleCancelarNota = (notaId) => {
     if (window.confirm("Deseja realmente cancelar esta nota fiscal?")) {
       setNotas(
-        notas.map((n) => (n.id === notaId ? { ...n, status: "cancelada" } : n))
+        notas.map((n) => (n.id === notaId ? { ...n, status: "cancelada" } : n)),
       );
     }
   };
@@ -157,12 +189,10 @@ function Fiscal() {
     alert(`Download PDF da nota ${nota.numero}`);
   };
 
-  const notasFiltradas = notas.filter(
-    (n) =>
-      n.numero.includes(searchTerm) ||
-      n.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.chaveAcesso.includes(searchTerm)
-  );
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPaginaAtual(1); // Volta para a primeira página ao buscar
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
@@ -310,7 +340,7 @@ function Fiscal() {
             fullWidth
             placeholder="Buscar por número, cliente ou chave de acesso..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -342,40 +372,53 @@ function Fiscal() {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: "13px",
+                    py: 2,
+                  }}
+                >
                   NÚMERO
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   TIPO
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   CLIENTE
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   DATA EMISSÃO
                 </TableCell>
                 <TableCell
                   align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
                 >
                   VALOR
                 </TableCell>
                 <TableCell
                   align="center"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
                 >
                   STATUS
                 </TableCell>
                 <TableCell
                   align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
                 >
                   AÇÕES
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {notasFiltradas.length === 0 ? (
+              {notasPaginadas.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
@@ -386,18 +429,27 @@ function Fiscal() {
                     <Typography variant="body1">
                       Nenhuma nota fiscal encontrada
                     </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      Clique em "Emitir Nota" para começar
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                notasFiltradas.map((nota) => {
+                notasPaginadas.map((nota, index) => {
                   const tipo = TIPOS_NOTA[nota.tipo];
                   const status = STATUS_NOTA[nota.status];
                   return (
                     <TableRow
                       key={nota.id}
-                      sx={{ "&:hover": { bgcolor: "#f9fafb" } }}
+                      sx={{
+                        "&:hover": { bgcolor: "#f9fafb" },
+                        borderBottom:
+                          index === notasPaginadas.length - 1
+                            ? "none"
+                            : "1px solid #f3f4f6",
+                      }}
                     >
-                      <TableCell>
+                      <TableCell sx={{ py: 2.5 }}>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {nota.numero} / {nota.serie}
                         </Typography>
@@ -416,14 +468,20 @@ function Fiscal() {
                             bgcolor: `${tipo.color}20`,
                             color: tipo.color,
                             fontWeight: 500,
+                            fontSize: "12px",
                           }}
                         />
                       </TableCell>
-                      <TableCell>{nota.cliente}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                        {nota.cliente}
+                      </TableCell>
+                      <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
                         {new Date(nota.dataEmissao).toLocaleDateString("pt-BR")}
                       </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 500 }}>
+                      <TableCell
+                        align="right"
+                        sx={{ fontWeight: 500, fontSize: "14px" }}
+                      >
                         R$ {nota.valor.toFixed(2)}
                       </TableCell>
                       <TableCell align="center">
@@ -434,6 +492,7 @@ function Fiscal() {
                             bgcolor: status.bgcolor,
                             color: status.color,
                             fontWeight: 500,
+                            fontSize: "12px",
                           }}
                         />
                       </TableCell>
@@ -442,6 +501,10 @@ function Fiscal() {
                           size="small"
                           onClick={() => handleDownloadXML(nota)}
                           title="Download XML"
+                          sx={{
+                            color: "#6b7280",
+                            "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                          }}
                         >
                           <Description fontSize="small" />
                         </IconButton>
@@ -449,6 +512,10 @@ function Fiscal() {
                           size="small"
                           onClick={() => handleDownloadPDF(nota)}
                           title="Download PDF"
+                          sx={{
+                            color: "#6b7280",
+                            "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                          }}
                         >
                           <Print fontSize="small" />
                         </IconButton>
@@ -456,8 +523,14 @@ function Fiscal() {
                           <IconButton
                             size="small"
                             onClick={() => handleCancelarNota(nota.id)}
-                            sx={{ color: "#dc2626" }}
                             title="Cancelar Nota"
+                            sx={{
+                              color: "#6b7280",
+                              "&:hover": {
+                                bgcolor: "#fef2f2",
+                                color: "#dc2626",
+                              },
+                            }}
                           >
                             <Cancel fontSize="small" />
                           </IconButton>
@@ -470,6 +543,146 @@ function Fiscal() {
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Controles de Paginação */}
+        {notasFiltradas.length > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial + 1} a{" "}
+              {Math.min(indiceFinal, notasFiltradas.length)} de{" "}
+              {notasFiltradas.length}{" "}
+              {notasFiltradas.length === 1 ? "nota" : "notas"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {/* Botão Primeira Página */}
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              {/* Botão Página Anterior */}
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              {/* Números de Página */}
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    // Mostra apenas páginas próximas à atual
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              {/* Botão Próxima Página */}
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              {/* Botão Última Página */}
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
       {/* Dialog de Emissão */}
@@ -485,10 +698,13 @@ function Fiscal() {
         <DialogTitle
           sx={{
             fontWeight: 600,
+            fontSize: "20px",
             borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            py: 2,
+            px: 3,
           }}
         >
           Emitir Nota Fiscal
@@ -504,7 +720,7 @@ function Fiscal() {
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required size="small">
                 <InputLabel>Tipo de Nota</InputLabel>
                 <Select
                   name="tipo"
@@ -530,6 +746,7 @@ function Fiscal() {
                 value={currentNota.numero}
                 onChange={handleChange}
                 InputProps={{ readOnly: true }}
+                size="small"
               />
             </Grid>
 
@@ -541,6 +758,7 @@ function Fiscal() {
                 name="serie"
                 value={currentNota.serie}
                 onChange={handleChange}
+                size="small"
               />
             </Grid>
 
@@ -553,6 +771,7 @@ function Fiscal() {
                 value={currentNota.cliente}
                 onChange={handleChange}
                 placeholder="Nome do cliente"
+                size="small"
               />
             </Grid>
 
@@ -564,6 +783,7 @@ function Fiscal() {
                 value={currentNota.cpfCnpj}
                 onChange={handleChange}
                 placeholder="000.000.000-00"
+                size="small"
               />
             </Grid>
 
@@ -582,6 +802,7 @@ function Fiscal() {
                   ),
                 }}
                 inputProps={{ step: "0.01", min: "0" }}
+                size="small"
               />
             </Grid>
 
@@ -595,15 +816,23 @@ function Fiscal() {
                 value={currentNota.observacoes}
                 onChange={handleChange}
                 placeholder="Informações adicionais..."
+                size="small"
               />
             </Grid>
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e7eb" }}>
+        <DialogActions
+          sx={{ px: 3, pb: 2.5, pt: 2, borderTop: "1px solid #e5e7eb" }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>

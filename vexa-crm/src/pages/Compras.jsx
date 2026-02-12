@@ -41,6 +41,10 @@ import {
   AttachMoney,
   Category,
   Palette,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 import { produtosService } from "../api/produtosService";
 
@@ -127,6 +131,10 @@ function Produtos() {
   const [editMode, setEditMode] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
+  // Estados para paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const produtosPorPagina = 10;
+
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
     descricao: "",
@@ -155,12 +163,27 @@ function Produtos() {
     ativo: true,
   });
 
+  // Cálculos de paginação
+  const totalPaginas = Math.ceil(produtosFiltrados.length / produtosPorPagina);
+  const indiceInicial = (paginaAtual - 1) * produtosPorPagina;
+  const indiceFinal = indiceInicial + produtosPorPagina;
+  const produtosPaginados = produtosFiltrados.slice(indiceInicial, indiceFinal);
+
+  // Funções de navegação de página
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
+
   const fetchProdutos = async () => {
     try {
       const data = await produtosService.getAll();
       const produtosArray = Array.isArray(data) ? data : [];
       setProdutos(produtosArray);
       setProdutosFiltrados(produtosArray);
+      setPaginaAtual(1); // Volta para a primeira página
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
       setProdutos([]);
@@ -185,6 +208,7 @@ function Produtos() {
       );
       setProdutosFiltrados(filtrados);
     }
+    setPaginaAtual(1); // Volta para a primeira página ao filtrar
   };
 
   const handleOpenDialog = (produto = null) => {
@@ -553,15 +577,15 @@ function Produtos() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(produtosFiltrados) &&
-            produtosFiltrados.length > 0 ? (
-              produtosFiltrados.map((produto, index) => (
+            {Array.isArray(produtosPaginados) &&
+            produtosPaginados.length > 0 ? (
+              produtosPaginados.map((produto, index) => (
                 <TableRow
                   key={produto.id}
                   sx={{
                     "&:hover": { bgcolor: "#f9fafb" },
                     borderBottom:
-                      index === produtosFiltrados.length - 1
+                      index === produtosPaginados.length - 1
                         ? "none"
                         : "1px solid #f3f4f6",
                   }}
@@ -635,7 +659,7 @@ function Produtos() {
                   </TableCell>
                   <TableCell
                     align="right"
-                    sx={{ color: "#111827", fontWeight: 500 }}
+                    sx={{ color: "#111827", fontWeight: 500, fontSize: "14px" }}
                   >
                     {produto.emPromocao && produto.precoPromocional ? (
                       <Box>
@@ -728,6 +752,146 @@ function Produtos() {
             )}
           </TableBody>
         </Table>
+
+        {/* Controles de Paginação */}
+        {produtosFiltrados.length > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial + 1} a{" "}
+              {Math.min(indiceFinal, produtosFiltrados.length)} de{" "}
+              {produtosFiltrados.length}{" "}
+              {produtosFiltrados.length === 1 ? "produto" : "produtos"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {/* Botão Primeira Página */}
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              {/* Botão Página Anterior */}
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              {/* Números de Página */}
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    // Mostra apenas páginas próximas à atual
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              {/* Botão Próxima Página */}
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              {/* Botão Última Página */}
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </TableContainer>
 
       {/* Dialog Normal com Abas - FUNDO BRANCO */}
@@ -743,10 +907,13 @@ function Produtos() {
         <DialogTitle
           sx={{
             fontWeight: 600,
+            fontSize: "20px",
             borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            py: 2,
+            px: 3,
           }}
         >
           {editMode ? "Editar Produto" : "Novo Produto"}
@@ -766,6 +933,13 @@ function Produtos() {
               textTransform: "none",
               fontWeight: 500,
               fontSize: "14px",
+              color: "#6b7280",
+            },
+            "& .Mui-selected": {
+              color: "#2563eb",
+            },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563eb",
             },
           }}
         >
@@ -801,11 +975,12 @@ function Produtos() {
                     value={currentProduto.nome}
                     onChange={handleChange}
                     placeholder="Ex: Vestido Floral"
+                    size="small"
                   />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required>
+                  <FormControl fullWidth required size="small">
                     <InputLabel>Categoria</InputLabel>
                     <Select
                       name="categoria"
@@ -829,11 +1004,12 @@ function Produtos() {
                     name="marca"
                     value={currentProduto.marca}
                     onChange={handleChange}
+                    size="small"
                   />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Gênero</InputLabel>
                     <Select
                       name="genero"
@@ -851,7 +1027,7 @@ function Produtos() {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth size="small">
                     <InputLabel>Material</InputLabel>
                     <Select
                       name="material"
@@ -875,6 +1051,7 @@ function Produtos() {
                     name="sku"
                     value={currentProduto.sku}
                     onChange={handleChange}
+                    size="small"
                   />
                 </Grid>
 
@@ -885,6 +1062,7 @@ function Produtos() {
                     name="codigoBarras"
                     value={currentProduto.codigoBarras}
                     onChange={handleChange}
+                    size="small"
                   />
                 </Grid>
 
@@ -895,6 +1073,7 @@ function Produtos() {
                     name="fornecedor"
                     value={currentProduto.fornecedor}
                     onChange={handleChange}
+                    size="small"
                   />
                 </Grid>
 
@@ -907,6 +1086,7 @@ function Produtos() {
                     rows={3}
                     value={currentProduto.descricao}
                     onChange={handleChange}
+                    size="small"
                   />
                 </Grid>
               </Grid>
@@ -939,7 +1119,7 @@ function Produtos() {
                         handleMultipleChange("cores", newValue)
                       }
                       renderInput={(params) => (
-                        <TextField {...params} label="Cores *" />
+                        <TextField {...params} label="Cores *" size="small" />
                       )}
                       renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
@@ -962,7 +1142,11 @@ function Produtos() {
                         handleMultipleChange("tamanhos", newValue)
                       }
                       renderInput={(params) => (
-                        <TextField {...params} label="Tamanhos *" />
+                        <TextField
+                          {...params}
+                          label="Tamanhos *"
+                          size="small"
+                        />
                       )}
                       renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
@@ -1008,6 +1192,7 @@ function Produtos() {
                         ),
                       }}
                       inputProps={{ step: "0.01", min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1026,6 +1211,7 @@ function Produtos() {
                         ),
                       }}
                       inputProps={{ step: "0.01", min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1043,6 +1229,7 @@ function Produtos() {
                         ),
                       }}
                       inputProps={{ step: "0.01", min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1059,6 +1246,7 @@ function Produtos() {
                           color: "#16a34a",
                         },
                       }}
+                      size="small"
                     />
                   </Grid>
                 </Grid>
@@ -1092,6 +1280,7 @@ function Produtos() {
                       value={currentProduto.estoqueTotal}
                       onChange={handleChange}
                       inputProps={{ min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1104,6 +1293,7 @@ function Produtos() {
                       value={currentProduto.estoqueMinimo}
                       onChange={handleChange}
                       inputProps={{ min: "0" }}
+                      size="small"
                     />
                   </Grid>
                 </Grid>
@@ -1134,6 +1324,7 @@ function Produtos() {
                       value={currentProduto.peso}
                       onChange={handleChange}
                       inputProps={{ step: "0.01", min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1146,6 +1337,7 @@ function Produtos() {
                       value={currentProduto.largura}
                       onChange={handleChange}
                       inputProps={{ min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1158,6 +1350,7 @@ function Produtos() {
                       value={currentProduto.altura}
                       onChange={handleChange}
                       inputProps={{ min: "0" }}
+                      size="small"
                     />
                   </Grid>
 
@@ -1170,6 +1363,7 @@ function Produtos() {
                       value={currentProduto.comprimento}
                       onChange={handleChange}
                       inputProps={{ min: "0" }}
+                      size="small"
                     />
                   </Grid>
                 </Grid>
@@ -1200,6 +1394,7 @@ function Produtos() {
                   value={currentProduto.imagemPrincipal}
                   onChange={handleChange}
                   placeholder="https://exemplo.com/imagem.jpg"
+                  size="small"
                 />
 
                 {currentProduto.imagemPrincipal && (
@@ -1253,16 +1448,24 @@ function Produtos() {
                   value={currentProduto.observacoes}
                   onChange={handleChange}
                   placeholder="Informações internas sobre o produto..."
+                  size="small"
                 />
               </Box>
             </Stack>
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e7eb" }}>
+        <DialogActions
+          sx={{ px: 3, pb: 2.5, pt: 2, borderTop: "1px solid #e5e7eb" }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>

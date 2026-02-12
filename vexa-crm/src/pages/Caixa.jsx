@@ -18,6 +18,14 @@ import {
   Alert,
   Container,
   Stack,
+  Tab,
+  Tabs,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import {
   ShoppingCart,
@@ -32,6 +40,13 @@ import {
   ArrowBack,
   ArrowForward,
   QrCodeScanner,
+  Receipt,
+  History,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
+  FilterList,
 } from "@mui/icons-material";
 
 const FORMAS_PAGAMENTO = [
@@ -44,12 +59,78 @@ const FORMAS_PAGAMENTO = [
 const ETAPAS = ["Produtos", "Pagamento", "Confirmação"];
 
 function Caixa() {
+  const [tabAtual, setTabAtual] = useState(0);
   const [etapaAtual, setEtapaAtual] = useState(0);
   const [carrinho, setCarrinho] = useState([]);
   const [searchProduto, setSearchProduto] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [desconto, setDesconto] = useState(0);
+
+  // Estados para histórico e paginação
+  const [vendas, setVendas] = useState([
+    {
+      id: 1,
+      data: "2026-02-12T10:30:00",
+      itens: 3,
+      total: 150.0,
+      formaPagamento: "credito",
+      desconto: 0,
+      status: "finalizada",
+    },
+    {
+      id: 2,
+      data: "2026-02-11T14:20:00",
+      itens: 2,
+      total: 89.9,
+      formaPagamento: "pix",
+      desconto: 10.0,
+      status: "finalizada",
+    },
+    // Adicione mais vendas de exemplo aqui
+  ]);
+
+  // Filtro de data - Primeiro e último dia do mês atual
+  const obterPrimeiroDiaMes = () => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+  };
+
+  const obterUltimoDiaMes = () => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
+      .toISOString()
+      .split("T")[0];
+  };
+
+  const [dataInicio, setDataInicio] = useState(obterPrimeiroDiaMes());
+  const [dataFim, setDataFim] = useState(obterUltimoDiaMes());
+
+  // Estados de paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const vendasPorPagina = 10;
+
+  // Filtrar vendas por data
+  const vendasFiltradas = vendas.filter((venda) => {
+    const dataVenda = new Date(venda.data).toISOString().split("T")[0];
+    return dataVenda >= dataInicio && dataVenda <= dataFim;
+  });
+
+  // Cálculos de paginação
+  const totalPaginas = Math.ceil(vendasFiltradas.length / vendasPorPagina);
+  const indiceInicial = (paginaAtual - 1) * vendasPorPagina;
+  const indiceFinal = indiceInicial + vendasPorPagina;
+  const vendasPaginadas = vendasFiltradas.slice(indiceInicial, indiceFinal);
+
+  // Funções de navegação
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
 
   const handleRemoverProduto = (id) => {
     setCarrinho(carrinho.filter((item) => item.id !== id));
@@ -62,15 +143,15 @@ function Caixa() {
     }
     setCarrinho(
       carrinho.map((item) =>
-        item.id === id ? { ...item, quantidade: novaQuantidade } : item
-      )
+        item.id === id ? { ...item, quantidade: novaQuantidade } : item,
+      ),
     );
   };
 
   const calcularSubtotal = () => {
     return carrinho.reduce(
       (acc, item) => acc + item.precoVenda * item.quantidade,
-      0
+      0,
     );
   };
 
@@ -108,6 +189,19 @@ function Caixa() {
   };
 
   const finalizarVenda = () => {
+    const novaVenda = {
+      id: Date.now(),
+      data: new Date().toISOString(),
+      itens: carrinho.length,
+      total: calcularTotal(),
+      formaPagamento,
+      desconto,
+      status: "finalizada",
+      produtos: carrinho,
+    };
+
+    setVendas([novaVenda, ...vendas]);
+
     console.log("Venda finalizada:", {
       itens: carrinho,
       subtotal: calcularSubtotal(),
@@ -135,6 +229,16 @@ function Caixa() {
       setFormaPagamento("");
       setEtapaAtual(0);
     }
+  };
+
+  const handleFiltrarData = () => {
+    setPaginaAtual(1); // Volta para primeira página ao filtrar
+  };
+
+  const limparFiltros = () => {
+    setDataInicio(obterPrimeiroDiaMes());
+    setDataFim(obterUltimoDiaMes());
+    setPaginaAtual(1);
   };
 
   // ETAPA 1: Produtos
@@ -817,6 +921,387 @@ function Caixa() {
     </Box>
   );
 
+  // HISTÓRICO DE VENDAS
+  const renderHistoricoVendas = () => (
+    <Box>
+      {/* Filtros */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          mb: 3,
+          borderRadius: 2,
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <FilterList sx={{ color: "#6b7280" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Filtros de Período
+          </Typography>
+        </Box>
+
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Data Início"
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Data Fim"
+              type="date"
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleFiltrarData}
+                sx={{
+                  textTransform: "none",
+                  bgcolor: "#2563eb",
+                  "&:hover": { bgcolor: "#1d4ed8" },
+                }}
+              >
+                Aplicar Filtro
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={limparFiltros}
+                sx={{
+                  textTransform: "none",
+                  borderColor: "#d1d5db",
+                  color: "#6b7280",
+                }}
+              >
+                Limpar
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
+
+        <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <Chip
+            label={`${vendasFiltradas.length} ${vendasFiltradas.length === 1 ? "venda" : "vendas"} encontrada(s)`}
+            sx={{ bgcolor: "#eff6ff", color: "#2563eb", fontWeight: 500 }}
+          />
+          <Chip
+            label={`Total: R$ ${vendasFiltradas.reduce((acc, v) => acc + v.total, 0).toFixed(2)}`}
+            sx={{ bgcolor: "#dcfce7", color: "#16a34a", fontWeight: 500 }}
+          />
+        </Box>
+      </Paper>
+
+      {/* Tabela de Vendas */}
+      <TableContainer
+        component={Paper}
+        elevation={0}
+        sx={{
+          borderRadius: "12px",
+          border: "1px solid #e5e7eb",
+          overflow: "hidden",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f9fafb" }}>
+              <TableCell
+                sx={{
+                  fontWeight: 600,
+                  color: "#374151",
+                  fontSize: "13px",
+                  py: 2,
+                }}
+              >
+                ID
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                DATA/HORA
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                ITENS
+              </TableCell>
+              <TableCell
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                PAGAMENTO
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                DESCONTO
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                TOTAL
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+              >
+                STATUS
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {vendasPaginadas.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  align="center"
+                  sx={{ py: 8, color: "#9ca3af" }}
+                >
+                  <Receipt sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
+                  <Typography variant="body1">
+                    Nenhuma venda encontrada no período selecionado
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              vendasPaginadas.map((venda, index) => (
+                <TableRow
+                  key={venda.id}
+                  sx={{
+                    "&:hover": { bgcolor: "#f9fafb" },
+                    borderBottom:
+                      index === vendasPaginadas.length - 1
+                        ? "none"
+                        : "1px solid #f3f4f6",
+                  }}
+                >
+                  <TableCell sx={{ py: 2.5 }}>
+                    <Chip
+                      label={`#${venda.id}`}
+                      size="small"
+                      sx={{ bgcolor: "#f3f4f6", fontWeight: 500 }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {new Date(venda.data).toLocaleDateString("pt-BR")}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                      {new Date(venda.data).toLocaleTimeString("pt-BR")}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {venda.itens}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      icon={
+                        FORMAS_PAGAMENTO.find(
+                          (f) => f.id === venda.formaPagamento,
+                        )?.icon
+                      }
+                      label={
+                        FORMAS_PAGAMENTO.find(
+                          (f) => f.id === venda.formaPagamento,
+                        )?.label
+                      }
+                      size="small"
+                      sx={{
+                        bgcolor: "#eff6ff",
+                        color: "#2563eb",
+                        fontWeight: 500,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      sx={{ color: venda.desconto > 0 ? "#dc2626" : "#6b7280" }}
+                    >
+                      {venda.desconto > 0
+                        ? `- R$ ${venda.desconto.toFixed(2)}`
+                        : "—"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: 600, color: "#16a34a" }}
+                    >
+                      R$ {venda.total.toFixed(2)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label="Finalizada"
+                      size="small"
+                      sx={{
+                        bgcolor: "#dcfce7",
+                        color: "#16a34a",
+                        fontWeight: 500,
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Paginação */}
+        {vendasFiltradas.length > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial + 1} a{" "}
+              {Math.min(indiceFinal, vendasFiltradas.length)} de{" "}
+              {vendasFiltradas.length}{" "}
+              {vendasFiltradas.length === 1 ? "venda" : "vendas"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
+      </TableContainer>
+    </Box>
+  );
+
   return (
     <Box sx={{ bgcolor: "#fafafa", minHeight: "100vh" }}>
       {/* Header Fixo */}
@@ -840,158 +1325,207 @@ function Caixa() {
       </Box>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {/* Stepper */}
+        {/* Tabs */}
         <Paper
           elevation={0}
           sx={{
-            p: 3,
             mb: 3,
             borderRadius: 2,
             border: "1px solid #e5e7eb",
+            overflow: "hidden",
           }}
         >
-          <Stepper activeStep={etapaAtual} alternativeLabel>
-            {ETAPAS.map((label) => (
-              <Step key={label}>
-                <StepLabel
-                  StepIconProps={{
-                    sx: {
-                      fontSize: "2rem",
-                      "&.Mui-active": {
-                        color: "#2563eb",
-                      },
-                      "&.Mui-completed": {
-                        color: "#16a34a",
-                      },
-                    },
-                  }}
-                >
-                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                    {label}
-                  </Typography>
-                </StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          <Tabs
+            value={tabAtual}
+            onChange={(e, newValue) => setTabAtual(newValue)}
+            sx={{
+              borderBottom: "1px solid #e5e7eb",
+              px: 2,
+              "& .MuiTab-root": {
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "14px",
+                color: "#6b7280",
+              },
+              "& .Mui-selected": {
+                color: "#2563eb",
+              },
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
+              },
+            }}
+          >
+            <Tab icon={<Receipt />} iconPosition="start" label="Nova Venda" />
+            <Tab
+              icon={<History />}
+              iconPosition="start"
+              label="Histórico de Vendas"
+            />
+          </Tabs>
         </Paper>
 
-        {/* Conteúdo */}
-        <Box sx={{ mb: 3 }}>
-          {etapaAtual === 0 && renderEtapaProdutos()}
-          {etapaAtual === 1 && renderEtapaPagamento()}
-          {etapaAtual === 2 && renderEtapaConfirmacao()}
-        </Box>
-
-        {/* Barra de Ações Fixa */}
-        <Paper
-          elevation={3}
-          sx={{
-            p: 3,
-            borderRadius: 2,
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            bgcolor: "white",
-            borderTop: "2px solid #e5e7eb",
-            zIndex: 1000,
-          }}
-        >
-          <Container maxWidth="xl">
-            <Box
-              sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}
+        {tabAtual === 0 && (
+          <>
+            {/* Stepper */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 3,
+                borderRadius: 2,
+                border: "1px solid #e5e7eb",
+              }}
             >
-              <Button
-                variant="outlined"
-                onClick={cancelarVenda}
-                size="large"
-                sx={{
-                  textTransform: "none",
-                  borderColor: "#dc2626",
-                  color: "#dc2626",
-                  fontWeight: 600,
-                  px: 4,
-                  "&:hover": {
-                    borderColor: "#dc2626",
-                    bgcolor: "#fee2e2",
-                  },
-                }}
-              >
-                Cancelar Venda
-              </Button>
+              <Stepper activeStep={etapaAtual} alternativeLabel>
+                {ETAPAS.map((label) => (
+                  <Step key={label}>
+                    <StepLabel
+                      StepIconProps={{
+                        sx: {
+                          fontSize: "2rem",
+                          "&.Mui-active": {
+                            color: "#2563eb",
+                          },
+                          "&.Mui-completed": {
+                            color: "#16a34a",
+                          },
+                        },
+                      }}
+                    >
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        {label}
+                      </Typography>
+                    </StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+            </Paper>
 
-              <Box sx={{ display: "flex", gap: 2 }}>
-                {etapaAtual > 0 && (
+            {/* Conteúdo */}
+            <Box sx={{ mb: 3 }}>
+              {etapaAtual === 0 && renderEtapaProdutos()}
+              {etapaAtual === 1 && renderEtapaPagamento()}
+              {etapaAtual === 2 && renderEtapaConfirmacao()}
+            </Box>
+
+            {/* Barra de Ações Fixa */}
+            <Paper
+              elevation={3}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                position: "fixed",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: "white",
+                borderTop: "2px solid #e5e7eb",
+                zIndex: 1000,
+              }}
+            >
+              <Container maxWidth="xl">
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 2,
+                  }}
+                >
                   <Button
                     variant="outlined"
-                    onClick={voltarEtapa}
-                    startIcon={<ArrowBack />}
+                    onClick={cancelarVenda}
                     size="large"
                     sx={{
                       textTransform: "none",
-                      borderColor: "#6b7280",
-                      color: "#6b7280",
+                      borderColor: "#dc2626",
+                      color: "#dc2626",
                       fontWeight: 600,
                       px: 4,
                       "&:hover": {
-                        borderColor: "#2563eb",
-                        color: "#2563eb",
+                        borderColor: "#dc2626",
+                        bgcolor: "#fee2e2",
                       },
                     }}
                   >
-                    Voltar
+                    Cancelar Venda
                   </Button>
-                )}
 
-                {etapaAtual < 2 ? (
-                  <Button
-                    variant="contained"
-                    onClick={avancarEtapa}
-                    disabled={!podeAvancar()}
-                    endIcon={<ArrowForward />}
-                    size="large"
-                    sx={{
-                      textTransform: "none",
-                      bgcolor: "#2563eb",
-                      fontWeight: 600,
-                      px: 5,
-                      fontSize: "1rem",
-                      "&:hover": { bgcolor: "#1d4ed8" },
-                      boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)",
-                      "&:disabled": {
-                        bgcolor: "#e5e7eb",
-                        color: "#9ca3af",
-                      },
-                    }}
-                  >
-                    Avançar
-                  </Button>
-                ) : (
-                  <Button
-                    variant="contained"
-                    onClick={finalizarVenda}
-                    startIcon={<CheckCircle />}
-                    size="large"
-                    sx={{
-                      textTransform: "none",
-                      bgcolor: "#16a34a",
-                      fontWeight: 600,
-                      px: 5,
-                      fontSize: "1rem",
-                      "&:hover": { bgcolor: "#15803d" },
-                      boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)",
-                    }}
-                  >
-                    Confirmar e Finalizar
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </Container>
-        </Paper>
+                  <Box sx={{ display: "flex", gap: 2 }}>
+                    {etapaAtual > 0 && (
+                      <Button
+                        variant="outlined"
+                        onClick={voltarEtapa}
+                        startIcon={<ArrowBack />}
+                        size="large"
+                        sx={{
+                          textTransform: "none",
+                          borderColor: "#6b7280",
+                          color: "#6b7280",
+                          fontWeight: 600,
+                          px: 4,
+                          "&:hover": {
+                            borderColor: "#2563eb",
+                            color: "#2563eb",
+                          },
+                        }}
+                      >
+                        Voltar
+                      </Button>
+                    )}
 
-        {/* Espaço para não sobrepor com a barra fixa */}
-        <Box sx={{ height: 80 }} />
+                    {etapaAtual < 2 ? (
+                      <Button
+                        variant="contained"
+                        onClick={avancarEtapa}
+                        disabled={!podeAvancar()}
+                        endIcon={<ArrowForward />}
+                        size="large"
+                        sx={{
+                          textTransform: "none",
+                          bgcolor: "#2563eb",
+                          fontWeight: 600,
+                          px: 5,
+                          fontSize: "1rem",
+                          "&:hover": { bgcolor: "#1d4ed8" },
+                          boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)",
+                          "&:disabled": {
+                            bgcolor: "#e5e7eb",
+                            color: "#9ca3af",
+                          },
+                        }}
+                      >
+                        Avançar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        onClick={finalizarVenda}
+                        startIcon={<CheckCircle />}
+                        size="large"
+                        sx={{
+                          textTransform: "none",
+                          bgcolor: "#16a34a",
+                          fontWeight: 600,
+                          px: 5,
+                          fontSize: "1rem",
+                          "&:hover": { bgcolor: "#15803d" },
+                          boxShadow: "0 4px 12px rgba(22, 163, 74, 0.3)",
+                        }}
+                      >
+                        Confirmar e Finalizar
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              </Container>
+            </Paper>
+
+            {/* Espaço para não sobrepor com a barra fixa */}
+            <Box sx={{ height: 80 }} />
+          </>
+        )}
+
+        {tabAtual === 1 && renderHistoricoVendas()}
       </Container>
     </Box>
   );

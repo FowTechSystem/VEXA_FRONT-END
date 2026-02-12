@@ -39,8 +39,13 @@ import {
   Person,
   Close,
   CameraAlt,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 import api from "../api/axiosConfig";
+import { usuariosService } from "../api/usuariosService";
 import { showSuccess, showError } from "../utils/notifications";
 import {
   successMessages,
@@ -59,11 +64,20 @@ function TabPanel({ children, value, index }) {
 
 function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
-  const [usuariosFiltrados, setUsuariosFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+
+  // Estados para paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const usuariosPorPagina = 10;
+
+  // Metadados vindos da API
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(0);
+  const [carregando, setCarregando] = useState(false);
+
   const [currentUsuario, setCurrentUsuario] = useState({
     nome: "",
     email: "",
@@ -97,64 +111,57 @@ function Usuarios() {
     "RH",
   ];
 
-  useEffect(() => {
-    const fetchUsuarios = async () => {
-      try {
-        const response = await api.get("/usuarios");
-        console.log("Resposta completa:", response.data); // Debug
+  // Cálculos para exibição "Mostrando X a Y de Z"
+  const indiceInicial =
+    totalRegistros === 0 ? 0 : (paginaAtual - 1) * usuariosPorPagina + 1;
+  const indiceFinal = Math.min(paginaAtual * usuariosPorPagina, totalRegistros);
 
-        // A API retorna um objeto com a propriedade 'usuarios'
-        const usuariosArray = Array.isArray(response.data.usuarios)
-          ? response.data.usuarios
-          : [];
+  // Funções de navegação de página
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
 
-        setUsuarios(usuariosArray);
-        setUsuariosFiltrados(usuariosArray);
-      } catch (error) {
-        console.error("Erro ao buscar usuários:", error);
-        showError(errorMessages.fetch(entityNames.usuarios));
-        setUsuarios([]);
-        setUsuariosFiltrados([]);
-      }
-    };
-
-    fetchUsuarios();
-  }, []);
-
-  const recarregarUsuarios = async () => {
+  // Buscar usuários da API com paginação e busca
+  const fetchUsuarios = async () => {
+    setCarregando(true);
     try {
-      const response = await api.get("/usuarios");
-
-      // Mesma correção aqui
-      const usuariosArray = Array.isArray(response.data.usuarios)
-        ? response.data.usuarios
-        : [];
-
-      setUsuarios(usuariosArray);
-      setUsuariosFiltrados(usuariosArray);
+      const res = await usuariosService.getAll({
+        pagina: paginaAtual,
+        tamanho: usuariosPorPagina,
+        valor: searchTerm.trim() || undefined,
+      });
+      setUsuarios(res.usuarios);
+      setTotalRegistros(res.totalRegistros);
+      setTotalPaginas(res.totalPaginas);
     } catch (error) {
       console.error("Erro ao buscar usuários:", error);
       showError(errorMessages.fetch(entityNames.usuarios));
       setUsuarios([]);
-      setUsuariosFiltrados([]);
+      setTotalRegistros(0);
+      setTotalPaginas(0);
+    } finally {
+      setCarregando(false);
     }
   };
 
-  const handleSearch = (e) => {
-    const termo = e.target.value.toLowerCase();
-    setSearchTerm(termo);
+  // Recarrega sempre que mudar página ou termo de busca
+  useEffect(() => {
+    fetchUsuarios();
+  }, [paginaAtual, searchTerm]);
 
-    if (termo === "") {
-      setUsuariosFiltrados(usuarios);
-    } else {
-      const filtrados = usuarios.filter(
-        (usuario) =>
-          usuario.nome?.toLowerCase().includes(termo) ||
-          usuario.email?.toLowerCase().includes(termo) ||
-          usuario.perfil?.toLowerCase().includes(termo),
-      );
-      setUsuariosFiltrados(filtrados);
-    }
+  // Recarregar após criar/editar/excluir
+  const recarregarUsuarios = async () => {
+    setPaginaAtual(1);
+    await fetchUsuarios();
+  };
+
+  // Busca: não filtra no cliente, só atualiza estado
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setPaginaAtual(1);
   };
 
   const handleOpenDialog = (usuario = null) => {
@@ -380,8 +387,7 @@ function Usuarios() {
           variant="body2"
           sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
         >
-          {usuariosFiltrados.length}{" "}
-          {usuariosFiltrados.length === 1 ? "usuário" : "usuários"}
+          {totalRegistros} {totalRegistros === 1 ? "usuário" : "usuários"}
         </Typography>
       </Box>
 
@@ -433,15 +439,20 @@ function Usuarios() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(usuariosFiltrados) &&
-            usuariosFiltrados.length > 0 ? (
-              usuariosFiltrados.map((usuario, index) => (
+            {carregando ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            ) : Array.isArray(usuarios) && usuarios.length > 0 ? (
+              usuarios.map((usuario, index) => (
                 <TableRow
                   key={usuario.id}
                   sx={{
                     "&:hover": { bgcolor: "#f9fafb" },
                     borderBottom:
-                      index === usuariosFiltrados.length - 1
+                      index === usuarios.length - 1
                         ? "none"
                         : "1px solid #f3f4f6",
                   }}
@@ -537,6 +548,144 @@ function Usuarios() {
             )}
           </TableBody>
         </Table>
+
+        {/* Controles de Paginação */}
+        {totalRegistros > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial} a {indiceFinal} de {totalRegistros}{" "}
+              {totalRegistros === 1 ? "usuário" : "usuários"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {/* Botão Primeira Página */}
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              {/* Botão Página Anterior */}
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              {/* Números de Página */}
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    // Mostra apenas páginas próximas à atual
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              {/* Botão Próxima Página */}
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual >= totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              {/* Botão Última Página */}
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual >= totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </TableContainer>
 
       {/* Dialog - Formulário com Abas */}
@@ -855,7 +1004,6 @@ function Usuarios() {
                     <MenuItem value="MG">Minas Gerais</MenuItem>
                     <MenuItem value="RS">Rio Grande do Sul</MenuItem>
                     <MenuItem value="BA">Bahia</MenuItem>
-                    {/* Adicione outros estados conforme necessário */}
                   </Select>
                 </FormControl>
               </Grid>
