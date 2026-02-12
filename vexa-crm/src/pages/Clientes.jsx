@@ -21,7 +21,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Pagination,
   Avatar,
   Chip,
   Tabs,
@@ -41,8 +40,16 @@ import {
   Extension,
   AccountBalance,
   Close,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 import { clientesService } from "../api/clientesService";
+import { FornecedorService } from "../api/fornecedorService";
+import { CategoriaService } from "../api/categoriaService";
+import { MarcaService } from "../api/marcaService";
+import { Autocomplete } from "@mui/material";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
 import {
   successMessages,
@@ -133,6 +140,18 @@ function Clientes() {
     fotoUrl: "",
   });
   const [editMode, setEditMode] = useState(false);
+
+  // Funções de navegação de página
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
+
+  // Cálculo de índices para exibição
+  const indiceInicial = (paginaAtual - 1) * tamanhoPagina;
+  const indiceFinal = Math.min(indiceInicial + tamanhoPagina, totalRegistros);
 
   // ============================================
   // VERIFICAR CPF EXISTENTE
@@ -288,10 +307,6 @@ function Clientes() {
   const handleBuscaChange = (e) => {
     setValorBusca(e.target.value);
     setPaginaAtual(1);
-  };
-
-  const handlePaginaChange = (event, value) => {
-    setPaginaAtual(value);
   };
 
   const handleFotoChange = (e) => {
@@ -677,10 +692,11 @@ function Clientes() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   align="center"
                   sx={{ py: 8, color: "#9ca3af" }}
                 >
+                  <Person sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
                   <Typography variant="body1">
                     Nenhum cliente encontrado
                   </Typography>
@@ -692,26 +708,145 @@ function Clientes() {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
 
-      {/* Paginação */}
-      {totalPaginas > 1 && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-          <Pagination
-            count={totalPaginas}
-            page={paginaAtual}
-            onChange={handlePaginaChange}
-            color="primary"
-            showFirstButton
-            showLastButton
+        {/* Controles de Paginação */}
+        {totalRegistros > 0 && (
+          <Box
             sx={{
-              "& .MuiPaginationItem-root": {
-                borderRadius: "8px",
-              },
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
             }}
-          />
-        </Box>
-      )}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial + 1} a {indiceFinal} de {totalRegistros}{" "}
+              {totalRegistros === 1 ? "cliente" : "clientes"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {/* Botão Primeira Página */}
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              {/* Botão Página Anterior */}
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              {/* Números de Página */}
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    // Mostra apenas páginas próximas à atual
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              {/* Botão Próxima Página */}
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              {/* Botão Última Página */}
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
+      </TableContainer>
 
       {/* Dialog - Seguindo padrão da imagem */}
       <Dialog
@@ -735,7 +870,7 @@ function Clientes() {
             borderBottom: "1px solid #e5e7eb",
           }}
         >
-          Novo Cliente
+          {editMode ? "Editar Cliente" : "Novo Cliente"}
           <IconButton onClick={handleCloseDialog} size="small">
             <Close />
           </IconButton>
