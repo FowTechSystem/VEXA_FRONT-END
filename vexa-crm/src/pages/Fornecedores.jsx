@@ -353,7 +353,7 @@ function Fornecedores() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
+    <Box sx={{ p: 3, bgcolor: "#fafafa", height: "100vh", overflow: "hidden" }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box
@@ -426,7 +426,7 @@ function Fornecedores() {
         sx={{
           borderRadius: "12px",
           border: "1px solid #e5e7eb",
-          overflow: "hidden",
+          // NÃO adicione maxHeight ou overflow aqui
         }}
       >
         <Table>
