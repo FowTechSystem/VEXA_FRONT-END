@@ -154,7 +154,7 @@ function Categorias() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
+    <Box sx={{ p: 3, bgcolor: "#fafafa", height: "100vh", overflow: "hidden" }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box
