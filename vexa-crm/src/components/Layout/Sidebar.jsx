@@ -39,41 +39,41 @@ const menuSections = [
   {
     title: "Operação",
     items: [
-      { text: "Vendas", icon: <PointOfSale />, path: "/caixa" },
-      { text: "Caixa", icon: <ShoppingCart />, path: "/vendas" },
+      { text: "Vendas", icon: <PointOfSale />, path: "caixa" },
+      { text: "Caixa", icon: <ShoppingCart />, path: "vendas" },
     ],
   },
   {
     title: "Gestão",
     items: [
-      { text: "Produtos", icon: <Inventory />, path: "/produtos" },
-      { text: "Estoque", icon: <Warehouse />, path: "/estoque" },
-      { text: "Compras", icon: <ShoppingBag />, path: "/compras" },
+      { text: "Produtos", icon: <Inventory />, path: "produtos" },
+      { text: "Estoque", icon: <Warehouse />, path: "estoque" },
+      { text: "Compras", icon: <ShoppingBag />, path: "compras" },
     ],
   },
   {
     title: "Financeiro & Fiscal",
     items: [
-      { text: "Financeiro", icon: <AttachMoney />, path: "/financeiro" },
-      { text: "Fiscal", icon: <Receipt />, path: "/fiscal" },
+      { text: "Financeiro", icon: <AttachMoney />, path: "financeiro" },
+      { text: "Fiscal", icon: <Receipt />, path: "fiscal" },
     ],
   },
   {
     title: "Cadastros",
     items: [
-      { text: "Usuários", icon: <AccountCircle />, path: "/usuarios" },
-      { text: "Clientes", icon: <People />, path: "/clientes" },
-      { text: "Fornecedores", icon: <LocalShipping />, path: "/fornecedores" },
+      { text: "Usuários", icon: <AccountCircle />, path: "usuarios" },
+      { text: "Clientes", icon: <People />, path: "clientes" },
+      { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores" },
     ],
   },
   {
     title: "Análises",
-    items: [{ text: "Relatórios", icon: <Assessment />, path: "/relatorios" }],
+    items: [{ text: "Relatórios", icon: <Assessment />, path: "relatorios" }],
   },
   {
     title: "Sistema",
     items: [
-      { text: "Configurações", icon: <Settings />, path: "/configuracoes" },
+      { text: "Configurações", icon: <Settings />, path: "configuracoes" },
     ],
   },
 ];
@@ -81,7 +81,8 @@ const menuSections = [
 function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) =>
+    location.pathname === (path.startsWith("/") ? path : "/" + path);
 
   const drawer = (
     <Box

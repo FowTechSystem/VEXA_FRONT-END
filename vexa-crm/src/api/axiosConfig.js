@@ -2,12 +2,12 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://localhost:5001/api",
+  baseURL: "/api",
   headers: {
     "Content-Type": "application/json",
   },
   timeout: 30000,
-  withCredentials: true, // ✅ IMPORTANTE: Necessário para CORS com credentials
+  withCredentials: false, // Desabilitado pois estamos usando proxy
 });
 
 // Interceptor de requisição

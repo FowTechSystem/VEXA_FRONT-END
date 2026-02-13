@@ -4,7 +4,20 @@ import api from "./axiosConfig";
 export const produtosService = {
   getAll: async () => {
     const response = await api.get("/produtos");
-    return response.data;
+    console.log("Resposta completa da API:", response);
+    console.log("Dados da resposta:", response.data);
+
+    // A API retorna um objeto GetListaProdutosResponse
+    // Vamos extrair a lista de produtos
+    const data = response.data;
+    if (data && typeof data === "object") {
+      // Tentar diferentes propriedades possíveis
+      const produtos = data.produtos || data.items || data.data || data;
+      console.log("Produtos extraídos:", produtos);
+      return Array.isArray(produtos) ? produtos : [];
+    }
+
+    return Array.isArray(data) ? data : [];
   },
 
   create: async (produto) => {

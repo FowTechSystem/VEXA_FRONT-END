@@ -135,7 +135,12 @@ export const VendasTable = ({
   onDelete,
 }) => {
   return (
-    <TableContainer>
+    <TableContainer
+      sx={{
+        maxHeight: "70vh",
+        overflow: "auto",
+      }}
+    >
       <Table>
         <TableHead>
           <TableRow sx={{ bgcolor: "grey.50" }}>

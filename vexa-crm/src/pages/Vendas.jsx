@@ -220,7 +220,7 @@ function Movimentacoes() {
   };
 
   return (
-    <Box sx={{ bgcolor: "#fafafa", minHeight: "100vh" }}>
+    <Box sx={{ bgcolor: "#fafafa", height: "100vh", overflow: "hidden" }}>
       {/* Header */}
       <Box
         sx={{
@@ -525,7 +525,12 @@ function Movimentacoes() {
             overflow: "hidden",
           }}
         >
-          <TableContainer>
+          <TableContainer
+            sx={{
+              maxHeight: "70vh",
+              overflow: "auto",
+            }}
+          >
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: "#f9fafb" }}>

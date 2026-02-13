@@ -36,6 +36,10 @@ import {
   Close,
   Receipt,
   AccountBalance,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 
 const TIPOS_MOVIMENTACAO = {
@@ -65,6 +69,11 @@ function Financeiro() {
   const [tabAtual, setTabAtual] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [movimentacoes, setMovimentacoes] = useState([]);
+
+  // Estados para paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const movimentacoesPorPagina = 10;
+
   const [currentMovimentacao, setCurrentMovimentacao] = useState({
     tipo: "receita",
     descricao: "",
@@ -111,6 +120,7 @@ function Financeiro() {
     };
 
     setMovimentacoes([novaMovimentacao, ...movimentacoes]);
+    setPaginaAtual(1); // Volta para a primeira página
     handleCloseDialog();
   };
 
@@ -142,8 +152,32 @@ function Financeiro() {
     tabAtual === 0
       ? movimentacoes
       : tabAtual === 1
-      ? movimentacoes.filter((m) => m.tipo === "receita")
-      : movimentacoes.filter((m) => m.tipo === "despesa");
+        ? movimentacoes.filter((m) => m.tipo === "receita")
+        : movimentacoes.filter((m) => m.tipo === "despesa");
+
+  // Cálculos de paginação
+  const totalPaginas = Math.ceil(
+    movimentacoesFiltradas.length / movimentacoesPorPagina,
+  );
+  const indiceInicial = (paginaAtual - 1) * movimentacoesPorPagina;
+  const indiceFinal = indiceInicial + movimentacoesPorPagina;
+  const movimentacoesPaginadas = movimentacoesFiltradas.slice(
+    indiceInicial,
+    indiceFinal,
+  );
+
+  // Funções de navegação de página
+  const irParaPrimeiraPagina = () => setPaginaAtual(1);
+  const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
+  const irParaPaginaAnterior = () =>
+    setPaginaAtual((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPagina = () =>
+    setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
+
+  const handleTabChange = (e, newValue) => {
+    setTabAtual(newValue);
+    setPaginaAtual(1); // Volta para a primeira página ao mudar de aba
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
@@ -284,12 +318,20 @@ function Financeiro() {
         <Box sx={{ borderBottom: "1px solid #e5e7eb" }}>
           <Tabs
             value={tabAtual}
-            onChange={(e, newValue) => setTabAtual(newValue)}
+            onChange={handleTabChange}
             sx={{
               px: 3,
               "& .MuiTab-root": {
                 textTransform: "none",
                 fontWeight: 500,
+                fontSize: "14px",
+                color: "#6b7280",
+              },
+              "& .Mui-selected": {
+                color: "#2563eb",
+              },
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
               },
             }}
           >
@@ -303,34 +345,47 @@ function Financeiro() {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: "13px",
+                    py: 2,
+                  }}
+                >
                   DATA
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   TIPO
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   DESCRIÇÃO
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                >
                   CATEGORIA
                 </TableCell>
                 <TableCell
                   align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
                 >
                   VALOR
                 </TableCell>
                 <TableCell
                   align="right"
-                  sx={{ fontWeight: 600, color: "#374151" }}
+                  sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
                 >
                   AÇÕES
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {movimentacoesFiltradas.length === 0 ? (
+              {movimentacoesPaginadas.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -341,17 +396,28 @@ function Financeiro() {
                     <Typography variant="body1">
                       Nenhuma movimentação financeira
                     </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      Clique em "Nova Movimentação" para começar
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                movimentacoesFiltradas.map((mov) => {
+                movimentacoesPaginadas.map((mov, index) => {
                   const tipo = TIPOS_MOVIMENTACAO[mov.tipo];
                   return (
                     <TableRow
                       key={mov.id}
-                      sx={{ "&:hover": { bgcolor: "#f9fafb" } }}
+                      sx={{
+                        "&:hover": { bgcolor: "#f9fafb" },
+                        borderBottom:
+                          index === movimentacoesPaginadas.length - 1
+                            ? "none"
+                            : "1px solid #f3f4f6",
+                      }}
                     >
-                      <TableCell>
+                      <TableCell
+                        sx={{ py: 2.5, color: "#6b7280", fontSize: "14px" }}
+                      >
                         {new Date(mov.data).toLocaleDateString("pt-BR")}
                       </TableCell>
                       <TableCell>
@@ -362,15 +428,27 @@ function Financeiro() {
                             bgcolor: tipo.bgcolor,
                             color: tipo.color,
                             fontWeight: 500,
+                            fontSize: "12px",
                           }}
                         />
                       </TableCell>
-                      <TableCell>{mov.descricao}</TableCell>
-                      <TableCell>{mov.categoria}</TableCell>
+                      <TableCell
+                        sx={{
+                          color: "#111827",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {mov.descricao}
+                      </TableCell>
+                      <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                        {mov.categoria}
+                      </TableCell>
                       <TableCell
                         align="right"
                         sx={{
                           fontWeight: 600,
+                          fontSize: "14px",
                           color: mov.tipo === "receita" ? "#16a34a" : "#dc2626",
                         }}
                       >
@@ -378,13 +456,22 @@ function Financeiro() {
                         {mov.valor.toFixed(2)}
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small">
+                        <IconButton
+                          size="small"
+                          sx={{
+                            color: "#6b7280",
+                            "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                          }}
+                        >
                           <Edit fontSize="small" />
                         </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => handleDelete(mov.id)}
-                          sx={{ color: "#dc2626" }}
+                          sx={{
+                            color: "#6b7280",
+                            "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                          }}
                         >
                           <Delete fontSize="small" />
                         </IconButton>
@@ -396,6 +483,148 @@ function Financeiro() {
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Controles de Paginação */}
+        {movimentacoesFiltradas.length > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+              borderTop: "1px solid #e5e7eb",
+              bgcolor: "#fafafa",
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: "#6b7280", fontSize: "14px" }}
+            >
+              Mostrando {indiceInicial + 1} a{" "}
+              {Math.min(indiceFinal, movimentacoesFiltradas.length)} de{" "}
+              {movimentacoesFiltradas.length}{" "}
+              {movimentacoesFiltradas.length === 1
+                ? "movimentação"
+                : "movimentações"}
+            </Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {/* Botão Primeira Página */}
+              <IconButton
+                onClick={irParaPrimeiraPagina}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <FirstPage fontSize="small" />
+              </IconButton>
+
+              {/* Botão Página Anterior */}
+              <IconButton
+                onClick={irParaPaginaAnterior}
+                disabled={paginaAtual === 1}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronLeft fontSize="small" />
+              </IconButton>
+
+              {/* Números de Página */}
+              <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+                  (numeroPagina) => {
+                    // Mostra apenas páginas próximas à atual
+                    if (
+                      numeroPagina === 1 ||
+                      numeroPagina === totalPaginas ||
+                      (numeroPagina >= paginaAtual - 1 &&
+                        numeroPagina <= paginaAtual + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={numeroPagina}
+                          onClick={() => setPaginaAtual(numeroPagina)}
+                          size="small"
+                          sx={{
+                            minWidth: "32px",
+                            height: "32px",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            color:
+                              paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                            bgcolor:
+                              paginaAtual === numeroPagina
+                                ? "#2563eb"
+                                : "transparent",
+                            "&:hover": {
+                              bgcolor:
+                                paginaAtual === numeroPagina
+                                  ? "#1d4ed8"
+                                  : "#f3f4f6",
+                            },
+                          }}
+                        >
+                          {numeroPagina}
+                        </Button>
+                      );
+                    } else if (
+                      numeroPagina === paginaAtual - 2 ||
+                      numeroPagina === paginaAtual + 2
+                    ) {
+                      return (
+                        <Typography
+                          key={numeroPagina}
+                          sx={{ px: 1, color: "#9ca3af" }}
+                        >
+                          ...
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  },
+                )}
+              </Box>
+
+              {/* Botão Próxima Página */}
+              <IconButton
+                onClick={irParaProximaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <ChevronRight fontSize="small" />
+              </IconButton>
+
+              {/* Botão Última Página */}
+              <IconButton
+                onClick={irParaUltimaPagina}
+                disabled={paginaAtual === totalPaginas}
+                size="small"
+                sx={{
+                  color: "#6b7280",
+                  "&:hover": { bgcolor: "#f3f4f6" },
+                  "&.Mui-disabled": { color: "#d1d5db" },
+                }}
+              >
+                <LastPage fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
       {/* Dialog */}
@@ -411,10 +640,13 @@ function Financeiro() {
         <DialogTitle
           sx={{
             fontWeight: 600,
+            fontSize: "20px",
             borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            py: 2,
+            px: 3,
           }}
         >
           Nova Movimentação Financeira
@@ -426,7 +658,7 @@ function Financeiro() {
         <DialogContent sx={{ pt: 3 }}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required size="small">
                 <InputLabel>Tipo</InputLabel>
                 <Select
                   name="tipo"
@@ -449,6 +681,7 @@ function Financeiro() {
                 value={currentMovimentacao.descricao}
                 onChange={handleChange}
                 placeholder="Ex: Venda de produtos, Pagamento de fornecedor"
+                size="small"
               />
             </Grid>
 
@@ -467,6 +700,7 @@ function Financeiro() {
                   ),
                 }}
                 inputProps={{ step: "0.01", min: "0" }}
+                size="small"
               />
             </Grid>
 
@@ -480,11 +714,12 @@ function Financeiro() {
                 value={currentMovimentacao.data}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
+                size="small"
               />
             </Grid>
 
             <Grid item xs={12}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required size="small">
                 <InputLabel>Categoria</InputLabel>
                 <Select
                   name="categoria"
@@ -514,15 +749,23 @@ function Financeiro() {
                 value={currentMovimentacao.observacoes}
                 onChange={handleChange}
                 placeholder="Informações adicionais..."
+                size="small"
               />
             </Grid>
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e7eb" }}>
+        <DialogActions
+          sx={{ px: 3, pb: 2.5, pt: 2, borderTop: "1px solid #e5e7eb" }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>

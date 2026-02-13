@@ -39,6 +39,10 @@ import {
   Warning,
   CheckCircle,
   Close,
+  FirstPage,
+  LastPage,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 
 const TIPOS_MOVIMENTACAO = {
@@ -48,10 +52,158 @@ const TIPOS_MOVIMENTACAO = {
   inventario: { label: "Inventário", icon: <Inventory />, color: "#9333ea" },
 };
 
+// Componente de Paginação Reutilizável - FORA do componente principal
+const PaginationControls = ({
+  paginaAtual,
+  totalPaginas,
+  indiceInicial,
+  indiceFinal,
+  totalItens,
+  itemLabel,
+  onPrimeira,
+  onAnterior,
+  onProxima,
+  onUltima,
+  onPagina,
+}) => {
+  if (totalItens === 0) return null;
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        px: 3,
+        py: 2,
+        borderTop: "1px solid #e5e7eb",
+        bgcolor: "#fafafa",
+      }}
+    >
+      <Typography variant="body2" sx={{ color: "#6b7280", fontSize: "14px" }}>
+        Mostrando {indiceInicial + 1} a {Math.min(indiceFinal, totalItens)} de{" "}
+        {totalItens} {totalItens === 1 ? itemLabel : `${itemLabel}s`}
+      </Typography>
+
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <IconButton
+          onClick={onPrimeira}
+          disabled={paginaAtual === 1}
+          size="small"
+          sx={{
+            color: "#6b7280",
+            "&:hover": { bgcolor: "#f3f4f6" },
+            "&.Mui-disabled": { color: "#d1d5db" },
+          }}
+        >
+          <FirstPage fontSize="small" />
+        </IconButton>
+
+        <IconButton
+          onClick={onAnterior}
+          disabled={paginaAtual === 1}
+          size="small"
+          sx={{
+            color: "#6b7280",
+            "&:hover": { bgcolor: "#f3f4f6" },
+            "&.Mui-disabled": { color: "#d1d5db" },
+          }}
+        >
+          <ChevronLeft fontSize="small" />
+        </IconButton>
+
+        <Box sx={{ display: "flex", gap: 0.5, mx: 1 }}>
+          {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(
+            (numeroPagina) => {
+              if (
+                numeroPagina === 1 ||
+                numeroPagina === totalPaginas ||
+                (numeroPagina >= paginaAtual - 1 &&
+                  numeroPagina <= paginaAtual + 1)
+              ) {
+                return (
+                  <Button
+                    key={numeroPagina}
+                    onClick={() => onPagina(numeroPagina)}
+                    size="small"
+                    sx={{
+                      minWidth: "32px",
+                      height: "32px",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      color: paginaAtual === numeroPagina ? "#fff" : "#6b7280",
+                      bgcolor:
+                        paginaAtual === numeroPagina
+                          ? "#2563eb"
+                          : "transparent",
+                      "&:hover": {
+                        bgcolor:
+                          paginaAtual === numeroPagina ? "#1d4ed8" : "#f3f4f6",
+                      },
+                    }}
+                  >
+                    {numeroPagina}
+                  </Button>
+                );
+              } else if (
+                numeroPagina === paginaAtual - 2 ||
+                numeroPagina === paginaAtual + 2
+              ) {
+                return (
+                  <Typography
+                    key={numeroPagina}
+                    sx={{ px: 1, color: "#9ca3af" }}
+                  >
+                    ...
+                  </Typography>
+                );
+              }
+              return null;
+            },
+          )}
+        </Box>
+
+        <IconButton
+          onClick={onProxima}
+          disabled={paginaAtual === totalPaginas}
+          size="small"
+          sx={{
+            color: "#6b7280",
+            "&:hover": { bgcolor: "#f3f4f6" },
+            "&.Mui-disabled": { color: "#d1d5db" },
+          }}
+        >
+          <ChevronRight fontSize="small" />
+        </IconButton>
+
+        <IconButton
+          onClick={onUltima}
+          disabled={paginaAtual === totalPaginas}
+          size="small"
+          sx={{
+            color: "#6b7280",
+            "&:hover": { bgcolor: "#f3f4f6" },
+            "&.Mui-disabled": { color: "#d1d5db" },
+          }}
+        >
+          <LastPage fontSize="small" />
+        </IconButton>
+      </Box>
+    </Box>
+  );
+};
+
 function Estoque() {
   const [tabAtual, setTabAtual] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Estados para paginação
+  const [paginaAtualProdutos, setPaginaAtualProdutos] = useState(1);
+  const [paginaAtualMovimentacoes, setPaginaAtualMovimentacoes] = useState(1);
+  const itensPorPagina = 10;
+
   const [produtos, setProdutos] = useState([
     {
       id: 1,
@@ -109,7 +261,7 @@ function Estoque() {
 
   const handleSaveMovimentacao = () => {
     const produto = produtos.find(
-      (p) => p.id === parseInt(currentMovimentacao.produtoId)
+      (p) => p.id === parseInt(currentMovimentacao.produtoId),
     );
 
     if (!produto) {
@@ -150,6 +302,7 @@ function Estoque() {
       timestamp: new Date().toISOString(),
     };
     setMovimentacoes([novaMovimentacao, ...movimentacoes]);
+    setPaginaAtualMovimentacoes(1); // Volta para a primeira página
 
     handleCloseDialog();
   };
@@ -166,15 +319,69 @@ function Estoque() {
   const calcularValorEstoque = () => {
     return produtos.reduce(
       (acc, p) => acc + p.estoqueAtual * p.valorUnitario,
-      0
+      0,
     );
   };
 
   const produtosFiltrados = produtos.filter(
     (p) =>
       p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  // Cálculos de paginação para produtos
+  const totalPaginasProdutos = Math.ceil(
+    produtosFiltrados.length / itensPorPagina,
+  );
+  const indiceInicialProdutos = (paginaAtualProdutos - 1) * itensPorPagina;
+  const indiceFinalProdutos = indiceInicialProdutos + itensPorPagina;
+  const produtosPaginados = produtosFiltrados.slice(
+    indiceInicialProdutos,
+    indiceFinalProdutos,
+  );
+
+  // Cálculos de paginação para movimentações
+  const totalPaginasMovimentacoes = Math.ceil(
+    movimentacoes.length / itensPorPagina,
+  );
+  const indiceInicialMovimentacoes =
+    (paginaAtualMovimentacoes - 1) * itensPorPagina;
+  const indiceFinalMovimentacoes = indiceInicialMovimentacoes + itensPorPagina;
+  const movimentacoesPaginadas = movimentacoes.slice(
+    indiceInicialMovimentacoes,
+    indiceFinalMovimentacoes,
+  );
+
+  // Funções de navegação - Produtos
+  const irParaPrimeiraPaginaProdutos = () => setPaginaAtualProdutos(1);
+  const irParaUltimaPaginaProdutos = () =>
+    setPaginaAtualProdutos(totalPaginasProdutos);
+  const irParaPaginaAnteriorProdutos = () =>
+    setPaginaAtualProdutos((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPaginaProdutos = () =>
+    setPaginaAtualProdutos((prev) => Math.min(prev + 1, totalPaginasProdutos));
+
+  // Funções de navegação - Movimentações
+  const irParaPrimeiraPaginaMovimentacoes = () =>
+    setPaginaAtualMovimentacoes(1);
+  const irParaUltimaPaginaMovimentacoes = () =>
+    setPaginaAtualMovimentacoes(totalPaginasMovimentacoes);
+  const irParaPaginaAnteriorMovimentacoes = () =>
+    setPaginaAtualMovimentacoes((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPaginaMovimentacoes = () =>
+    setPaginaAtualMovimentacoes((prev) =>
+      Math.min(prev + 1, totalPaginasMovimentacoes),
+    );
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPaginaAtualProdutos(1); // Volta para a primeira página ao buscar
+  };
+
+  const handleTabChange = (e, newValue) => {
+    setTabAtual(newValue);
+    // Mantém as páginas atuais ao trocar de aba
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: "#fafafa", minHeight: "100vh" }}>
@@ -318,11 +525,19 @@ function Estoque() {
         <Box sx={{ borderBottom: "1px solid #e5e7eb", px: 3 }}>
           <Tabs
             value={tabAtual}
-            onChange={(e, newValue) => setTabAtual(newValue)}
+            onChange={handleTabChange}
             sx={{
               "& .MuiTab-root": {
                 textTransform: "none",
                 fontWeight: 500,
+                fontSize: "14px",
+                color: "#6b7280",
+              },
+              "& .Mui-selected": {
+                color: "#2563eb",
+              },
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
               },
             }}
           >
@@ -340,7 +555,7 @@ function Estoque() {
                 fullWidth
                 placeholder="Buscar produto por nome ou SKU..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -373,115 +588,196 @@ function Estoque() {
                 </Alert>
               )}
 
-              <TableContainer>
+              <TableContainer
+                sx={{ border: "1px solid #e5e7eb", borderRadius: "8px" }}
+              >
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                          py: 2,
+                        }}
+                      >
                         PRODUTO
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
                         SKU
                       </TableCell>
                       <TableCell
                         align="center"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         ESTOQUE ATUAL
                       </TableCell>
                       <TableCell
                         align="center"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         ESTOQUE MÍN/MÁX
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         VALOR UNIT.
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         VALOR TOTAL
                       </TableCell>
                       <TableCell
                         align="center"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         STATUS
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {produtosFiltrados.map((produto) => {
-                      const status = getProdutoStatus(produto);
-                      return (
-                        <TableRow
-                          key={produto.id}
-                          sx={{ "&:hover": { bgcolor: "#f9fafb" } }}
+                    {produtosPaginados.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          align="center"
+                          sx={{ py: 8, color: "#9ca3af" }}
                         >
-                          <TableCell>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 500 }}
+                          <Inventory
+                            sx={{ fontSize: 48, mb: 2, opacity: 0.5 }}
+                          />
+                          <Typography variant="body1">
+                            Nenhum produto encontrado
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      produtosPaginados.map((produto, index) => {
+                        const status = getProdutoStatus(produto);
+                        return (
+                          <TableRow
+                            key={produto.id}
+                            sx={{
+                              "&:hover": { bgcolor: "#f9fafb" },
+                              borderBottom:
+                                index === produtosPaginados.length - 1
+                                  ? "none"
+                                  : "1px solid #f3f4f6",
+                            }}
+                          >
+                            <TableCell sx={{ py: 2.5 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 500, color: "#111827" }}
+                              >
+                                {produto.nome}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={produto.sku}
+                                size="small"
+                                sx={{
+                                  bgcolor: "#f3f4f6",
+                                  fontSize: "11px",
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600, fontSize: "16px" }}
+                              >
+                                {produto.estoqueAtual}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "#6b7280" }}
+                              >
+                                {produto.estoqueMinimo} /{" "}
+                                {produto.estoqueMaximo}
+                              </Typography>
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ fontWeight: 500, fontSize: "14px" }}
                             >
-                              {produto.nome}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={produto.sku}
-                              size="small"
-                              sx={{
-                                bgcolor: "#f3f4f6",
-                                fontSize: "11px",
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600, fontSize: "16px" }}
+                              R$ {produto.valorUnitario.toFixed(2)}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ fontWeight: 500, fontSize: "14px" }}
                             >
-                              {produto.estoqueAtual}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="caption"
-                              sx={{ color: "#6b7280" }}
-                            >
-                              {produto.estoqueMinimo} / {produto.estoqueMaximo}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 500 }}>
-                            R$ {produto.valorUnitario.toFixed(2)}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 500 }}>
-                            R${" "}
-                            {(
-                              produto.estoqueAtual * produto.valorUnitario
-                            ).toFixed(2)}
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={status.label}
-                              size="small"
-                              sx={{
-                                bgcolor: status.bgcolor,
-                                color: status.color,
-                                fontWeight: 500,
-                              }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                              R${" "}
+                              {(
+                                produto.estoqueAtual * produto.valorUnitario
+                              ).toFixed(2)}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={status.label}
+                                size="small"
+                                sx={{
+                                  bgcolor: status.bgcolor,
+                                  color: status.color,
+                                  fontWeight: 500,
+                                  fontSize: "12px",
+                                }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
                   </TableBody>
                 </Table>
+
+                {/* Paginação - Produtos */}
+                <PaginationControls
+                  paginaAtual={paginaAtualProdutos}
+                  totalPaginas={totalPaginasProdutos}
+                  indiceInicial={indiceInicialProdutos}
+                  indiceFinal={indiceFinalProdutos}
+                  totalItens={produtosFiltrados.length}
+                  itemLabel="produto"
+                  onPrimeira={irParaPrimeiraPaginaProdutos}
+                  onAnterior={irParaPaginaAnteriorProdutos}
+                  onProxima={irParaProximaPaginaProdutos}
+                  onUltima={irParaUltimaPaginaProdutos}
+                  onPagina={setPaginaAtualProdutos}
+                />
               </TableContainer>
             </Box>
           )}
@@ -489,35 +785,72 @@ function Estoque() {
           {/* Tab Movimentações */}
           {tabAtual === 1 && (
             <Box>
-              <TableContainer>
+              <TableContainer
+                sx={{ border: "1px solid #e5e7eb", borderRadius: "8px" }}
+              >
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: "#f9fafb" }}>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                          py: 2,
+                        }}
+                      >
                         DATA/HORA
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
                         TIPO
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
                         PRODUTO
                       </TableCell>
                       <TableCell
                         align="center"
-                        sx={{ fontWeight: 600, color: "#374151" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
                       >
                         QUANTIDADE
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
                         MOTIVO
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: "#374151" }}>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
                         OBSERVAÇÕES
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {movimentacoes.length === 0 ? (
+                    {movimentacoesPaginadas.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={6}
@@ -530,22 +863,33 @@ function Estoque() {
                           <Typography variant="body1">
                             Nenhuma movimentação registrada
                           </Typography>
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            Clique em "Nova Movimentação" para começar
+                          </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      movimentacoes.map((mov) => {
+                      movimentacoesPaginadas.map((mov, index) => {
                         const tipo = TIPOS_MOVIMENTACAO[mov.tipo];
                         return (
                           <TableRow
                             key={mov.id}
-                            sx={{ "&:hover": { bgcolor: "#f9fafb" } }}
+                            sx={{
+                              "&:hover": { bgcolor: "#f9fafb" },
+                              borderBottom:
+                                index === movimentacoesPaginadas.length - 1
+                                  ? "none"
+                                  : "1px solid #f3f4f6",
+                            }}
                           >
-                            <TableCell>
+                            <TableCell sx={{ py: 2.5 }}>
                               <Typography
                                 variant="caption"
                                 sx={{ color: "#6b7280" }}
                               >
-                                {new Date(mov.timestamp).toLocaleString()}
+                                {new Date(mov.timestamp).toLocaleString(
+                                  "pt-BR",
+                                )}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -556,13 +900,15 @@ function Estoque() {
                                 sx={{
                                   bgcolor: `${tipo.color}20`,
                                   color: tipo.color,
+                                  fontWeight: 500,
+                                  fontSize: "12px",
                                 }}
                               />
                             </TableCell>
                             <TableCell>
                               <Typography
                                 variant="body2"
-                                sx={{ fontWeight: 500 }}
+                                sx={{ fontWeight: 500, color: "#111827" }}
                               >
                                 {mov.produtoNome}
                               </Typography>
@@ -576,13 +922,23 @@ function Estoque() {
                             <TableCell align="center">
                               <Typography
                                 variant="body2"
-                                sx={{ fontWeight: 600 }}
+                                sx={{
+                                  fontWeight: 600,
+                                  color:
+                                    mov.tipo === "saida"
+                                      ? "#dc2626"
+                                      : "#16a34a",
+                                }}
                               >
                                 {mov.tipo === "saida" ? "-" : "+"}
                                 {mov.quantidade}
                               </Typography>
                             </TableCell>
-                            <TableCell>{mov.motivo || "—"}</TableCell>
+                            <TableCell
+                              sx={{ color: "#6b7280", fontSize: "14px" }}
+                            >
+                              {mov.motivo || "—"}
+                            </TableCell>
                             <TableCell>
                               <Typography
                                 variant="caption"
@@ -597,6 +953,21 @@ function Estoque() {
                     )}
                   </TableBody>
                 </Table>
+
+                {/* Paginação - Movimentações */}
+                <PaginationControls
+                  paginaAtual={paginaAtualMovimentacoes}
+                  totalPaginas={totalPaginasMovimentacoes}
+                  indiceInicial={indiceInicialMovimentacoes}
+                  indiceFinal={indiceFinalMovimentacoes}
+                  totalItens={movimentacoes.length}
+                  itemLabel="movimentação"
+                  onPrimeira={irParaPrimeiraPaginaMovimentacoes}
+                  onAnterior={irParaPaginaAnteriorMovimentacoes}
+                  onProxima={irParaProximaPaginaMovimentacoes}
+                  onUltima={irParaUltimaPaginaMovimentacoes}
+                  onPagina={setPaginaAtualMovimentacoes}
+                />
               </TableContainer>
             </Box>
           )}
@@ -629,10 +1000,13 @@ function Estoque() {
         <DialogTitle
           sx={{
             fontWeight: 600,
+            fontSize: "20px",
             borderBottom: "1px solid #e5e7eb",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            py: 2,
+            px: 3,
           }}
         >
           Nova Movimentação de Estoque
@@ -644,7 +1018,7 @@ function Estoque() {
         <DialogContent sx={{ pt: 3 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required size="small">
                 <InputLabel>Tipo de Movimentação</InputLabel>
                 <Select
                   name="tipo"
@@ -667,7 +1041,7 @@ function Estoque() {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required size="small">
                 <InputLabel>Produto</InputLabel>
                 <Select
                   name="produtoId"
@@ -704,6 +1078,7 @@ function Estoque() {
                     ? "Digite o valor correto do estoque"
                     : "Quantidade a movimentar"
                 }
+                size="small"
               />
             </Grid>
 
@@ -716,6 +1091,7 @@ function Estoque() {
                 value={currentMovimentacao.data}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
+                size="small"
               />
             </Grid>
 
@@ -727,6 +1103,7 @@ function Estoque() {
                 value={currentMovimentacao.motivo}
                 onChange={handleChange}
                 placeholder="Ex: Compra, Venda, Devolução, Ajuste de inventário"
+                size="small"
               />
             </Grid>
 
@@ -740,15 +1117,23 @@ function Estoque() {
                 value={currentMovimentacao.observacoes}
                 onChange={handleChange}
                 placeholder="Informações adicionais sobre a movimentação..."
+                size="small"
               />
             </Grid>
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e7eb" }}>
+        <DialogActions
+          sx={{ px: 3, pb: 2.5, pt: 2, borderTop: "1px solid #e5e7eb" }}
+        >
           <Button
             onClick={handleCloseDialog}
-            sx={{ textTransform: "none", color: "#6b7280" }}
+            sx={{
+              textTransform: "none",
+              color: "#6b7280",
+              "&:hover": { bgcolor: "#f3f4f6" },
+              px: 3,
+            }}
           >
             Cancelar
           </Button>
