@@ -1,11 +1,13 @@
 // src/components/ProtectedRoute.jsx
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { authService } from "../api/authService";
 
 function ProtectedRoute({ children }) {
-  const isAuthenticated = localStorage.getItem("isAuthenticated");
+  const location = useLocation();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (!authService.isAuthenticated()) {
+    authService.logout();
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

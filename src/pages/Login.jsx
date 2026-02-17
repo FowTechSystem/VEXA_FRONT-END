@@ -14,32 +14,69 @@ import {
   VisibilityOff,
   Login as LoginIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { showError } from "../utils/notifications";
+import { authService } from "../api/authService";
+
+/**
+ * Modo demo: quando true, permite login sem backend (apenas para desenvolvimento).
+ * O BACKEND deve implementar POST /api/auth/login - veja authService.js
+ */
+const DEMO_SEM_BACKEND = false;
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { mode } = useContext(ThemeContext);
 
-  const handleLogin = (e) => {
+
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (email && password) {
-      // ANTES (localStorage)
-      localStorage.setItem("isAuthenticated", "true");
+    if (!email?.trim() || !password) {
+      showError("Preencha e-mail e senha");
+      return;
+    }
 
-      // DEPOIS (sessionStorage - apaga ao fechar navegador)
-      sessionStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userEmail", email);
-      navigate("/");
-    } else {
-      showError("Por favor, preencha todos os campos");
+    setLoading(true);
+
+    try {
+      await authService.login(email, password);
+      navigate(location.state?.from?.pathname || "/", { replace: true });
+    } catch (error) {
+      if (DEMO_SEM_BACKEND && error.code === "ERR_NETWORK") {
+        localStorage.setItem("token", "demo-token");
+        localStorage.setItem("isAuthenticated", "true");
+        sessionStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("userEmail", email);
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (error.response?.status === 401) {
+        showError("E-mail ou senha inválidos");
+      } else if (error.code === "ERR_NETWORK") {
+        showError(
+          "Servidor indisponível. Verifique se o backend está rodando em /api/auth/login",
+        );
+      } else {
+        showError(
+          error.response?.data?.message || "Erro ao fazer login. Tente novamente.",
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (authService.isAuthenticated()) {
+    return <Navigate to={location.state?.from?.pathname || "/"} replace />;
+  }
 
   return (
     <Box
@@ -50,7 +87,6 @@ function Login() {
         overflow: "hidden",
       }}
     >
-      {/* Lado Esquerdo - Gradiente (sempre igual) */}
       <Box
         sx={{
           flex: 1,
@@ -75,7 +111,6 @@ function Login() {
         </Typography>
       </Box>
 
-      {/* Lado Direito - Formulário (adapta ao tema) */}
       <Box
         sx={{
           flex: 1,
@@ -108,6 +143,7 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               sx={{ mb: 3 }}
               required
+              disabled={loading}
               placeholder="seu@email.com"
             />
 
@@ -119,6 +155,7 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               sx={{ mb: 4 }}
               required
+              disabled={loading}
               placeholder="••••••••"
               InputProps={{
                 endAdornment: (
@@ -139,6 +176,7 @@ function Login() {
               variant="contained"
               type="submit"
               size="large"
+              disabled={loading}
               sx={{
                 py: 1.5,
                 fontSize: "1rem",
@@ -148,7 +186,7 @@ function Login() {
                 boxShadow: "0 3px 5px 2px rgba(124, 58, 237, .3)",
               }}
             >
-              Entrar
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
 
@@ -157,6 +195,7 @@ function Login() {
               Esqueceu sua senha?{" "}
               <a
                 href="#"
+                onClick={(e) => e.preventDefault()}
                 style={{
                   color: mode === "dark" ? "#A78BFA" : "#7C3AED",
                   textDecoration: "none",
@@ -168,23 +207,25 @@ function Login() {
             </Typography>
           </Box>
 
-          <Box
-            sx={{
-              mt: 4,
-              pt: 3,
-              borderTop: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              align="center"
-              display="block"
+          {DEMO_SEM_BACKEND && (
+            <Box
+              sx={{
+                mt: 4,
+                pt: 3,
+                borderTop: "1px solid",
+                borderColor: "divider",
+              }}
             >
-              Para testar, use qualquer e-mail e senha
-            </Typography>
-          </Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                align="center"
+                display="block"
+              >
+                Modo demo (backend desativado)
+              </Typography>
+            </Box>
+          )}
         </Container>
       </Box>
     </Box>

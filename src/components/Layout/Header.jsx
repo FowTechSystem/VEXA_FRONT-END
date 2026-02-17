@@ -26,6 +26,7 @@ import {
 } from "@mui/icons-material";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import UserProfileDrawer from "../UserProfileDrawer";
+import { authService } from "../../api/authService";
 
 // Notificações exibidas no painel (pode ser conectado a um contexto/API depois)
 const NOTIFICACOES_INICIAIS = [
@@ -60,10 +61,8 @@ function Header({ onMenuClick }) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("userEmail");
-    navigate("/login");
+    authService.logout();
+    navigate("/login", { replace: true });
   };
 
   // FUNÇÃO PARA ABRIR O DRAWER
