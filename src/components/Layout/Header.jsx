@@ -103,6 +103,16 @@ function Header({ onMenuClick }) {
           >
             VEXA
           </Typography>
+          {(() => {
+            const user = authService.getUsuario();
+            const empresaLabel = user.empresaNome || (user.empresaId != null ? `Empresa #${user.empresaId}` : null);
+            if (!empresaLabel) return null;
+            return (
+              <Typography variant="caption" sx={{ opacity: 0.9, mr: 1 }}>
+                {empresaLabel}
+              </Typography>
+            );
+          })()}
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton
@@ -132,7 +142,10 @@ function Header({ onMenuClick }) {
             </IconButton>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <IconButton onClick={handleMenu} color="inherit">
+              <IconButton onClick={handleMenu} color="inherit" title={(() => {
+                const u = authService.getUsuario();
+                return u.empresaNome || (u.empresaId != null ? `Empresa #${u.empresaId}` : "Conta");
+              })()}>
                 <Avatar
                   sx={{
                     width: 35,
@@ -140,7 +153,11 @@ function Header({ onMenuClick }) {
                     backgroundColor: "secondary.main",
                   }}
                 >
-                  A
+                  {(() => {
+                    const u = authService.getUsuario();
+                    const nome = u.empresaNome || (u.empresaId != null ? `Empresa ${u.empresaId}` : "Conta");
+                    return nome.charAt(0).toUpperCase();
+                  })()}
                 </Avatar>
               </IconButton>
             </Box>
@@ -152,6 +169,15 @@ function Header({ onMenuClick }) {
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
+              {(() => {
+                const u = authService.getUsuario();
+                const empresaLabel = u.empresaNome || (u.empresaId != null ? `Empresa #${u.empresaId}` : null);
+                return empresaLabel ? (
+                  <MenuItem disabled sx={{ opacity: 1, cursor: "default" }}>
+                    <Typography variant="body2" fontWeight={600}>{empresaLabel}</Typography>
+                  </MenuItem>
+                ) : null;
+              })()}
               <MenuItem onClick={handleOpenProfile}>
                 <AccountCircle sx={{ mr: 1 }} />
                 Meu Perfil

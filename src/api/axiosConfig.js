@@ -1,4 +1,5 @@
 // src/api/axiosConfig.js
+// Multi-tenancy: envie apenas Authorization: Bearer <token>. Não envie empresaId no body nem na query.
 import axios from "axios";
 
 const TOKEN_KEY = "token";

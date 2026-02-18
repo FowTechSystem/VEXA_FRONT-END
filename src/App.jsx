@@ -23,6 +23,7 @@ import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
 import Planos from "./pages/Planos";
+import Empresas from "./pages/Empresas";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function AppContent() {
@@ -101,6 +102,7 @@ function AppContent() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="planos" element={<Planos />} />
+          <Route path="empresas" element={<Empresas />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 
