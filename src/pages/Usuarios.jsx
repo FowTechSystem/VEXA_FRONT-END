@@ -28,6 +28,8 @@ import {
   Switch,
   FormControlLabel,
   Divider,
+  Autocomplete,
+  CircularProgress,
 } from "@mui/material";
 import {
   Add,
@@ -54,6 +56,38 @@ import {
   errorMessages,
   entityNames,
 } from "../utils/entityMessages";
+import { validateCPF } from "../utils/validators";
+
+// Todos os estados do Brasil (UF + nome) para busca
+const ESTADOS_BR = [
+  { sigla: "AC", nome: "Acre" },
+  { sigla: "AL", nome: "Alagoas" },
+  { sigla: "AP", nome: "Amapá" },
+  { sigla: "AM", nome: "Amazonas" },
+  { sigla: "BA", nome: "Bahia" },
+  { sigla: "CE", nome: "Ceará" },
+  { sigla: "DF", nome: "Distrito Federal" },
+  { sigla: "ES", nome: "Espírito Santo" },
+  { sigla: "GO", nome: "Goiás" },
+  { sigla: "MA", nome: "Maranhão" },
+  { sigla: "MT", nome: "Mato Grosso" },
+  { sigla: "MS", nome: "Mato Grosso do Sul" },
+  { sigla: "MG", nome: "Minas Gerais" },
+  { sigla: "PA", nome: "Pará" },
+  { sigla: "PB", nome: "Paraíba" },
+  { sigla: "PR", nome: "Paraná" },
+  { sigla: "PE", nome: "Pernambuco" },
+  { sigla: "PI", nome: "Piauí" },
+  { sigla: "RJ", nome: "Rio de Janeiro" },
+  { sigla: "RN", nome: "Rio Grande do Norte" },
+  { sigla: "RS", nome: "Rio Grande do Sul" },
+  { sigla: "RO", nome: "Rondônia" },
+  { sigla: "RR", nome: "Roraima" },
+  { sigla: "SC", nome: "Santa Catarina" },
+  { sigla: "SP", nome: "São Paulo" },
+  { sigla: "SE", nome: "Sergipe" },
+  { sigla: "TO", nome: "Tocantins" },
+];
 
 function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -62,6 +96,8 @@ function Usuarios() {
   const [editMode, setEditMode] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
+  const [cpfError, setCpfError] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
 
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -218,6 +254,8 @@ function Usuarios() {
       });
       setEditMode(false);
     }
+    setCpfError("");
+    setCepLoading(false);
     setOpenDialog(true);
   };
 
@@ -244,12 +282,74 @@ function Usuarios() {
     });
   };
 
+  const handleCpfBlur = () => {
+    const cpf = (currentUsuario.cpf || "").replace(/[^\d]/g, "");
+    if (cpf.length === 0) {
+      setCpfError("");
+      return;
+    }
+    if (cpf.length !== 11) {
+      setCpfError("CPF deve ter 11 dígitos.");
+      return;
+    }
+    const result = validateCPF(currentUsuario.cpf);
+    setCpfError(result.valid ? "" : result.message);
+  };
+
+  const buscarCep = async () => {
+    const cep = (currentUsuario.endereco?.cep || "").replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    setCepLoading(true);
+    setCpfError("");
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
+      if (!res.ok) throw new Error("CEP não encontrado");
+      const data = await res.json();
+      setCurrentUsuario({
+        ...currentUsuario,
+        endereco: {
+          ...currentUsuario.endereco,
+          cep: currentUsuario.endereco.cep,
+          rua: data.street || data.logradouro || currentUsuario.endereco.rua,
+          bairro: data.neighborhood || data.bairro || currentUsuario.endereco.bairro,
+          cidade: data.city || data.localidade || currentUsuario.endereco.cidade,
+          estado: (data.state || data.uf || "").toUpperCase() || currentUsuario.endereco.estado,
+          numero: currentUsuario.endereco.numero,
+          complemento: currentUsuario.endereco.complemento,
+        },
+      });
+    } catch (err) {
+      showError("CEP não encontrado. Verifique e tente novamente.");
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  const handleCepBlur = () => {
+    const cep = (currentUsuario.endereco?.cep || "").replace(/\D/g, "");
+    if (cep.length === 8) buscarCep();
+  };
+
+  const estadoOption = ESTADOS_BR.find(
+    (e) => e.sigla === (currentUsuario.endereco?.estado || "")
+  ) || null;
+
   const handleSave = async () => {
     const faltando = [];
     if (!currentUsuario.nome?.trim()) faltando.push("Nome");
     if (!currentUsuario.email?.trim()) faltando.push("Email");
     if (!editMode && !currentUsuario.senha) faltando.push("Senha");
     if (!currentUsuario.perfil) faltando.push("Perfil de Acesso");
+
+    const cpfDigits = (currentUsuario.cpf || "").replace(/[^\d]/g, "");
+    if (cpfDigits.length > 0) {
+      const result = validateCPF(currentUsuario.cpf);
+      if (!result.valid) {
+        setCpfError(result.message);
+        showError(result.message);
+        return;
+      }
+    }
 
     if (faltando.length > 0) {
       setMensagemValidacao("Faltam: " + faltando.join(", ") + ".");
@@ -759,7 +859,22 @@ function Usuarios() {
                   <TextField fullWidth required label="Nome" name="nome" value={currentUsuario.nome} onChange={handleChange} placeholder="Nome completo do usuário" size="small" sx={requiredFieldSx} />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="CPF" name="cpf" value={currentUsuario.cpf} onChange={handleChange} placeholder="000.000.000-00" size="small" />
+                  <TextField
+                    fullWidth
+                    label="CPF"
+                    name="cpf"
+                    value={currentUsuario.cpf}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (cpfError) setCpfError("");
+                    }}
+                    onBlur={handleCpfBlur}
+                    placeholder="000.000.000-00"
+                    size="small"
+                    error={!!cpfError}
+                    helperText={cpfError || "Validado ao sair do campo (11 dígitos)."}
+                    inputProps={{ maxLength: 14 }}
+                  />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField fullWidth label="RG" name="rg" value={currentUsuario.rg || ""} onChange={handleChange} placeholder="RG" size="small" />
@@ -807,7 +922,25 @@ function Usuarios() {
               </Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={4}>
-                  <TextField fullWidth label="CEP" name="cep" value={currentUsuario.endereco.cep} onChange={handleEnderecoChange} placeholder="00000-000" size="small" />
+                  <TextField
+                    fullWidth
+                    label="CEP"
+                    name="cep"
+                    value={currentUsuario.endereco.cep}
+                    onChange={handleEnderecoChange}
+                    onBlur={handleCepBlur}
+                    placeholder="00000-000"
+                    size="small"
+                    helperText="Digite o CEP (8 dígitos) e saia do campo para preencher o endereço automaticamente."
+                    InputProps={{
+                      endAdornment: cepLoading ? (
+                        <InputAdornment position="end">
+                          <CircularProgress size={20} />
+                        </InputAdornment>
+                      ) : null,
+                    }}
+                    inputProps={{ maxLength: 9 }}
+                  />
                 </Grid>
                 <Grid item xs={12} md={8}>
                   <TextField fullWidth label="Endereço" name="rua" value={currentUsuario.endereco.rua} onChange={handleEnderecoChange} placeholder="Rua, Avenida..." size="small" />
@@ -825,25 +958,37 @@ function Usuarios() {
                   <TextField fullWidth label="Cidade" name="cidade" value={currentUsuario.endereco.cidade} onChange={handleEnderecoChange} placeholder="Cidade" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small" sx={selectFieldSx}>
-                    <InputLabel id="estado-label" shrink>Estado (UF)</InputLabel>
-                    <Select
-                      name="estado"
-                      value={currentUsuario.endereco.estado}
-                      onChange={handleEnderecoChange}
-                      label="Estado (UF)"
-                      labelId="estado-label"
-                      displayEmpty
-                      renderValue={(v) => v || "Selecione o estado"}
-                    >
-                      <MenuItem value="">Selecione o estado</MenuItem>
-                      <MenuItem value="SP">São Paulo</MenuItem>
-                      <MenuItem value="RJ">Rio de Janeiro</MenuItem>
-                      <MenuItem value="MG">Minas Gerais</MenuItem>
-                      <MenuItem value="RS">Rio Grande do Sul</MenuItem>
-                      <MenuItem value="BA">Bahia</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    options={ESTADOS_BR}
+                    getOptionLabel={(opt) =>
+                      opt ? `${opt.nome} (${opt.sigla})` : ""
+                    }
+                    value={estadoOption}
+                    onChange={(_, newValue) => {
+                      setCurrentUsuario({
+                        ...currentUsuario,
+                        endereco: {
+                          ...currentUsuario.endereco,
+                          estado: newValue ? newValue.sigla : "",
+                        },
+                      });
+                    }}
+                    isOptionEqualToValue={(opt, val) => opt?.sigla === val?.sigla}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Estado (UF)"
+                        placeholder="Digite para buscar (ex.: Paraná)"
+                        size="small"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: 1.5,
+                            bgcolor: "background.paper",
+                          },
+                        }}
+                      />
+                    )}
+                  />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField fullWidth label="País" defaultValue="Brasil" size="small" />
@@ -878,14 +1023,44 @@ function Usuarios() {
                   <TextField fullWidth label="Cargo" name="cargo" value={currentUsuario.cargo} onChange={handleChange} placeholder="Ex: Vendedor" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small" sx={selectFieldSx}>
-                    <InputLabel id="dept-label">Departamento</InputLabel>
-                    <Select name="departamento" value={currentUsuario.departamento} onChange={handleChange} label="Departamento" labelId="dept-label">
-                      {DEPARTAMENTOS.map((d) => (
-                        <MenuItem key={d} value={d}>{d}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      component="label"
+                      htmlFor="departamento-select"
+                      sx={{
+                        display: "block",
+                        mb: 0.75,
+                        fontWeight: 500,
+                        color: "text.primary",
+                      }}
+                    >
+                      Departamento
+                    </Typography>
+                    <FormControl fullWidth size="small" sx={selectFieldSx}>
+                      <Select
+                        id="departamento-select"
+                        name="departamento"
+                        value={currentUsuario.departamento || ""}
+                        onChange={handleChange}
+                        displayEmpty
+                        renderValue={(v) => v || "Selecione o departamento"}
+                        sx={{ borderRadius: 1.5 }}
+                      >
+                        <MenuItem value="">Selecione o departamento</MenuItem>
+                        {DEPARTAMENTOS.map((d) => (
+                          <MenuItem key={d} value={d}>{d}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
+                      Ex.: Vendas, RH, TI
+                    </Typography>
+                  </Box>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField fullWidth label={editMode ? "Nova Senha (opcional)" : "Senha"} name="senha" type="password" value={currentUsuario.senha} onChange={handleChange} placeholder="••••••••" helperText={editMode ? "Deixe em branco para manter a senha atual" : "Mínimo 6 caracteres"} size="small" sx={!editMode ? requiredFieldSx : undefined} />
