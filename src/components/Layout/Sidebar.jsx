@@ -1,5 +1,5 @@
 // src/components/Layout/Sidebar.jsx
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Drawer,
@@ -11,6 +11,8 @@ import {
   ListItemText,
   Divider,
   Typography,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import {
   Dashboard,
@@ -27,6 +29,7 @@ import {
   LocalShipping,
   PointOfSale,
   CardMembership,
+  Search,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -83,8 +86,23 @@ const menuSections = [
 function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [pesquisa, setPesquisa] = useState("");
+
   const isActive = (path) =>
     location.pathname === (path.startsWith("/") ? path : "/" + path);
+
+  const menuFiltrado = useMemo(() => {
+    const termo = pesquisa.trim().toLowerCase();
+    if (!termo) return menuSections;
+    return menuSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) =>
+          item.text.toLowerCase().includes(termo)
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [pesquisa]);
 
   const drawer = (
     <Box
@@ -110,12 +128,38 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
       <Divider />
 
+      {/* Pesquisa */}
+      <Box sx={{ px: 1.5, py: 2 }}>
+        <TextField
+          fullWidth
+          size="small"
+          label="Pesquisa"
+          placeholder="Buscar menu (ex.: cli, fiscal)"
+          value={pesquisa}
+          onChange={(e) => setPesquisa(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              bgcolor: "background.default",
+              borderRadius: 2,
+            },
+          }}
+        />
+      </Box>
+
+      <Divider />
+
       {/* Menu */}
       <Box
         sx={{
           flexGrow: 1,
           overflowY: "auto",
-          // Esconde a scrollbar em todos os navegadores
           "&::-webkit-scrollbar": {
             display: "none",
           },
@@ -124,7 +168,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         }}
       >
         <List sx={{ px: 1, pt: 2 }}>
-          {menuSections.map((section) => (
+          {menuFiltrado.map((section) => (
             <Box key={section.title} sx={{ mb: 2 }}>
               <Typography
                 variant="caption"
