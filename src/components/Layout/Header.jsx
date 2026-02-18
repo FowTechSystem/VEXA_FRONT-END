@@ -103,6 +103,16 @@ function Header({ onMenuClick }) {
           >
             VEXA
           </Typography>
+          {(() => {
+            const user = authService.getUsuario();
+            const empresaLabel = user.empresaNome || (user.empresaId != null ? `Empresa #${user.empresaId}` : null);
+            if (!empresaLabel) return null;
+            return (
+              <Typography variant="caption" sx={{ opacity: 0.9, mr: 1 }}>
+                {empresaLabel}
+              </Typography>
+            );
+          })()}
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton

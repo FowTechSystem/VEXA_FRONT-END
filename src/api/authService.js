@@ -1,20 +1,23 @@
 /**
  * =============================================================================
- * AUTH SERVICE - Ponto de Integração para o Backend
+ * AUTH SERVICE - Ponto de Integração para o Backend (Multi-tenancy)
  * =============================================================================
  *
  * O BACKEND DEVE IMPLEMENTAR:
  *
  * POST /api/auth/login
  *   Body: { email: string, password: string }
- *   Success 200: { token: string, user?: { id, nome, email, perfil } }
+ *   Success 200: {
+ *     token: string,
+ *     user: { id, empresaId, nome, email, perfil [, empresaNome ] }
+ *   }
  *   Error 401: { message: "Credenciais inválidas" }
  *   Error 500: { message: "Erro interno" }
  *
- * O token retornado será enviado automaticamente no header Authorization
- * em todas as requisições (já configurado no axiosConfig.js).
- *
- * O backend deve validar o token em cada requisição protegida.
+ * Multi-tenancy:
+ * - O backend retorna user.empresaId no login; o frontend guarda o user completo.
+ * - Todas as requisições autenticadas enviam apenas: Authorization: Bearer <token>.
+ * - NÃO envie empresaId no body (POST/PUT) nem na query (GET); o backend usa o token.
  * =============================================================================
  */
 
@@ -27,10 +30,10 @@ const USER_DATA_KEY = "userData";
 
 export const authService = {
   /**
-   * Faz login no backend.
+   * Faz login no backend. Guarda token e user (com empresaId).
    * @param {string} email
    * @param {string} password
-   * @returns {Promise<{token: string, user?: object}>}
+   * @returns {Promise<{token: string, user?: { id, empresaId, nome, email, perfil } }>}
    */
   async login(email, password) {
     const response = await api.post("/auth/login", { email, password });
@@ -50,7 +53,7 @@ export const authService = {
   },
 
   /**
-   * Remove todos os dados de autenticação.
+   * Remove token e user (logout). Próximo login trará dados novos.
    */
   logout() {
     localStorage.removeItem(TOKEN_KEY);
@@ -61,8 +64,20 @@ export const authService = {
   },
 
   /**
+   * Retorna o usuário logado (com empresaId). {} se não houver.
+   * @returns {{ id?: number, empresaId?: number, nome?: string, email?: string, perfil?: string, empresaNome?: string }}
+   */
+  getUsuario() {
+    try {
+      const raw = localStorage.getItem(USER_DATA_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  },
+
+  /**
    * Verifica se o usuário está autenticado.
-   * Requer token E flag de autenticação.
    */
   isAuthenticated() {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -73,7 +88,7 @@ export const authService = {
   },
 
   /**
-   * Retorna o token atual (para uso em interceptors, etc).
+   * Retorna o token atual (usado no header Authorization).
    */
   getToken() {
     return localStorage.getItem(TOKEN_KEY);
