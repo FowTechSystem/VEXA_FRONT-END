@@ -16,7 +16,6 @@ import {
 import {
   Visibility,
   VisibilityOff,
-  Login as LoginIcon,
   WarningAmber,
 } from "@mui/icons-material";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
@@ -106,9 +105,14 @@ function Login() {
           p: 4,
         }}
       >
-        <LoginIcon sx={{ fontSize: 120, mb: 3, opacity: 0.9 }} />
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="VEXA"
+          sx={{ height: 120, mb: 3, objectFit: "contain" }}
+        />
         <Typography variant="h2" sx={{ fontWeight: 700, mb: 2 }}>
-          CRM VEXA
+          VEXA
         </Typography>
         <Typography
           variant="h6"
@@ -134,7 +138,7 @@ function Login() {
               variant="h4"
               sx={{ fontWeight: 700, mb: 1, color: "primary.main" }}
             >
-              CRM VEXA
+              VEXA
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Entre com suas credenciais

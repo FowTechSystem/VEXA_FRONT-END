@@ -33,7 +33,7 @@ const NOTIFICACOES_INICIAIS = [
   { id: 1, titulo: "Nova venda", texto: "Venda #1245 finalizada com sucesso.", data: "Há 5 min", lida: false },
   { id: 2, titulo: "Estoque baixo", texto: "Produto Camiseta Básica abaixo do mínimo.", data: "Há 1 h", lida: false },
   { id: 3, titulo: "Relatório disponível", texto: "Relatório de vendas do mês está pronto.", data: "Ontem", lida: false },
-  { id: 4, titulo: "Atualização do sistema", texto: "CRM VEXA atualizado para a versão 1.0.", data: "Ontem", lida: false },
+  { id: 4, titulo: "Atualização do sistema", texto: "VEXA atualizado para a versão 1.0.", data: "Ontem", lida: false },
 ];
 
 function Header({ onMenuClick }) {
@@ -101,7 +101,7 @@ function Header({ onMenuClick }) {
               letterSpacing: 1,
             }}
           >
-            CRM VEXA
+            VEXA
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>

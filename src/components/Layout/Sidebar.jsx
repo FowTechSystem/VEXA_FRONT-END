@@ -26,6 +26,7 @@ import {
   Receipt,
   LocalShipping,
   PointOfSale,
+  CardMembership,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -73,6 +74,7 @@ const menuSections = [
   {
     title: "Sistema",
     items: [
+      { text: "Planos", icon: <CardMembership />, path: "planos" },
       { text: "Configurações", icon: <Settings />, path: "configuracoes" },
     ],
   },
@@ -188,7 +190,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
           align="center"
           display="block"
         >
-          VEXA CRM v1.0
+          VEXA v1.0
         </Typography>
         <Typography
           variant="caption"

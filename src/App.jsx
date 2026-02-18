@@ -22,6 +22,7 @@ import Fiscal from "./pages/Fiscal";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
+import Planos from "./pages/Planos";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function AppContent() {
@@ -99,6 +100,7 @@ function AppContent() {
           <Route path="fornecedores" element={<Fornecedores />} />
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
+          <Route path="planos" element={<Planos />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>
 
