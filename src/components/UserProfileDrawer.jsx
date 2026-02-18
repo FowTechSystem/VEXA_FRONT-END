@@ -13,16 +13,18 @@ import {
   Alert,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
+import { authService } from "../api/authService";
 
 function UserProfileDrawer({ open, onClose }) {
-  // Dados do usuário logado (depois virá da API)
-  const [userData] = useState({
-    nome: "João Silva",
-    idade: 28,
-    funcao: "vendedor", // vendedor, caixa, estoquista, gerente
-    status: "ativo",
-    email: "joao@vexa.com",
-  });
+  const user = authService.getUsuario();
+  const empresaNome = user.empresaNome || (user.empresaId != null ? `Empresa #${user.empresaId}` : "Empresa");
+  const userData = {
+    nome: user.nome || "—",
+    email: user.email || "—",
+    perfil: user.perfil || "—",
+    empresaNome,
+    funcao: (user.perfil || "").toLowerCase(),
+  };
 
   // Estados para formulários
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -124,7 +126,7 @@ function UserProfileDrawer({ open, onClose }) {
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Avatar e Dados do Usuário */}
+        {/* Avatar e Nome da Empresa (identidade principal) */}
         <Box sx={{ textAlign: "center", mb: 3 }}>
           <Avatar
             sx={{
@@ -136,58 +138,48 @@ function UserProfileDrawer({ open, onClose }) {
               fontSize: 40,
             }}
           >
-            {userData.nome.charAt(0)}
+            {userData.empresaNome.charAt(0)}
           </Avatar>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {userData.nome}
+            {userData.empresaNome}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {userData.email}
+          <Typography variant="caption" color="text.secondary" display="block">
+            Empresa
           </Typography>
         </Box>
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Informações do Funcionário */}
+        {/* Usuário logado */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-            Informações
+            Usuário logado
           </Typography>
 
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Idade:
+              Nome:
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {userData.idade} anos
+              {userData.nome}
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Função:
+              E-mail:
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, textTransform: "capitalize" }}
-            >
-              {userData.funcao}
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {userData.email}
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              Status:
+              Perfil:
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 600,
-                color: userData.status === "ativo" ? "green" : "red",
-                textTransform: "capitalize",
-              }}
-            >
-              {userData.status}
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {userData.perfil}
             </Typography>
           </Box>
         </Box>

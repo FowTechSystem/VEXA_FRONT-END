@@ -30,12 +30,15 @@ import {
   PointOfSale,
   CardMembership,
   Search,
+  Business,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
+import { authService } from "../../api/authService";
 
 const drawerWidth = 260;
+const DEV_ADMIN_EMAIL = "dev@gmail.com";
 
-const menuSections = [
+const menuSectionsBase = [
   {
     title: "Visão Geral",
     items: [{ text: "Dashboard", icon: <Dashboard />, path: "/" }],
@@ -87,6 +90,18 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pesquisa, setPesquisa] = useState("");
+  const user = authService.getUsuario();
+  const isDevAdmin = user.email === DEV_ADMIN_EMAIL;
+  const menuSections = useMemo(() => {
+    if (!isDevAdmin) return menuSectionsBase;
+    return [
+      ...menuSectionsBase,
+      {
+        title: "Administração",
+        items: [{ text: "Empresas", icon: <Business />, path: "empresas" }],
+      },
+    ];
+  }, [isDevAdmin]);
 
   const isActive = (path) =>
     location.pathname === (path.startsWith("/") ? path : "/" + path);
@@ -102,7 +117,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         ),
       }))
       .filter((section) => section.items.length > 0);
-  }, [pesquisa]);
+  }, [pesquisa, menuSections]);
 
   const drawer = (
     <Box
@@ -236,6 +251,17 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         >
           VEXA v1.0
         </Typography>
+        {user.empresaNome && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            align="center"
+            display="block"
+            sx={{ fontWeight: 600 }}
+          >
+            {user.empresaNome}
+          </Typography>
+        )}
         <Typography
           variant="caption"
           color="text.secondary"
