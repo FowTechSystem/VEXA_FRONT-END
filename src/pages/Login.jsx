@@ -8,38 +8,43 @@ import {
   InputAdornment,
   IconButton,
   Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Visibility,
   VisibilityOff,
   Login as LoginIcon,
+  WarningAmber,
 } from "@mui/icons-material";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { showError } from "../utils/notifications";
 import { authService } from "../api/authService";
 
-/**
- * Modo demo: quando true, permite login sem backend (apenas para desenvolvimento).
- * O BACKEND deve implementar POST /api/auth/login - veja authService.js
- */
 const DEMO_SEM_BACKEND = false;
+
+const MSG_CREDENCIAIS_INVALIDAS = "E-mail ou senha incorretos. Verifique e tente novamente.";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [openAviso, setOpenAviso] = useState(false);
+  const [mensagemAviso, setMensagemAviso] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const { mode } = useContext(ThemeContext);
-
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
     if (!email?.trim() || !password) {
-      showError("Preencha e-mail e senha");
+      setMensagemAviso("Preencha e-mail e senha para continuar.");
+      setOpenAviso(true);
       return;
     }
 
@@ -59,15 +64,17 @@ function Login() {
       }
 
       if (error.response?.status === 401) {
-        showError("E-mail ou senha inválidos");
+        setMensagemAviso(MSG_CREDENCIAIS_INVALIDAS);
+        setOpenAviso(true);
       } else if (error.code === "ERR_NETWORK") {
         showError(
           "Servidor indisponível. Verifique se o backend está rodando em /api/auth/login",
         );
       } else {
-        showError(
+        setMensagemAviso(
           error.response?.data?.message || "Erro ao fazer login. Tente novamente.",
         );
+        setOpenAviso(true);
       }
     } finally {
       setLoading(false);
@@ -90,7 +97,7 @@ function Login() {
       <Box
         sx={{
           flex: 1,
-          background: "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)",
+          background: "linear-gradient(135deg, #1E40AF 0%, #2563EB 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -182,8 +189,9 @@ function Login() {
                 fontSize: "1rem",
                 fontWeight: 600,
                 textTransform: "uppercase",
-                background: "linear-gradient(45deg, #7C3AED 30%, #A78BFA 90%)",
-                boxShadow: "0 3px 5px 2px rgba(124, 58, 237, .3)",
+                bgcolor: "#2563EB",
+                "&:hover": { bgcolor: "#1D4ED8" },
+                boxShadow: "0 3px 5px 2px rgba(37, 99, 235, .3)",
               }}
             >
               {loading ? "Entrando..." : "Entrar"}
@@ -197,7 +205,7 @@ function Login() {
                 href="#"
                 onClick={(e) => e.preventDefault()}
                 style={{
-                  color: mode === "dark" ? "#A78BFA" : "#7C3AED",
+                  color: mode === "dark" ? "#60A5FA" : "#2563EB",
                   textDecoration: "none",
                   fontWeight: 600,
                 }}
@@ -228,6 +236,39 @@ function Login() {
           )}
         </Container>
       </Box>
+
+      <Dialog
+        open={openAviso}
+        onClose={() => setOpenAviso(false)}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 320 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            color: "warning.main",
+            fontWeight: 600,
+          }}
+        >
+          <WarningAmber />
+          Aviso
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: "text.primary" }}>
+            {mensagemAviso}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="contained"
+            onClick={() => setOpenAviso(false)}
+            sx={{ textTransform: "none", minWidth: 100 }}
+          >
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

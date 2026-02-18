@@ -38,8 +38,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      clearAuth();
-      window.location.href = "/login";
+      const isLoginRequest = /auth\/login$/i.test(error.config?.url || "");
+      if (!isLoginRequest) {
+        clearAuth();
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },
