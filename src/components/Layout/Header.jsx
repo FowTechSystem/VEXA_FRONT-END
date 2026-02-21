@@ -23,8 +23,12 @@ import {
   Logout,
   Brightness4,
   Brightness7,
+  Business,
+  SwapHoriz,
+  ExitToApp,
 } from "@mui/icons-material";
 import { ThemeContext } from "../../contexts/ThemeContext";
+import { useEmpresa } from "../../contexts/EmpresaContext";
 import UserProfileDrawer from "../UserProfileDrawer";
 import { authService } from "../../api/authService";
 
@@ -39,9 +43,11 @@ const NOTIFICACOES_INICIAIS = [
 function Header({ onMenuClick }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [anchorNotif, setAnchorNotif] = useState(null);
+  const [anchorEmpresa, setAnchorEmpresa] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notificacoes] = useState(NOTIFICACOES_INICIAIS);
   const { mode, toggleTheme } = useContext(ThemeContext);
+  const { empresaAtiva, empresas, setEmpresaAtiva, sairEmpresa, isDev } = useEmpresa();
   const navigate = useNavigate();
 
   const handleMenu = (event) => {
@@ -103,16 +109,96 @@ function Header({ onMenuClick }) {
           >
             VEXA
           </Typography>
+          {/* Label da empresa atual */}
           {(() => {
             const user = authService.getUsuario();
-            const empresaLabel = user.empresaNome || (user.empresaId != null ? `Empresa #${user.empresaId}` : null);
-            if (!empresaLabel) return null;
+            let empresaLabel = null;
+            if (empresaAtiva) {
+              empresaLabel = empresaAtiva.nome || empresaAtiva.nomeFantasia || `Empresa #${empresaAtiva.id}`;
+            } else {
+              empresaLabel = user.empresaNome || (user.empresaId != null ? `Empresa #${user.empresaId}` : null);
+            }
+            if (!empresaLabel && !isDev) return null;
             return (
               <Typography variant="caption" sx={{ opacity: 0.9, mr: 1 }}>
-                {empresaLabel}
+                {empresaLabel || "Painel dev"}
               </Typography>
             );
           })()}
+          {/* Troca de empresa (só para dev) */}
+          {isDev && (
+            <>
+              <Box
+                component="button"
+                onClick={(e) => setAnchorEmpresa(e.currentTarget)}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  bgcolor: "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                }}
+              >
+                <SwapHoriz fontSize="small" />
+                {empresaAtiva ? "Trocar empresa" : "Entrar em empresa"}
+              </Box>
+              <Menu
+                anchorEl={anchorEmpresa}
+                open={Boolean(anchorEmpresa)}
+                onClose={() => setAnchorEmpresa(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                transformOrigin={{ vertical: "top", horizontal: "left" }}
+                PaperProps={{ sx: { minWidth: 260, maxHeight: 360 } }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setAnchorEmpresa(null);
+                    navigate("/empresas");
+                  }}
+                >
+                  <Business sx={{ mr: 1 }} />
+                  Painel de empresas
+                </MenuItem>
+                <Divider />
+                {empresas.map((e) => (
+                  <MenuItem
+                    key={e.id}
+                    onClick={() => {
+                      setEmpresaAtiva(e);
+                      setAnchorEmpresa(null);
+                      navigate("/");
+                    }}
+                    selected={empresaAtiva?.id === e.id}
+                  >
+                    {e.nome || e.nomeFantasia || `Empresa #${e.id}`}
+                  </MenuItem>
+                ))}
+                {empresaAtiva && (
+                  <>
+                    <Divider />
+                    <MenuItem
+                      onClick={() => {
+                        sairEmpresa();
+                        setAnchorEmpresa(null);
+                        navigate("/");
+                      }}
+                      sx={{ color: "error.main" }}
+                    >
+                      <ExitToApp sx={{ mr: 1 }} />
+                      Sair da empresa
+                    </MenuItem>
+                  </>
+                )}
+              </Menu>
+            </>
+          )}
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton
