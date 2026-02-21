@@ -34,6 +34,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
+import { useEmpresa } from "../../contexts/EmpresaContext";
 
 const drawerWidth = 260;
 const DEV_ADMIN_EMAIL = "dev@gmail.com";
@@ -91,6 +92,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const location = useLocation();
   const [pesquisa, setPesquisa] = useState("");
   const user = authService.getUsuario();
+  const { empresaAtiva } = useEmpresa();
   const isDevAdmin = user.email === DEV_ADMIN_EMAIL;
   const menuSections = useMemo(() => {
     if (!isDevAdmin) return menuSectionsBase;
@@ -251,7 +253,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         >
           VEXA v1.0
         </Typography>
-        {user.empresaNome && (
+        {(empresaAtiva ? (empresaAtiva.nome || empresaAtiva.nomeFantasia) : user.empresaNome) && (
           <Typography
             variant="caption"
             color="text.secondary"
@@ -259,7 +261,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
             display="block"
             sx={{ fontWeight: 600 }}
           >
-            {user.empresaNome}
+            {empresaAtiva ? (empresaAtiva.nome || empresaAtiva.nomeFantasia || `Empresa #${empresaAtiva.id}`) : user.empresaNome}
           </Typography>
         )}
         <Typography
