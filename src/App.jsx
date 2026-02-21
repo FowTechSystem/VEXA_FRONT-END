@@ -25,11 +25,13 @@ import Relatorios from "./pages/Relatorios";
 import Planos from "./pages/Planos";
 import Empresas from "./pages/Empresas";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { EmpresaProvider } from "./contexts/EmpresaContext";
 
 function AppContent() {
   const { mode } = useContext(ThemeContext);
 
   return (
+    <EmpresaProvider>
     <BrowserRouter>
       <CriticalErrorDialog />
       <Toaster
@@ -110,6 +112,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </EmpresaProvider>
   );
 }
 
