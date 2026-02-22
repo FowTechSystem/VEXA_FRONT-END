@@ -57,6 +57,12 @@ export const usuariosService = {
     return response.data;
   },
 
+  // Atualizar usuario
+  update: async (id, usuario) => {
+    const response = await api.put(`/usuarios/${id}`, usuario);
+    return response.data;
+  },
+
   // Cancelar usuario (ao invés de deletar)
   cancelar: async (id, motivo) => {
     const response = await api.post(`/usuarios/${id}/cancelar`, { motivo });
