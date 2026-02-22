@@ -49,6 +49,7 @@ import {
 } from "@mui/icons-material";
 import api from "../api/axiosConfig";
 import { usuariosService } from "../api/usuariosService";
+import { listarPermissoes } from "../api/permissoesService";
 import { showSuccess, showError } from "../utils/notifications";
 import { alpha } from "@mui/material/styles";
 import {
@@ -111,13 +112,16 @@ function Usuarios() {
   const [currentUsuario, setCurrentUsuario] = useState({
     nome: "",
     email: "",
+    login: "",
     senha: "",
     perfil: "",
     telefone: "",
+    whatsApp: "",
     cargo: "",
     departamento: "",
     ativo: true,
     cpf: "",
+    rg: "",
     dataNascimento: "",
     endereco: {
       cep: "",
@@ -129,7 +133,9 @@ function Usuarios() {
       estado: "",
     },
     observacoes: "",
+    permissaoIds: [],
   });
+  const [permissoes, setPermissoes] = useState([]);
 
   const PERFIS = ["Administrador", "Gerente", "Vendedor", "Suporte"];
   const requiredFieldSx = (theme) => ({
@@ -202,6 +208,10 @@ function Usuarios() {
     fetchUsuarios();
   }, [paginaAtual, searchTerm]);
 
+  useEffect(() => {
+    listarPermissoes().then(setPermissoes).catch(() => setPermissoes([]));
+  }, []);
+
   // Recarregar após criar/editar/excluir
   const recarregarUsuarios = async () => {
     setPaginaAtual(1);
@@ -214,32 +224,52 @@ function Usuarios() {
     setPaginaAtual(1);
   };
 
-  const handleOpenDialog = (usuario = null) => {
-    if (usuario) {
+  const handleOpenDialog = async (usuario = null) => {
+    if (usuario?.id) {
+      try {
+        const full = await usuariosService.getById(usuario.id);
+        usuario = full;
+      } catch (err) {
+        console.warn("Erro ao carregar usuário, usando dados da lista:", err);
+      }
+    }
+    if (usuario?.id) {
+      const end = (usuario.enderecos && usuario.enderecos[0]) || usuario.endereco || {};
+      const dataNasc = usuario.dataNascimento ? String(usuario.dataNascimento).split("T")[0] : "";
       setCurrentUsuario({
         ...usuario,
-        endereco: usuario.endereco || {
-          cep: "",
-          rua: "",
-          numero: "",
-          complemento: "",
-          bairro: "",
-          cidade: "",
-          estado: "",
+        login: usuario.login || usuario.email || "",
+        whatsApp: usuario.whatsApp || usuario.telefone || "",
+        rg: usuario.rg || "",
+        dataNascimento: dataNasc,
+        endereco: {
+          id: end.id,
+          cep: end.cep || "",
+          rua: end.rua || "",
+          numero: end.numero || "",
+          complemento: end.complemento || "",
+          bairro: end.bairro || "",
+          cidade: end.cidade || "",
+          estado: end.estado || "",
         },
+        permissaoIds: Array.isArray(usuario.permissaoIds) ? usuario.permissaoIds : [],
+        senha: "",
       });
       setEditMode(true);
     } else {
       setCurrentUsuario({
         nome: "",
         email: "",
+        login: "",
         senha: "",
         perfil: "",
         telefone: "",
+        whatsApp: "",
         cargo: "",
         departamento: "",
         ativo: true,
         cpf: "",
+        rg: "",
         dataNascimento: "",
         endereco: {
           cep: "",
@@ -251,12 +281,72 @@ function Usuarios() {
           estado: "",
         },
         observacoes: "",
+        permissaoIds: [],
       });
       setEditMode(false);
     }
     setCpfError("");
     setCepLoading(false);
     setOpenDialog(true);
+  };
+
+  const toApiPayload = (u, isCreate) => {
+    const e = u.endereco || {};
+    const enderecos = (e.cep || e.rua) ? [{
+      id: e.id ?? null,
+      cep: e.cep || "",
+      rua: e.rua || "",
+      numero: String(e.numero || ""),
+      complemento: e.complemento || "",
+      bairro: e.bairro || "",
+      cidade: e.cidade || "",
+      estado: e.estado || "",
+    }] : [];
+    const dataNasc = u.dataNascimento ? (u.dataNascimento.includes("T") ? u.dataNascimento : `${u.dataNascimento}T00:00:00Z`) : null;
+    const base = {
+      nome: u.nome?.trim() || "",
+      email: u.email?.trim() || "",
+      login: (u.login || u.email || "").trim(),
+      cargo: u.cargo?.trim() || "",
+      cpf: (u.cpf || "").replace(/\D/g, "") || undefined,
+      rg: u.rg?.trim() || undefined,
+      telefone: u.telefone?.trim() || undefined,
+      whatsApp: (u.whatsApp || u.telefone || "").replace(/\D/g, "") || undefined,
+      dataNascimento: dataNasc,
+      perfil: u.perfil || undefined,
+      departamento: u.departamento || undefined,
+      observacoes: u.observacoes?.trim() || undefined,
+      ativo: u.ativo !== false,
+      permissaoIds: Array.isArray(u.permissaoIds) ? u.permissaoIds : [],
+      podeVender: false,
+      podeEditarEstoque: false,
+      podeEditarProduto: false,
+      podeAbrirFecharCaixa: false,
+      podeEmitirRelatorios: (u.permissaoIds || []).some((id) => {
+        const p = permissoes.find((x) => x.id === id);
+        return p && (String(p.codigo || p.nome || "").toLowerCase().includes("relatorio") || String(p.nome || "").toLowerCase().includes("visualizar"));
+      }),
+      podeCadastrarFornecedores: false,
+      enderecos,
+    };
+    if (isCreate) {
+      base.senhaHash = u.senha || "";
+    } else {
+      base.id = u.id;
+      base.novaSenha = u.senha?.trim() ? u.senha : null;
+    }
+    return base;
+  };
+
+  const togglePermissao = (permId) => {
+    setCurrentUsuario((prev) => {
+      const ids = prev.permissaoIds || [];
+      const has = ids.includes(permId);
+      return {
+        ...prev,
+        permissaoIds: has ? ids.filter((id) => id !== permId) : [...ids, permId],
+      };
+    });
   };
 
   const handleCloseDialog = () => {
@@ -340,6 +430,7 @@ function Usuarios() {
     if (!currentUsuario.email?.trim()) faltando.push("Email");
     if (!editMode && !currentUsuario.senha) faltando.push("Senha");
     if (!currentUsuario.perfil) faltando.push("Perfil de Acesso");
+    if (!currentUsuario.cargo?.trim()) faltando.push("Cargo");
 
     const cpfDigits = (currentUsuario.cpf || "").replace(/[^\d]/g, "");
     if (cpfDigits.length > 0) {
@@ -358,11 +449,12 @@ function Usuarios() {
     }
 
     try {
+      const payload = toApiPayload(currentUsuario, !editMode);
       if (editMode) {
-        await api.put(`/usuarios/${currentUsuario.id}`, currentUsuario);
+        await usuariosService.update(currentUsuario.id, payload);
         showSuccess(successMessages.update(entityNames.usuario));
       } else {
-        await api.post("/usuarios", currentUsuario);
+        await usuariosService.create(payload);
         showSuccess(successMessages.create(entityNames.usuario));
       }
       recarregarUsuarios();
@@ -880,13 +972,10 @@ function Usuarios() {
                   <TextField fullWidth label="RG" name="rg" value={currentUsuario.rg || ""} onChange={handleChange} placeholder="RG" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="CNPJ" name="cnpj" value={currentUsuario.cnpj || ""} onChange={handleChange} placeholder="00.000.000/0000-00" size="small" />
-                </Grid>
-                <Grid item xs={12} md={6}>
                   <TextField fullWidth label="Data Nascimento" name="dataNascimento" type="date" value={currentUsuario.dataNascimento} onChange={handleChange} InputLabelProps={{ shrink: true }} size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="WhatsApp" name="telefone" value={currentUsuario.telefone} onChange={handleChange} placeholder="(00) 00000-0000" size="small" />
+                  <TextField fullWidth label="WhatsApp" name="whatsApp" value={currentUsuario.whatsApp ?? currentUsuario.telefone ?? ""} onChange={handleChange} placeholder="(00) 00000-0000" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
@@ -899,7 +988,7 @@ function Usuarios() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="Telefone" placeholder="(00) 0000-0000" size="small" />
+                  <TextField fullWidth label="Telefone" name="telefone" value={currentUsuario.telefone ?? ""} onChange={handleChange} placeholder="(00) 0000-0000" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
@@ -1086,10 +1175,22 @@ function Usuarios() {
                 />
                 <Divider sx={{ my: 3 }} />
                 <Typography variant="body2" sx={{ fontWeight: 500, mb: 2, color: "text.primary" }}>Permissões de Acesso</Typography>
-                <FormControlLabel control={<Switch defaultChecked size="small" />} label="Visualizar relatórios" />
-                <FormControlLabel control={<Switch defaultChecked size="small" />} label="Gerenciar clientes" />
-                <FormControlLabel control={<Switch size="small" />} label="Acesso financeiro" />
-                <FormControlLabel control={<Switch size="small" />} label="Configurações do sistema" />
+                {permissoes.map((p) => (
+                  <FormControlLabel
+                    key={p.id}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={(currentUsuario.permissaoIds || []).includes(p.id)}
+                        onChange={() => togglePermissao(p.id)}
+                      />
+                    }
+                    label={p.nome || p.codigo}
+                  />
+                ))}
+                {permissoes.length === 0 && (
+                  <Typography variant="caption" color="text.secondary">Carregando permissões...</Typography>
+                )}
               </Box>
             </Paper>
 
