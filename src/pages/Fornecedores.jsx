@@ -33,6 +33,7 @@ import {
   ChevronRight,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
+import { LoadingBox } from "../components/LoadingBox";
 import { FornecedorService } from "../api/fornecedorService";
 import { showSuccess, showError } from "../utils/notifications";
 import {
@@ -75,6 +76,7 @@ function Fornecedores() {
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
   const fornecedoresPorPagina = 10;
+  const [carregando, setCarregando] = useState(false);
 
   const [currentFornecedor, setCurrentFornecedor] = useState({
     nome: "",
@@ -120,6 +122,7 @@ function Fornecedores() {
     setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
 
   const fetchFornecedores = async () => {
+    setCarregando(true);
     try {
       const response = await FornecedorService.getAll();
 
@@ -144,6 +147,8 @@ function Fornecedores() {
       showError(errorMessages.fetch(entityNames.fornecedores), { id: "fetch-fornecedores" });
       setFornecedores([]);
       setFornecedoresFiltrados([]);
+    } finally {
+      setCarregando(false);
     }
   };
 
@@ -473,7 +478,13 @@ function Fornecedores() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {fornecedoresPaginados.length > 0 ? (
+            {carregando ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <LoadingBox size={40} py={8} />
+                </TableCell>
+              </TableRow>
+            ) : fornecedoresPaginados.length > 0 ? (
               fornecedoresPaginados.map((fornecedor, index) => (
                 <TableRow
                   key={fornecedor.id}

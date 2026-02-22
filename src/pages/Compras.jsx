@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
+import { LoadingBox } from "../components/LoadingBox";
 import { comprasService } from "../api/comprasService";
 
 const STATUS_COMPRA = {
@@ -289,12 +290,8 @@ function Compras() {
               <TableBody>
                 {carregando ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      align="center"
-                      sx={{ py: 8, color: "text.secondary" }}
-                    >
-                      Carregando...
+                    <TableCell colSpan={4} align="center">
+                      <LoadingBox size={40} py={8} />
                     </TableCell>
                   </TableRow>
                 ) : comprasPaginadas.length === 0 ? (

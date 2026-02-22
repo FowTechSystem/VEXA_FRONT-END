@@ -29,7 +29,6 @@ import {
   FormControlLabel,
   Divider,
   Autocomplete,
-  CircularProgress,
 } from "@mui/material";
 import {
   Add,
@@ -47,6 +46,7 @@ import {
   Extension,
   Settings,
 } from "@mui/icons-material";
+import { LoadingBox } from "../components/LoadingBox";
 import api from "../api/axiosConfig";
 import { usuariosService } from "../api/usuariosService";
 import { listarPermissoes } from "../api/permissoesService";
@@ -636,8 +636,8 @@ function Usuarios() {
           <TableBody>
             {carregando ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                  Carregando...
+                <TableCell colSpan={5} align="center">
+                  <LoadingBox size={40} py={8} />
                 </TableCell>
               </TableRow>
             ) : Array.isArray(usuarios) && usuarios.length > 0 ? (

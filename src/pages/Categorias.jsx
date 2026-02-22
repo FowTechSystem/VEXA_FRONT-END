@@ -22,6 +22,7 @@ import {
   Paper,
 } from "@mui/material";
 import { Add, Edit, Delete, Search, Close } from "@mui/icons-material";
+import { LoadingBox } from "../components/LoadingBox";
 import { CategoriaService } from "../api/categoriaService";
 import { showError } from "../utils/notifications";
 
@@ -59,8 +60,10 @@ function Categorias() {
   });
   const [editMode, setEditMode] = useState(false);
   const [errors, setErrors] = useState({});
+  const [carregando, setCarregando] = useState(false);
 
   const fetchCategorias = async () => {
+    setCarregando(true);
     try {
       const response = await CategoriaService.getAll();
       const data =
@@ -70,10 +73,14 @@ function Categorias() {
     } catch (error) {
       console.error("Erro ao buscar categorias:", error);
       setCategorias([]);
+    } finally {
+      setCarregando(false);
     }
   };
 
-  useEffect(() => {}, []);
+  useEffect(() => {
+    fetchCategorias();
+  }, []);
 
   const categoriasFiltradas = useMemo(() => {
     if (searchTerm === "") {
@@ -256,7 +263,13 @@ function Categorias() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(categoriasFiltradas) &&
+            {carregando ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  <LoadingBox size={40} py={8} />
+                </TableCell>
+              </TableRow>
+            ) : Array.isArray(categoriasFiltradas) &&
             categoriasFiltradas.length > 0 ? (
               categoriasFiltradas.map((categoria, index) => (
                 <TableRow

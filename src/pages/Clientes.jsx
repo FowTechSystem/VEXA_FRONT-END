@@ -46,6 +46,7 @@ import {
   ChevronRight,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
+import { LoadingBox } from "../components/LoadingBox";
 import { clientesService } from "../api/clientesService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
 import {
@@ -101,6 +102,7 @@ function Clientes() {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [totalRegistros, setTotalRegistros] = useState(0);
   const tamanhoPagina = 10;
+  const [carregando, setCarregando] = useState(false);
 
   // Estado para foto
   const [fotoPreview, setFotoPreview] = useState(null);
@@ -264,6 +266,7 @@ function Clientes() {
   };
 
   const fetchClientes = useCallback(async () => {
+    setCarregando(true);
     try {
       const data = await clientesService.listarPaginado({
         filtro,
@@ -279,6 +282,8 @@ function Clientes() {
       console.error("Erro ao buscar clientes:", error);
       showError(errorMessages.fetch(entityNames.clientes));
       setClientes([]);
+    } finally {
+      setCarregando(false);
     }
   }, [filtro, valorBusca, paginaAtual]);
 
@@ -635,7 +640,13 @@ function Clientes() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(clientes) && clientes.length > 0 ? (
+            {carregando ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <LoadingBox size={40} py={8} />
+                </TableCell>
+              </TableRow>
+            ) : Array.isArray(clientes) && clientes.length > 0 ? (
               clientes.map((cliente, index) => (
                 <TableRow
                   key={cliente.id}
