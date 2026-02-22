@@ -44,6 +44,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
+import { LoadingBox } from "../components/LoadingBox";
 import { produtosService } from "../api/produtosService";
 import { showSuccess, showError } from "../utils/notifications";
 import {
@@ -144,6 +145,7 @@ function Produtos() {
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
   const produtosPorPagina = 10;
+  const [carregando, setCarregando] = useState(false);
 
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
@@ -188,9 +190,8 @@ function Produtos() {
     setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
 
   const fetchProdutos = async () => {
-    console.log("Iniciando fetchProdutos...");
+    setCarregando(true);
     try {
-      console.log("Chamando produtosService.getAll()...");
       const data = await produtosService.getAll();
       console.log("Dados recebidos:", data);
       const produtosArray = Array.isArray(data) ? data : [];
@@ -198,11 +199,12 @@ function Produtos() {
       setProdutos(produtosArray);
       setProdutosFiltrados(produtosArray);
       setPaginaAtual(1); // Volta para a primeira página
-      console.log("Produtos carregados com sucesso");
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
       setProdutos([]);
       setProdutosFiltrados([]);
+    } finally {
+      setCarregando(false);
     }
   };
 
@@ -522,7 +524,13 @@ function Produtos() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {Array.isArray(produtosPaginados) &&
+            {carregando ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <LoadingBox size={40} py={8} />
+                </TableCell>
+              </TableRow>
+            ) : Array.isArray(produtosPaginados) &&
             produtosPaginados.length > 0 ? (
               produtosPaginados.map((produto, index) => (
                 <TableRow
