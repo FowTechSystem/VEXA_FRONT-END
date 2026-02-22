@@ -135,6 +135,57 @@ function Clientes() {
   });
   const [editMode, setEditMode] = useState(false);
 
+  /**
+   * Converte o formulário para o payload da API conforme contrato.
+   * POST: endereco como objeto, cpf, fotoBase64.
+   * PUT: aceita flat ou endereco; usamos endereco para consistência.
+   */
+  const toApiPayload = (u, isCreate) => {
+    const enderecoRaw =
+      u.cep || u.rua
+        ? {
+            cep: (u.cep || "").replace(/\D/g, "").slice(0, 8) || undefined,
+            rua: u.rua?.trim() || undefined,
+            numero: u.numero?.trim() || undefined,
+            complemento: u.complemento?.trim() || undefined,
+            bairro: u.bairro?.trim() || undefined,
+            cidade: u.cidade?.trim() || undefined,
+          }
+        : null;
+    const endereco =
+      enderecoRaw && Object.values(enderecoRaw).some((v) => v != null && v !== "")
+        ? enderecoRaw
+        : undefined;
+
+    const base = {
+      nomeCompleto: u.nomeCompleto?.trim() || "",
+      cpf: (u.cpf || "").replace(/\D/g, "") || null,
+      rg: u.rg?.trim() || null,
+      cnpj: u.cnpj?.replace(/\D/g, "") || null,
+      telefone: (u.telefone || "").replace(/\D/g, "") || null,
+      whatsApp: (u.whatsApp || u.telefone || "").replace(/\D/g, "") || null,
+      email: u.email?.trim() || null,
+      dataNascimento: u.dataNascimento || null,
+      preferencias: u.preferencias?.trim() || null,
+      observacoes: u.observacoes?.trim() || null,
+      fotoBase64: u.fotoBase64 ?? null,
+    };
+
+    if (isCreate) {
+      const body = { ...base, endereco };
+      if (endereco == null) delete body.endereco;
+      return body;
+    }
+    const body = {
+      ...base,
+      id: u.id,
+      fotoUrl: u.fotoUrl ?? null,
+      endereco,
+    };
+    if (endereco == null) delete body.endereco;
+    return body;
+  };
+
   // Funções de navegação de página
   const irParaPrimeiraPagina = () => setPaginaAtual(1);
   const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
@@ -397,23 +448,32 @@ function Clientes() {
     }
 
     try {
+      let fotoBase64 = null;
       let fotoUrl = currentCliente.fotoUrl;
 
       if (fotoFile) {
-        const uploadResult = await clientesService.uploadFoto(fotoFile);
-        fotoUrl = uploadResult.url;
+        if (editMode) {
+          const uploadResult = await clientesService.uploadFoto(fotoFile);
+          fotoUrl = uploadResult.url;
+        } else {
+          fotoBase64 = fotoPreview?.includes(",") ? fotoPreview.split(",")[1] : null;
+        }
       }
 
-      const clienteData = {
-        ...currentCliente,
-        fotoUrl,
-      };
+      const payload = toApiPayload(
+        {
+          ...currentCliente,
+          fotoBase64: editMode ? null : fotoBase64,
+          fotoUrl: editMode ? fotoUrl : undefined,
+        },
+        !editMode,
+      );
 
       if (editMode) {
-        await clientesService.update(currentCliente.id, clienteData);
+        await clientesService.update(currentCliente.id, payload);
         showSuccess(successMessages.update(entityNames.cliente));
       } else {
-        await clientesService.create(clienteData);
+        await clientesService.create(payload);
         showSuccess(successMessages.create(entityNames.cliente));
       }
 
