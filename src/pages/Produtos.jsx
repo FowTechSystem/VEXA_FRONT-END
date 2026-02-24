@@ -29,6 +29,7 @@ import {
   AppBar,
   Toolbar,
   Container,
+  useTheme,
 } from "@mui/material";
 import {
   Add,
@@ -136,6 +137,8 @@ const MATERIAIS = [
 ];
 
 function Produtos() {
+  const theme = useTheme();
+
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -850,14 +853,16 @@ function Produtos() {
         open={openDialog}
         onClose={handleCloseDialog}
         TransitionComponent={Transition}
+        PaperProps={{ sx: { bgcolor: theme.palette.background.default } }}
       >
         {/* AppBar Superior */}
         <AppBar
           sx={{
             position: "sticky",
-            bgcolor: "white",
-            color: "text.primary",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            bgcolor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+            borderBottom: "1px solid",
+            borderColor: theme.palette.divider,
           }}
         >
           <Toolbar>
@@ -865,11 +870,12 @@ function Produtos() {
               edge="start"
               color="inherit"
               onClick={handleCloseDialog}
+              sx={{ color: theme.palette.text.primary }}
             >
               <Close />
             </IconButton>
             <Typography
-              sx={{ ml: 2, flex: 1, fontWeight: 600, fontSize: "20px" }}
+              sx={{ ml: 2, flex: 1, fontWeight: 600, fontSize: "20px", color: theme.palette.text.primary }}
             >
               {editMode ? "Editar Produto" : "Novo Produto"}
             </Typography>
@@ -889,15 +895,15 @@ function Produtos() {
           </Toolbar>
         </AppBar>
 
-        <DialogContent sx={{ bgcolor: "background.default", p: 0 }}>
+        <DialogContent sx={{ bgcolor: theme.palette.background.default, p: 0 }}>
           <Box sx={{ display: "flex", minHeight: "calc(100vh - 64px)" }}>
             {/* LATERAL ESQUERDA - ÁREA DA IMAGEM (30%) */}
             <Box
               sx={{
                 width: "30%",
-                bgcolor: "white",
+                bgcolor: theme.palette.background.paper,
                 borderRight: "1px solid",
-                borderColor: "divider",
+                borderColor: theme.palette.divider,
                 p: 3,
                 display: "flex",
                 flexDirection: "column",
@@ -905,7 +911,7 @@ function Produtos() {
             >
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 600, mb: 3, color: "#1a1a1a" }}
+                sx={{ fontWeight: 600, mb: 3, color: theme.palette.text.primary }}
               >
                 Imagem do Produto
               </Typography>
@@ -917,10 +923,10 @@ function Produtos() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: "#f9fafb",
+                  bgcolor: theme.palette.mode === "dark" ? theme.palette.background.default : theme.palette.grey[50],
                   borderRadius: 2,
                   border: "2px dashed",
-                  borderColor: "divider",
+                  borderColor: theme.palette.divider,
                   mb: 3,
                   minHeight: 450,
                   position: "relative",
@@ -938,12 +944,12 @@ function Produtos() {
                     }}
                   />
                 ) : (
-                  <Box sx={{ textAlign: "center", color: "text.secondary" }}>
-                    <ImageIcon sx={{ fontSize: 80, mb: 2 }} />
-                    <Typography variant="h6" sx={{ mb: 1 }}>
+                  <Box sx={{ textAlign: "center", color: theme.palette.text.secondary }}>
+                    <ImageIcon sx={{ fontSize: 80, mb: 2, color: theme.palette.text.secondary }} />
+                    <Typography variant="h6" sx={{ mb: 1, color: theme.palette.text.primary }}>
                       Sem imagem
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
                       Cole a URL abaixo ou faça upload
                     </Typography>
                   </Box>

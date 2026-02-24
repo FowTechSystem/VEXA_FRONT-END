@@ -968,15 +968,47 @@ function Clientes() {
       </TableContainer>
         </>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            bgcolor: theme.palette.background.default,
+          }}
+        >
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexShrink: 0 }}>
             <Button startIcon={<ArrowBack />} onClick={handleCloseDialog} sx={{ textTransform: "none", color: theme.palette.text.secondary }}>Voltar</Button>
             <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>{editMode ? "Editar Cliente" : "Novo Cliente"}</Typography>
           </Box>
-          <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSave(); }} sx={{ flex: 1, overflow: "auto", pr: 1 }}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: theme.palette.divider, bgcolor: theme.palette.background.paper }}>
+          <Box
+            component="form"
+            onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+            sx={{ flex: 1, overflow: "auto", pr: 1, bgcolor: theme.palette.background.default }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: theme.palette.divider,
+                bgcolor: isDark ? alpha(theme.palette.background.paper, 0.6) : theme.palette.background.paper,
+              }}
+            >
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pb: 3, mb: 3, borderBottom: 1, borderColor: "divider" }}>
-                <Avatar src={fotoPreview} sx={{ width: 100, height: 100, bgcolor: theme.palette.grey[400], mb: 1.5 }}>{!fotoPreview && <Person sx={{ fontSize: 50, color: "#fff" }} />}</Avatar>
+                <Avatar
+                  src={fotoPreview}
+                  sx={{
+                    width: 100,
+                    height: 100,
+                    bgcolor: isDark ? theme.palette.grey[700] : theme.palette.grey[400],
+                    mb: 1.5,
+                  }}
+                >
+                  {!fotoPreview && <Person sx={{ fontSize: 50, color: theme.palette.common.white }} />}
+                </Avatar>
                 <input accept="image/*" style={{ display: "none" }} id="foto-upload" type="file" onChange={handleFotoChange} />
                 <label htmlFor="foto-upload"><Button component="span" startIcon={<CameraAlt />} sx={{ textTransform: "none", color: theme.palette.text.secondary, fontSize: "13px" }}>Adicionar Foto</Button></label>
               </Box>
@@ -1015,9 +1047,15 @@ function Clientes() {
         </Box>
       )}
 
-      <Dialog open={openValidacaoModal} onClose={() => setOpenValidacaoModal(false)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setOpenValidacaoModal(false); } }} PaperProps={{ sx: { borderRadius: 2, minWidth: 360 } }} aria-labelledby="validacao-dialog-title">
-        <DialogTitle id="validacao-dialog-title" sx={{ fontWeight: 600 }}>Campos obrigatórios</DialogTitle>
-        <DialogContent><Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
+      <Dialog
+        open={openValidacaoModal}
+        onClose={() => setOpenValidacaoModal(false)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setOpenValidacaoModal(false); } }}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 360, bgcolor: theme.palette.background.paper } }}
+        aria-labelledby="validacao-dialog-title"
+      >
+        <DialogTitle id="validacao-dialog-title" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Campos obrigatórios</DialogTitle>
+        <DialogContent><Typography variant="body2" sx={{ color: theme.palette.text.primary, fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}><Button variant="contained" autoFocus onClick={() => setOpenValidacaoModal(false)} sx={{ textTransform: "none", minWidth: 100 }}>OK</Button></DialogActions>
       </Dialog>
     </Box>
