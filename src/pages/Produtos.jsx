@@ -29,6 +29,7 @@ import {
   AppBar,
   Toolbar,
   Container,
+  useTheme,
 } from "@mui/material";
 import {
   Add,
@@ -46,6 +47,9 @@ import {
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { produtosService } from "../api/produtosService";
+import { FornecedorService } from "../api/fornecedorService";
+import { CategoriaService } from "../api/categoriaService";
+import { MarcaService } from "../api/marcaService";
 import { showSuccess, showError } from "../utils/notifications";
 import {
   successMessages,
@@ -59,27 +63,6 @@ import { validateRequired } from "../utils/validators";
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
-
-// Dados para loja de roupas e acessórios
-const CATEGORIAS = [
-  "Camisetas",
-  "Blusas",
-  "Vestidos",
-  "Saias",
-  "Calças",
-  "Shorts",
-  "Jaquetas e Casacos",
-  "Conjuntos",
-  "Moda Íntima",
-  "Moda Praia",
-  "Acessórios",
-  "Bolsas",
-  "Calçados",
-  "Joias e Bijuterias",
-  "Cintos",
-  "Óculos",
-  "Bonés e Chapéus",
-];
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -136,6 +119,8 @@ const MATERIAIS = [
 ];
 
 function Produtos() {
+  const theme = useTheme();
+
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -151,8 +136,10 @@ function Produtos() {
     nome: "",
     descricao: "",
     categoria: "",
+    categoriaId: null,
     genero: "",
     marca: "",
+    marcaId: null,
     precoCusto: "",
     precoVenda: "",
     precoPromocional: "",
@@ -171,9 +158,90 @@ function Produtos() {
     imagemPrincipal: "",
     imagensAdicionais: [],
     fornecedor: "",
+    fornecedorId: null,
     observacoes: "",
     ativo: true,
   });
+
+  const [listaFornecedores, setListaFornecedores] = useState([]);
+  const [listaCategorias, setListaCategorias] = useState([]);
+  const [listaMarcas, setListaMarcas] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [dataF, dataC, dataM] = await Promise.all([
+          FornecedorService.getAll(),
+          CategoriaService.getAll(),
+          MarcaService.getAll(),
+        ]);
+        const rawF = dataF?.fornecedor ?? dataF?.items ?? dataF?.fornecedores ?? dataF;
+        const rawC = dataC?.categoria ?? dataC?.items ?? dataC?.categorias ?? dataC;
+        const rawM = dataM?.marca ?? dataM?.items ?? dataM?.marcas ?? dataM;
+        if (!cancelled) {
+          setListaFornecedores(Array.isArray(rawF) ? rawF : []);
+          setListaCategorias(Array.isArray(rawC) ? rawC : []);
+          setListaMarcas(Array.isArray(rawM) ? rawM : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setListaFornecedores([]);
+          setListaCategorias([]);
+          setListaMarcas([]);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * Converte o formulário para o payload da API conforme contrato.
+   * Obrigatórios: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo.
+   * Todos numéricos devem ser number (não string).
+   */
+  const toApiPayload = (p, isCreate) => {
+    const num = (v) => {
+      if (v === "" || v == null) return null;
+      const n = parseFloat(String(v).replace(",", "."));
+      return Number.isNaN(n) ? null : n;
+    };
+    const int = (v) => {
+      if (v === "" || v == null) return 0;
+      const n = parseInt(String(v), 10);
+      return Number.isNaN(n) ? 0 : n;
+    };
+    const str = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+
+    const genIdx = GENEROS.indexOf(p.genero);
+    const generoId = genIdx >= 0 ? genIdx + 1 : 1;
+    const categoriaId = p.categoriaId != null && p.categoriaId !== "" ? Number(p.categoriaId) : null;
+    const marcaId = p.marcaId != null && p.marcaId !== "" ? Number(p.marcaId) : null;
+
+    const payload = {
+      sku: str(p.sku) ?? "",
+      nome: str(p.nome) ?? "",
+      categoriaId: categoriaId ?? 1,
+      generoId,
+      precoCusto: num(p.precoCusto) ?? 0,
+      precoVenda: num(p.precoVenda) ?? 0,
+      estoqueMinimo: int(p.estoqueMinimo),
+    };
+    if (isCreate) payload.quantidadeEstoque = int(p.estoqueTotal);
+    const optCodigo = str(p.codigoBarras);
+    if (optCodigo) payload.codigoBarras = optCodigo;
+    const optDesc = str(p.descricao);
+    if (optDesc) payload.descricaoCurta = optDesc;
+    const optPeso = num(p.peso);
+    if (optPeso != null) payload.peso = optPeso;
+    const optFoto = str(p.imagemPrincipal);
+    if (optFoto) payload.foto1 = optFoto;
+    if (p.fornecedorId != null && p.fornecedorId !== "") payload.fornecedorId = Number(p.fornecedorId);
+    if (marcaId != null) payload.marcaId = marcaId;
+    if (!isCreate && p.id != null) payload.id = p.id;
+    return payload;
+  };
 
   // Cálculos de paginação
   const totalPaginas = Math.ceil(produtosFiltrados.length / produtosPorPagina);
@@ -230,15 +298,34 @@ function Produtos() {
 
   const handleOpenDialog = (produto = null) => {
     if (produto) {
-      setCurrentProduto(produto);
+      const p = { ...produto };
+      if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
+        const found = listaFornecedores.find(
+          (f) =>
+            (f.nome || "").trim() === (p.fornecedor || "").trim() ||
+            (f.razaoSocial || "").trim() === (p.fornecedor || "").trim(),
+        );
+        if (found) p.fornecedorId = found.id;
+      }
+      if (p.categoriaId == null && p.categoria && listaCategorias.length > 0) {
+        const found = listaCategorias.find((c) => (c.nome || "").trim() === (p.categoria || "").trim());
+        if (found) p.categoriaId = found.id;
+      }
+      if (p.marcaId == null && p.marca && listaMarcas.length > 0) {
+        const found = listaMarcas.find((m) => (m.nome || "").trim() === (p.marca || "").trim());
+        if (found) p.marcaId = found.id;
+      }
+      setCurrentProduto(p);
       setEditMode(true);
     } else {
       setCurrentProduto({
         nome: "",
         descricao: "",
         categoria: "",
+        categoriaId: null,
         genero: "",
         marca: "",
+        marcaId: null,
         precoCusto: "",
         precoVenda: "",
         precoPromocional: "",
@@ -257,6 +344,7 @@ function Produtos() {
         imagemPrincipal: "",
         imagensAdicionais: [],
         fornecedor: "",
+        fornecedorId: null,
         observacoes: "",
         ativo: true,
       });
@@ -270,7 +358,13 @@ function Produtos() {
   };
 
   const handleSave = async () => {
-    // Validações
+    // Validações (API exige: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo)
+    const skuValidation = validateRequired(currentProduto.sku, "SKU");
+    if (!skuValidation.valid) {
+      showError(skuValidation.message);
+      return;
+    }
+
     const nomeValidation = validateRequired(
       currentProduto.nome,
       "Nome do Produto",
@@ -280,12 +374,8 @@ function Produtos() {
       return;
     }
 
-    const categoriaValidation = validateRequired(
-      currentProduto.categoria,
-      "Categoria",
-    );
-    if (!categoriaValidation.valid) {
-      showError(categoriaValidation.message);
+    if (!currentProduto.categoriaId) {
+      showError("Selecione uma categoria. Cadastre em Cadastros > Categorias se necessário.");
       return;
     }
 
@@ -308,17 +398,7 @@ function Produtos() {
     }
 
     try {
-      const produtoParaSalvar = {
-        ...currentProduto,
-        margemLucro: currentProduto.precoCusto
-          ? (
-              ((parseFloat(currentProduto.precoVenda) -
-                parseFloat(currentProduto.precoCusto)) /
-                parseFloat(currentProduto.precoVenda)) *
-              100
-            ).toFixed(2)
-          : 0,
-      };
+      const produtoParaSalvar = toApiPayload(currentProduto, !editMode);
 
       if (editMode) {
         await produtosService.update(currentProduto.id, produtoParaSalvar);
@@ -331,17 +411,18 @@ function Produtos() {
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar produto:", error);
+      console.error("Resposta da API (400):", error.response?.data);
 
       if (error.response) {
         const errorData = error.response.data;
-        if (errorData.errors) {
-          const firstError = Object.values(errorData.errors)[0];
-          showError(firstError[0] || errorMessages.create(entityNames.produto));
-        } else {
-          showError(
-            errorData.message || errorMessages.create(entityNames.produto),
-          );
-        }
+        const msg =
+          errorData?.message ||
+          (errorData?.errors && typeof errorData.errors === "object"
+            ? (Object.values(errorData.errors).flat().find(Boolean) || errorMessages.create(entityNames.produto))
+            : null) ||
+          (Array.isArray(errorData?.errors) && errorData.errors[0]) ||
+          errorMessages.create(entityNames.produto);
+        showError(msg);
       } else {
         showError(
           editMode
@@ -850,14 +931,16 @@ function Produtos() {
         open={openDialog}
         onClose={handleCloseDialog}
         TransitionComponent={Transition}
+        PaperProps={{ sx: { bgcolor: theme.palette.background.default } }}
       >
         {/* AppBar Superior */}
         <AppBar
           sx={{
             position: "sticky",
-            bgcolor: "white",
-            color: "text.primary",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            bgcolor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+            borderBottom: "1px solid",
+            borderColor: theme.palette.divider,
           }}
         >
           <Toolbar>
@@ -865,11 +948,12 @@ function Produtos() {
               edge="start"
               color="inherit"
               onClick={handleCloseDialog}
+              sx={{ color: theme.palette.text.primary }}
             >
               <Close />
             </IconButton>
             <Typography
-              sx={{ ml: 2, flex: 1, fontWeight: 600, fontSize: "20px" }}
+              sx={{ ml: 2, flex: 1, fontWeight: 600, fontSize: "20px", color: theme.palette.text.primary }}
             >
               {editMode ? "Editar Produto" : "Novo Produto"}
             </Typography>
@@ -889,15 +973,15 @@ function Produtos() {
           </Toolbar>
         </AppBar>
 
-        <DialogContent sx={{ bgcolor: "background.default", p: 0 }}>
+        <DialogContent sx={{ bgcolor: theme.palette.background.default, p: 0 }}>
           <Box sx={{ display: "flex", minHeight: "calc(100vh - 64px)" }}>
             {/* LATERAL ESQUERDA - ÁREA DA IMAGEM (30%) */}
             <Box
               sx={{
                 width: "30%",
-                bgcolor: "white",
+                bgcolor: theme.palette.background.paper,
                 borderRight: "1px solid",
-                borderColor: "divider",
+                borderColor: theme.palette.divider,
                 p: 3,
                 display: "flex",
                 flexDirection: "column",
@@ -905,7 +989,7 @@ function Produtos() {
             >
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 600, mb: 3, color: "#1a1a1a" }}
+                sx={{ fontWeight: 600, mb: 3, color: theme.palette.text.primary }}
               >
                 Imagem do Produto
               </Typography>
@@ -917,10 +1001,10 @@ function Produtos() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: "#f9fafb",
+                  bgcolor: theme.palette.mode === "dark" ? theme.palette.background.default : theme.palette.grey[50],
                   borderRadius: 2,
                   border: "2px dashed",
-                  borderColor: "divider",
+                  borderColor: theme.palette.divider,
                   mb: 3,
                   minHeight: 450,
                   position: "relative",
@@ -938,12 +1022,12 @@ function Produtos() {
                     }}
                   />
                 ) : (
-                  <Box sx={{ textAlign: "center", color: "text.secondary" }}>
-                    <ImageIcon sx={{ fontSize: 80, mb: 2 }} />
-                    <Typography variant="h6" sx={{ mb: 1 }}>
+                  <Box sx={{ textAlign: "center", color: theme.palette.text.secondary }}>
+                    <ImageIcon sx={{ fontSize: 80, mb: 2, color: theme.palette.text.secondary }} />
+                    <Typography variant="h6" sx={{ mb: 1, color: theme.palette.text.primary }}>
                       Sem imagem
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
                       Cole a URL abaixo ou faça upload
                     </Typography>
                   </Box>
@@ -1006,6 +1090,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1027,40 +1112,108 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
-                      <FormControl fullWidth required size="small">
-                        <InputLabel>Categoria</InputLabel>
-                        <Select
-                          name="categoria"
-                          value={currentProduto.categoria}
-                          onChange={handleChange}
-                          label="Categoria"
-                        >
-                          {CATEGORIAS.map((cat) => (
-                            <MenuItem key={cat} value={cat}>
-                              {cat}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={6} md={3}>
-                      <TextField
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
                         fullWidth
-                        label="Marca"
-                        name="marca"
-                        value={currentProduto.marca}
-                        onChange={handleChange}
-                        size="small"
+                        options={listaCategorias}
+                        value={listaCategorias.find((c) => c.id === currentProduto.categoriaId) || null}
+                        getOptionLabel={(c) => c.nome || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            categoriaId: newValue?.id ?? null,
+                            categoria: newValue?.nome ?? "",
+                          }));
+                        }}
+                        noOptionsText="Nenhuma categoria cadastrada. Cadastre em Cadastros > Categorias."
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Categoria *"
+                            size="small"
+                            placeholder="Selecione a categoria"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Gênero</InputLabel>
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={listaMarcas}
+                        value={listaMarcas.find((m) => m.id === currentProduto.marcaId) || null}
+                        getOptionLabel={(m) => m.nome || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            marcaId: newValue?.id ?? null,
+                            marca: newValue?.nome ?? "",
+                          }));
+                        }}
+                        noOptionsText="Nenhuma marca cadastrada. Cadastre em Cadastros > Marcas."
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Marca"
+                            size="small"
+                            placeholder="Selecione a marca"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small" sx={{ minWidth: 180 }}>
+                        <InputLabel id="prod-genero-label">Gênero</InputLabel>
                         <Select
                           name="genero"
                           value={currentProduto.genero}
                           onChange={handleChange}
+                          labelId="prod-genero-label"
                           label="Gênero"
                         >
                           {GENEROS.map((gen) => (
@@ -1071,7 +1224,7 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="SKU"
@@ -1081,7 +1234,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Código de Barras"
@@ -1091,14 +1244,53 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
-                      <TextField
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
                         fullWidth
-                        label="Fornecedor"
-                        name="fornecedor"
-                        value={currentProduto.fornecedor}
-                        onChange={handleChange}
-                        size="small"
+                        options={listaFornecedores}
+                        value={listaFornecedores.find((f) => f.id === currentProduto.fornecedorId) || null}
+                        getOptionLabel={(f) => f.nome || f.razaoSocial || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            fornecedorId: newValue?.id ?? null,
+                            fornecedor: newValue ? (newValue.nome || newValue.razaoSocial || "") : "",
+                          }));
+                        }}
+                        filterSelectedOptions={false}
+                        noOptionsText="Nenhum fornecedor cadastrado"
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Fornecedor"
+                            size="small"
+                            placeholder="Digite para buscar fornecedores"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
+                        ListboxProps={{ sx: { maxHeight: 280 } }}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -1111,6 +1303,15 @@ function Produtos() {
                         value={currentProduto.descricao}
                         onChange={handleChange}
                         size="small"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            maxWidth: "calc(100% - 20px)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          },
+                        }}
                       />
                     </Grid>
                   </Grid>
@@ -1124,6 +1325,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1133,7 +1335,7 @@ function Produtos() {
                     Variações do Produto
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
                       <Autocomplete
                         multiple
                         options={CORES}
@@ -1141,33 +1343,17 @@ function Produtos() {
                         onChange={(event, newValue) =>
                           handleMultipleChange("cores", newValue)
                         }
-                        renderInput={(params) => (
-                          <TextField {...params} label="Cores *" size="small" />
-                        )}
-                        renderTags={(value, getTagProps) =>
-                          value.map((option, index) => (
-                            <Chip
-                              label={option}
-                              {...getTagProps({ index })}
-                              size="small"
-                            />
-                          ))
-                        }
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Autocomplete
-                        multiple
-                        options={getTamanhosDisponiveis()}
-                        value={currentProduto.tamanhos}
-                        onChange={(event, newValue) =>
-                          handleMultipleChange("tamanhos", newValue)
-                        }
+                        sx={{ minWidth: 220 }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Tamanhos *"
+                            label="Cores *"
                             size="small"
+                            sx={{
+                              minWidth: 220,
+                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
+                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                            }}
                           />
                         )}
                         renderTags={(value, getTagProps) =>
@@ -1181,13 +1367,46 @@ function Produtos() {
                         }
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Material</InputLabel>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
+                      <Autocomplete
+                        multiple
+                        options={getTamanhosDisponiveis()}
+                        value={currentProduto.tamanhos}
+                        onChange={(event, newValue) =>
+                          handleMultipleChange("tamanhos", newValue)
+                        }
+                        sx={{ minWidth: 220 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Tamanhos *"
+                            size="small"
+                            sx={{
+                              minWidth: 220,
+                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
+                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              label={option}
+                              {...getTagProps({ index })}
+                              size="small"
+                            />
+                          ))
+                        }
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={12}>
+                      <FormControl fullWidth size="small" sx={{ minWidth: 220, maxWidth: 400 }}>
+                        <InputLabel id="prod-material-label">Material</InputLabel>
                         <Select
                           name="material"
                           value={currentProduto.material}
                           onChange={handleChange}
+                          labelId="prod-material-label"
                           label="Material"
                         >
                           {MATERIAIS.map((mat) => (
@@ -1209,6 +1428,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1218,7 +1438,7 @@ function Produtos() {
                     Precificação
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Preço de Custo"
@@ -1235,7 +1455,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         required
@@ -1253,7 +1473,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Preço Promocional"
@@ -1270,7 +1490,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Margem de Lucro"
@@ -1297,6 +1517,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1341,6 +1562,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1409,6 +1631,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography

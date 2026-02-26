@@ -35,6 +35,7 @@ export const confirmMessages = {
 };
 
 export const validationMessages = {
+  required: (fieldName) => `${fieldName} é obrigatório.`,
   maxLength: (fieldName, maxLength) =>
     `${fieldName} deve ter no máximo ${maxLength} caracteres.`,
   minLength: (fieldName, minLength) =>

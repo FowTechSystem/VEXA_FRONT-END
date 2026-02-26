@@ -11,17 +11,13 @@ import {
   TableRow,
   IconButton,
   Avatar,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Grid,
   InputAdornment,
   Paper,
+  useTheme,
 } from "@mui/material";
-import { Add, Edit, Delete, Search, Close } from "@mui/icons-material";
+import { Add, Edit, Delete, Search, ArrowBack } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { CategoriaService } from "../api/categoriaService";
 import { showError } from "../utils/notifications";
@@ -51,6 +47,8 @@ const getAvatarColor = (nome) => {
 };
 
 function Categorias() {
+  const theme = useTheme();
+
   const [categorias, setCategorias] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -162,7 +160,9 @@ function Categorias() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh", color: "text.primary", ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}) }}>
+      {!openDialog ? (
+        <>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box
@@ -173,7 +173,7 @@ function Categorias() {
             mb: 3,
           }}
         >
-          <Typography variant="h4" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+          <Typography variant="h4" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
             Categorias
           </Typography>
           <Button
@@ -182,8 +182,6 @@ function Categorias() {
             onClick={() => handleOpenDialog()}
             sx={{
               textTransform: "none",
-              bgcolor: "#2563eb",
-              "&:hover": { bgcolor: "#1d4ed8" },
               borderRadius: "8px",
               px: 3,
               py: 1,
@@ -202,24 +200,24 @@ function Categorias() {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search sx={{ color: "#9ca3af" }} />
+                <Search sx={{ color: theme.palette.text.secondary }} />
               </InputAdornment>
             ),
           }}
           sx={{
-            bgcolor: "white",
+            bgcolor: theme.palette.background.paper,
             borderRadius: "10px",
             "& .MuiOutlinedInput-root": {
-              "& fieldset": { border: "1px solid #e5e7eb" },
-              "&:hover fieldset": { border: "1px solid #d1d5db" },
-              "&.Mui-focused fieldset": { border: "1px solid #2563eb" },
+              "& fieldset": { borderColor: theme.palette.divider },
+              "&:hover fieldset": { borderColor: theme.palette.text.secondary },
+              "&.Mui-focused fieldset": { borderColor: theme.palette.primary.main },
             },
           }}
         />
 
         <Typography
           variant="body2"
-          sx={{ mt: 2, color: "#6b7280", fontSize: "14px" }}
+          sx={{ mt: 2, color: theme.palette.text.secondary, fontSize: "14px" }}
         >
           {categoriasFiltradas.length}{" "}
           {categoriasFiltradas.length === 1 ? "categoria" : "categorias"}
@@ -232,17 +230,19 @@ function Categorias() {
         elevation={0}
         sx={{
           borderRadius: "12px",
-          border: "1px solid #e5e7eb",
+          border: "1px solid",
+          borderColor: theme.palette.divider,
           overflow: "hidden",
+          bgcolor: theme.palette.background.paper,
         }}
       >
         <Table>
           <TableHead>
-            <TableRow sx={{ bgcolor: "#f9fafb" }}>
+            <TableRow sx={{ bgcolor: theme.palette.action.hover }}>
               <TableCell
                 sx={{
                   fontWeight: 600,
-                  color: "#374151",
+                  color: theme.palette.text.primary,
                   fontSize: "13px",
                   py: 2,
                 }}
@@ -250,13 +250,13 @@ function Categorias() {
                 CATEGORIA
               </TableCell>
               <TableCell
-                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                sx={{ fontWeight: 600, color: theme.palette.text.primary, fontSize: "13px" }}
               >
                 DESCRIÇÃO
               </TableCell>
               <TableCell
                 align="right"
-                sx={{ fontWeight: 600, color: "#374151", fontSize: "13px" }}
+                sx={{ fontWeight: 600, color: theme.palette.text.primary, fontSize: "13px" }}
               >
                 AÇÕES
               </TableCell>
@@ -275,11 +275,12 @@ function Categorias() {
                 <TableRow
                   key={categoria.id}
                   sx={{
-                    "&:hover": { bgcolor: "#f9fafb" },
+                    "&:hover": { bgcolor: theme.palette.action.hover },
                     borderBottom:
                       index === categoriasFiltradas.length - 1
                         ? "none"
-                        : "1px solid #f3f4f6",
+                        : "1px solid",
+                    borderColor: theme.palette.divider,
                   }}
                 >
                   <TableCell sx={{ py: 2.5 }}>
@@ -297,13 +298,13 @@ function Categorias() {
                       </Avatar>
                       <Typography
                         variant="body2"
-                        sx={{ fontWeight: 500, color: "#111827" }}
+                        sx={{ fontWeight: 500, color: theme.palette.text.primary }}
                       >
                         {categoria.nome}
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell sx={{ color: "#6b7280", fontSize: "14px" }}>
+                  <TableCell sx={{ color: theme.palette.text.secondary, fontSize: "14px" }}>
                     {categoria.descricao || "—"}
                   </TableCell>
                   <TableCell align="right">
@@ -311,8 +312,8 @@ function Categorias() {
                       size="small"
                       onClick={() => handleOpenDialog(categoria)}
                       sx={{
-                        color: "#6b7280",
-                        "&:hover": { bgcolor: "#f3f4f6", color: "#2563eb" },
+                        color: theme.palette.text.secondary,
+                        "&:hover": { bgcolor: theme.palette.action.hover, color: theme.palette.primary.main },
                       }}
                     >
                       <Edit fontSize="small" />
@@ -321,8 +322,8 @@ function Categorias() {
                       size="small"
                       onClick={() => handleDelete(categoria.id)}
                       sx={{
-                        color: "#6b7280",
-                        "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                        color: theme.palette.text.secondary,
+                        "&:hover": { bgcolor: "error.light", color: "error.main" },
                       }}
                     >
                       <Delete fontSize="small" />
@@ -335,12 +336,12 @@ function Categorias() {
                 <TableCell
                   colSpan={3}
                   align="center"
-                  sx={{ py: 8, color: "#9ca3af" }}
+                  sx={{ py: 8, color: theme.palette.text.secondary }}
                 >
-                  <Typography variant="body1">
+                  <Typography variant="body1" sx={{ color: theme.palette.text.primary }}>
                     Nenhuma categoria encontrada
                   </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography variant="body2" sx={{ mt: 1, color: theme.palette.text.secondary }}>
                     Clique em "Nova Categoria" para cadastrar
                   </Typography>
                 </TableCell>
@@ -349,101 +350,63 @@ function Categorias() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Dialog */}
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: "12px", maxHeight: "90vh" },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            fontWeight: 600,
-            fontSize: "20px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            py: 2,
-            px: 3,
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          {editMode ? "Editar Categoria" : "Nova Categoria"}
-          <IconButton onClick={handleCloseDialog} size="small">
-            <Close />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Nome da Categoria"
-                name="nome"
-                value={currentCategoria.nome}
-                onChange={handleChange}
-                error={!!errors.nome}
-                helperText={errors.nome}
-                size="small"
-                placeholder="Ex: Eletrônicos, Roupas..."
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descrição"
-                name="descricao"
-                multiline
-                rows={3}
-                value={currentCategoria.descricao}
-                onChange={handleChange}
-                size="small"
-                placeholder="Descrição opcional da categoria..."
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-
-        <DialogActions
-          sx={{
-            px: 3,
-            pb: 2.5,
-            pt: 2,
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
-          <Button
-            onClick={handleCloseDialog}
-            sx={{
-              textTransform: "none",
-              color: "#6b7280",
-              "&:hover": { bgcolor: "#f3f4f6" },
-              px: 3,
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            sx={{
-              textTransform: "none",
-              bgcolor: "#2563eb",
-              "&:hover": { bgcolor: "#1d4ed8" },
-              boxShadow: "none",
-              px: 4,
-            }}
-          >
-            Salvar
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </>
+      ) : (
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexShrink: 0 }}>
+            <Button startIcon={<ArrowBack />} onClick={handleCloseDialog} sx={{ textTransform: "none", color: theme.palette.text.secondary }}>
+              Voltar
+            </Button>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+              {editMode ? "Editar Categoria" : "Nova Categoria"}
+            </Typography>
+          </Box>
+          <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSave(); }} sx={{ flex: 1, overflow: "auto", pr: 1 }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: theme.palette.divider, bgcolor: theme.palette.background.paper }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: theme.palette.text.primary, mb: 2 }}>
+                Geral
+              </Typography>
+              <Grid container spacing={2.5} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Nome da Categoria"
+                    name="nome"
+                    value={currentCategoria.nome}
+                    onChange={handleChange}
+                    error={!!errors.nome}
+                    helperText={errors.nome}
+                    size="small"
+                    placeholder="Ex: Eletrônicos, Roupas..."
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Descrição"
+                    name="descricao"
+                    multiline
+                    rows={3}
+                    value={currentCategoria.descricao}
+                    onChange={handleChange}
+                    size="small"
+                    placeholder="Descrição opcional da categoria..."
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2, pb: 2 }}>
+              <Button onClick={handleCloseDialog} sx={{ textTransform: "none", color: theme.palette.text.secondary }}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="contained" sx={{ textTransform: "none", px: 4 }}>
+                Salvar
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

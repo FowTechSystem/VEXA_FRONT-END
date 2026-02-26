@@ -31,6 +31,8 @@ import {
   CardMembership,
   Search,
   Business,
+  Category,
+  Label,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
@@ -72,6 +74,8 @@ const menuSectionsBase = [
       { text: "Usuários", icon: <AccountCircle />, path: "usuarios" },
       { text: "Clientes", icon: <People />, path: "clientes" },
       { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores" },
+      { text: "Categorias", icon: <Category />, path: "categorias" },
+      { text: "Marcas", icon: <Label />, path: "marcas" },
     ],
   },
   {

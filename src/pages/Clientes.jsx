@@ -135,6 +135,57 @@ function Clientes() {
   });
   const [editMode, setEditMode] = useState(false);
 
+  /**
+   * Converte o formulário para o payload da API conforme contrato.
+   * POST: endereco como objeto, cpf, fotoBase64.
+   * PUT: aceita flat ou endereco; usamos endereco para consistência.
+   */
+  const toApiPayload = (u, isCreate) => {
+    const enderecoRaw =
+      u.cep || u.rua
+        ? {
+            cep: (u.cep || "").replace(/\D/g, "").slice(0, 8) || undefined,
+            rua: u.rua?.trim() || undefined,
+            numero: u.numero?.trim() || undefined,
+            complemento: u.complemento?.trim() || undefined,
+            bairro: u.bairro?.trim() || undefined,
+            cidade: u.cidade?.trim() || undefined,
+          }
+        : null;
+    const endereco =
+      enderecoRaw && Object.values(enderecoRaw).some((v) => v != null && v !== "")
+        ? enderecoRaw
+        : undefined;
+
+    const base = {
+      nomeCompleto: u.nomeCompleto?.trim() || "",
+      cpf: (u.cpf || "").replace(/\D/g, "") || null,
+      rg: u.rg?.trim() || null,
+      cnpj: u.cnpj?.replace(/\D/g, "") || null,
+      telefone: (u.telefone || "").replace(/\D/g, "") || null,
+      whatsApp: (u.whatsApp || u.telefone || "").replace(/\D/g, "") || null,
+      email: u.email?.trim() || null,
+      dataNascimento: u.dataNascimento || null,
+      preferencias: u.preferencias?.trim() || null,
+      observacoes: u.observacoes?.trim() || null,
+      fotoBase64: u.fotoBase64 ?? null,
+    };
+
+    if (isCreate) {
+      const body = { ...base, endereco };
+      if (endereco == null) delete body.endereco;
+      return body;
+    }
+    const body = {
+      ...base,
+      id: u.id,
+      fotoUrl: u.fotoUrl ?? null,
+      endereco,
+    };
+    if (endereco == null) delete body.endereco;
+    return body;
+  };
+
   // Funções de navegação de página
   const irParaPrimeiraPagina = () => setPaginaAtual(1);
   const irParaUltimaPagina = () => setPaginaAtual(totalPaginas);
@@ -397,23 +448,32 @@ function Clientes() {
     }
 
     try {
+      let fotoBase64 = null;
       let fotoUrl = currentCliente.fotoUrl;
 
       if (fotoFile) {
-        const uploadResult = await clientesService.uploadFoto(fotoFile);
-        fotoUrl = uploadResult.url;
+        if (editMode) {
+          const uploadResult = await clientesService.uploadFoto(fotoFile);
+          fotoUrl = uploadResult.url;
+        } else {
+          fotoBase64 = fotoPreview?.includes(",") ? fotoPreview.split(",")[1] : null;
+        }
       }
 
-      const clienteData = {
-        ...currentCliente,
-        fotoUrl,
-      };
+      const payload = toApiPayload(
+        {
+          ...currentCliente,
+          fotoBase64: editMode ? null : fotoBase64,
+          fotoUrl: editMode ? fotoUrl : undefined,
+        },
+        !editMode,
+      );
 
       if (editMode) {
-        await clientesService.update(currentCliente.id, clienteData);
+        await clientesService.update(currentCliente.id, payload);
         showSuccess(successMessages.update(entityNames.cliente));
       } else {
-        await clientesService.create(clienteData);
+        await clientesService.create(payload);
         showSuccess(successMessages.create(entityNames.cliente));
       }
 
@@ -908,15 +968,47 @@ function Clientes() {
       </TableContainer>
         </>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            bgcolor: theme.palette.background.default,
+          }}
+        >
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexShrink: 0 }}>
             <Button startIcon={<ArrowBack />} onClick={handleCloseDialog} sx={{ textTransform: "none", color: theme.palette.text.secondary }}>Voltar</Button>
             <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>{editMode ? "Editar Cliente" : "Novo Cliente"}</Typography>
           </Box>
-          <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSave(); }} sx={{ flex: 1, overflow: "auto", pr: 1 }}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: theme.palette.divider, bgcolor: theme.palette.background.paper }}>
+          <Box
+            component="form"
+            onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+            sx={{ flex: 1, overflow: "auto", pr: 1, bgcolor: theme.palette.background.default }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: theme.palette.divider,
+                bgcolor: isDark ? alpha(theme.palette.background.paper, 0.6) : theme.palette.background.paper,
+              }}
+            >
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pb: 3, mb: 3, borderBottom: 1, borderColor: "divider" }}>
-                <Avatar src={fotoPreview} sx={{ width: 100, height: 100, bgcolor: theme.palette.grey[400], mb: 1.5 }}>{!fotoPreview && <Person sx={{ fontSize: 50, color: "#fff" }} />}</Avatar>
+                <Avatar
+                  src={fotoPreview}
+                  sx={{
+                    width: 100,
+                    height: 100,
+                    bgcolor: isDark ? theme.palette.grey[700] : theme.palette.grey[400],
+                    mb: 1.5,
+                  }}
+                >
+                  {!fotoPreview && <Person sx={{ fontSize: 50, color: theme.palette.common.white }} />}
+                </Avatar>
                 <input accept="image/*" style={{ display: "none" }} id="foto-upload" type="file" onChange={handleFotoChange} />
                 <label htmlFor="foto-upload"><Button component="span" startIcon={<CameraAlt />} sx={{ textTransform: "none", color: theme.palette.text.secondary, fontSize: "13px" }}>Adicionar Foto</Button></label>
               </Box>
@@ -955,9 +1047,15 @@ function Clientes() {
         </Box>
       )}
 
-      <Dialog open={openValidacaoModal} onClose={() => setOpenValidacaoModal(false)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setOpenValidacaoModal(false); } }} PaperProps={{ sx: { borderRadius: 2, minWidth: 360 } }} aria-labelledby="validacao-dialog-title">
-        <DialogTitle id="validacao-dialog-title" sx={{ fontWeight: 600 }}>Campos obrigatórios</DialogTitle>
-        <DialogContent><Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
+      <Dialog
+        open={openValidacaoModal}
+        onClose={() => setOpenValidacaoModal(false)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setOpenValidacaoModal(false); } }}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 360, bgcolor: theme.palette.background.paper } }}
+        aria-labelledby="validacao-dialog-title"
+      >
+        <DialogTitle id="validacao-dialog-title" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Campos obrigatórios</DialogTitle>
+        <DialogContent><Typography variant="body2" sx={{ color: theme.palette.text.primary, fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}><Button variant="contained" autoFocus onClick={() => setOpenValidacaoModal(false)} sx={{ textTransform: "none", minWidth: 100 }}>OK</Button></DialogActions>
       </Dialog>
     </Box>
