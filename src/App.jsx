@@ -24,6 +24,8 @@ import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
 import Planos from "./pages/Planos";
 import Empresas from "./pages/Empresas";
+import Categorias from "./pages/Categorias";
+import Marcas from "./pages/Marcas";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
 
@@ -101,6 +103,8 @@ function AppContent() {
           <Route path="fiscal" element={<Fiscal />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="fornecedores" element={<Fornecedores />} />
+          <Route path="categorias" element={<Categorias />} />
+          <Route path="marcas" element={<Marcas />} />
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="planos" element={<Planos />} />

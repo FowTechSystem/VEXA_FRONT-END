@@ -47,6 +47,9 @@ import {
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { produtosService } from "../api/produtosService";
+import { FornecedorService } from "../api/fornecedorService";
+import { CategoriaService } from "../api/categoriaService";
+import { MarcaService } from "../api/marcaService";
 import { showSuccess, showError } from "../utils/notifications";
 import {
   successMessages,
@@ -60,27 +63,6 @@ import { validateRequired } from "../utils/validators";
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
-
-// Dados para loja de roupas e acessórios
-const CATEGORIAS = [
-  "Camisetas",
-  "Blusas",
-  "Vestidos",
-  "Saias",
-  "Calças",
-  "Shorts",
-  "Jaquetas e Casacos",
-  "Conjuntos",
-  "Moda Íntima",
-  "Moda Praia",
-  "Acessórios",
-  "Bolsas",
-  "Calçados",
-  "Joias e Bijuterias",
-  "Cintos",
-  "Óculos",
-  "Bonés e Chapéus",
-];
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -154,8 +136,10 @@ function Produtos() {
     nome: "",
     descricao: "",
     categoria: "",
+    categoriaId: null,
     genero: "",
     marca: "",
+    marcaId: null,
     precoCusto: "",
     precoVenda: "",
     precoPromocional: "",
@@ -174,9 +158,43 @@ function Produtos() {
     imagemPrincipal: "",
     imagensAdicionais: [],
     fornecedor: "",
+    fornecedorId: null,
     observacoes: "",
     ativo: true,
   });
+
+  const [listaFornecedores, setListaFornecedores] = useState([]);
+  const [listaCategorias, setListaCategorias] = useState([]);
+  const [listaMarcas, setListaMarcas] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [dataF, dataC, dataM] = await Promise.all([
+          FornecedorService.getAll(),
+          CategoriaService.getAll(),
+          MarcaService.getAll(),
+        ]);
+        const rawF = dataF?.fornecedor ?? dataF?.items ?? dataF?.fornecedores ?? dataF;
+        const rawC = dataC?.categoria ?? dataC?.items ?? dataC?.categorias ?? dataC;
+        const rawM = dataM?.marca ?? dataM?.items ?? dataM?.marcas ?? dataM;
+        if (!cancelled) {
+          setListaFornecedores(Array.isArray(rawF) ? rawF : []);
+          setListaCategorias(Array.isArray(rawC) ? rawC : []);
+          setListaMarcas(Array.isArray(rawM) ? rawM : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setListaFornecedores([]);
+          setListaCategorias([]);
+          setListaMarcas([]);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   /**
    * Converte o formulário para o payload da API conforme contrato.
@@ -196,15 +214,15 @@ function Produtos() {
     };
     const str = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
 
-    const catIdx = CATEGORIAS.indexOf(p.categoria);
     const genIdx = GENEROS.indexOf(p.genero);
-    const categoriaId = catIdx >= 0 ? catIdx + 1 : 1;
     const generoId = genIdx >= 0 ? genIdx + 1 : 1;
+    const categoriaId = p.categoriaId != null && p.categoriaId !== "" ? Number(p.categoriaId) : null;
+    const marcaId = p.marcaId != null && p.marcaId !== "" ? Number(p.marcaId) : null;
 
     const payload = {
       sku: str(p.sku) ?? "",
       nome: str(p.nome) ?? "",
-      categoriaId,
+      categoriaId: categoriaId ?? 1,
       generoId,
       precoCusto: num(p.precoCusto) ?? 0,
       precoVenda: num(p.precoVenda) ?? 0,
@@ -219,6 +237,8 @@ function Produtos() {
     if (optPeso != null) payload.peso = optPeso;
     const optFoto = str(p.imagemPrincipal);
     if (optFoto) payload.foto1 = optFoto;
+    if (p.fornecedorId != null && p.fornecedorId !== "") payload.fornecedorId = Number(p.fornecedorId);
+    if (marcaId != null) payload.marcaId = marcaId;
     if (!isCreate && p.id != null) payload.id = p.id;
     return payload;
   };
@@ -278,15 +298,34 @@ function Produtos() {
 
   const handleOpenDialog = (produto = null) => {
     if (produto) {
-      setCurrentProduto(produto);
+      const p = { ...produto };
+      if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
+        const found = listaFornecedores.find(
+          (f) =>
+            (f.nome || "").trim() === (p.fornecedor || "").trim() ||
+            (f.razaoSocial || "").trim() === (p.fornecedor || "").trim(),
+        );
+        if (found) p.fornecedorId = found.id;
+      }
+      if (p.categoriaId == null && p.categoria && listaCategorias.length > 0) {
+        const found = listaCategorias.find((c) => (c.nome || "").trim() === (p.categoria || "").trim());
+        if (found) p.categoriaId = found.id;
+      }
+      if (p.marcaId == null && p.marca && listaMarcas.length > 0) {
+        const found = listaMarcas.find((m) => (m.nome || "").trim() === (p.marca || "").trim());
+        if (found) p.marcaId = found.id;
+      }
+      setCurrentProduto(p);
       setEditMode(true);
     } else {
       setCurrentProduto({
         nome: "",
         descricao: "",
         categoria: "",
+        categoriaId: null,
         genero: "",
         marca: "",
+        marcaId: null,
         precoCusto: "",
         precoVenda: "",
         precoPromocional: "",
@@ -305,6 +344,7 @@ function Produtos() {
         imagemPrincipal: "",
         imagensAdicionais: [],
         fornecedor: "",
+        fornecedorId: null,
         observacoes: "",
         ativo: true,
       });
@@ -334,12 +374,8 @@ function Produtos() {
       return;
     }
 
-    const categoriaValidation = validateRequired(
-      currentProduto.categoria,
-      "Categoria",
-    );
-    if (!categoriaValidation.valid) {
-      showError(categoriaValidation.message);
+    if (!currentProduto.categoriaId) {
+      showError("Selecione uma categoria. Cadastre em Cadastros > Categorias se necessário.");
       return;
     }
 
@@ -1054,6 +1090,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1075,32 +1112,98 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth required size="small" sx={{ minWidth: 180 }}>
-                        <InputLabel id="prod-categoria-label">Categoria</InputLabel>
-                        <Select
-                          name="categoria"
-                          value={currentProduto.categoria}
-                          onChange={handleChange}
-                          labelId="prod-categoria-label"
-                          label="Categoria"
-                        >
-                          {CATEGORIAS.map((cat) => (
-                            <MenuItem key={cat} value={cat}>
-                              {cat}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
                         fullWidth
-                        label="Marca"
-                        name="marca"
-                        value={currentProduto.marca}
-                        onChange={handleChange}
-                        size="small"
+                        options={listaCategorias}
+                        value={listaCategorias.find((c) => c.id === currentProduto.categoriaId) || null}
+                        getOptionLabel={(c) => c.nome || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            categoriaId: newValue?.id ?? null,
+                            categoria: newValue?.nome ?? "",
+                          }));
+                        }}
+                        noOptionsText="Nenhuma categoria cadastrada. Cadastre em Cadastros > Categorias."
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Categoria *"
+                            size="small"
+                            placeholder="Selecione a categoria"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={listaMarcas}
+                        value={listaMarcas.find((m) => m.id === currentProduto.marcaId) || null}
+                        getOptionLabel={(m) => m.nome || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            marcaId: newValue?.id ?? null,
+                            marca: newValue?.nome ?? "",
+                          }));
+                        }}
+                        noOptionsText="Nenhuma marca cadastrada. Cadastre em Cadastros > Marcas."
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Marca"
+                            size="small"
+                            placeholder="Selecione a marca"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -1141,14 +1244,53 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
+                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                      <Autocomplete
                         fullWidth
-                        label="Fornecedor"
-                        name="fornecedor"
-                        value={currentProduto.fornecedor}
-                        onChange={handleChange}
-                        size="small"
+                        options={listaFornecedores}
+                        value={listaFornecedores.find((f) => f.id === currentProduto.fornecedorId) || null}
+                        getOptionLabel={(f) => f.nome || f.razaoSocial || ""}
+                        onChange={(_, newValue) => {
+                          setCurrentProduto((prev) => ({
+                            ...prev,
+                            fornecedorId: newValue?.id ?? null,
+                            fornecedor: newValue ? (newValue.nome || newValue.razaoSocial || "") : "",
+                          }));
+                        }}
+                        filterSelectedOptions={false}
+                        noOptionsText="Nenhum fornecedor cadastrado"
+                        sx={{ minWidth: 280 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Fornecedor"
+                            size="small"
+                            placeholder="Digite para buscar fornecedores"
+                            InputLabelProps={{
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                fontWeight: 500,
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
+                            sx={{
+                              minWidth: 280,
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                bgcolor: "background.default",
+                                borderRadius: 1,
+                                minHeight: 52,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
+                            }}
+                          />
+                        )}
+                        ListboxProps={{ sx: { maxHeight: 280 } }}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -1161,6 +1303,15 @@ function Produtos() {
                         value={currentProduto.descricao}
                         onChange={handleChange}
                         size="small"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          "& .MuiInputLabel-root": {
+                            maxWidth: "calc(100% - 20px)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          },
+                        }}
                       />
                     </Grid>
                   </Grid>
@@ -1174,6 +1325,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1276,6 +1428,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1364,6 +1517,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1408,6 +1562,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
@@ -1476,6 +1631,7 @@ function Produtos() {
                     borderRadius: 2,
                     border: "1px solid",
                     borderColor: "divider",
+                    bgcolor: "background.paper",
                   }}
                 >
                   <Typography
