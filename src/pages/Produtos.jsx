@@ -178,6 +178,51 @@ function Produtos() {
     ativo: true,
   });
 
+  /**
+   * Converte o formulário para o payload da API conforme contrato.
+   * Obrigatórios: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo.
+   * Todos numéricos devem ser number (não string).
+   */
+  const toApiPayload = (p, isCreate) => {
+    const num = (v) => {
+      if (v === "" || v == null) return null;
+      const n = parseFloat(String(v).replace(",", "."));
+      return Number.isNaN(n) ? null : n;
+    };
+    const int = (v) => {
+      if (v === "" || v == null) return 0;
+      const n = parseInt(String(v), 10);
+      return Number.isNaN(n) ? 0 : n;
+    };
+    const str = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : null);
+
+    const catIdx = CATEGORIAS.indexOf(p.categoria);
+    const genIdx = GENEROS.indexOf(p.genero);
+    const categoriaId = catIdx >= 0 ? catIdx + 1 : 1;
+    const generoId = genIdx >= 0 ? genIdx + 1 : 1;
+
+    const payload = {
+      sku: str(p.sku) ?? "",
+      nome: str(p.nome) ?? "",
+      categoriaId,
+      generoId,
+      precoCusto: num(p.precoCusto) ?? 0,
+      precoVenda: num(p.precoVenda) ?? 0,
+      estoqueMinimo: int(p.estoqueMinimo),
+    };
+    if (isCreate) payload.quantidadeEstoque = int(p.estoqueTotal);
+    const optCodigo = str(p.codigoBarras);
+    if (optCodigo) payload.codigoBarras = optCodigo;
+    const optDesc = str(p.descricao);
+    if (optDesc) payload.descricaoCurta = optDesc;
+    const optPeso = num(p.peso);
+    if (optPeso != null) payload.peso = optPeso;
+    const optFoto = str(p.imagemPrincipal);
+    if (optFoto) payload.foto1 = optFoto;
+    if (!isCreate && p.id != null) payload.id = p.id;
+    return payload;
+  };
+
   // Cálculos de paginação
   const totalPaginas = Math.ceil(produtosFiltrados.length / produtosPorPagina);
   const indiceInicial = (paginaAtual - 1) * produtosPorPagina;
@@ -273,7 +318,13 @@ function Produtos() {
   };
 
   const handleSave = async () => {
-    // Validações
+    // Validações (API exige: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo)
+    const skuValidation = validateRequired(currentProduto.sku, "SKU");
+    if (!skuValidation.valid) {
+      showError(skuValidation.message);
+      return;
+    }
+
     const nomeValidation = validateRequired(
       currentProduto.nome,
       "Nome do Produto",
@@ -311,17 +362,7 @@ function Produtos() {
     }
 
     try {
-      const produtoParaSalvar = {
-        ...currentProduto,
-        margemLucro: currentProduto.precoCusto
-          ? (
-              ((parseFloat(currentProduto.precoVenda) -
-                parseFloat(currentProduto.precoCusto)) /
-                parseFloat(currentProduto.precoVenda)) *
-              100
-            ).toFixed(2)
-          : 0,
-      };
+      const produtoParaSalvar = toApiPayload(currentProduto, !editMode);
 
       if (editMode) {
         await produtosService.update(currentProduto.id, produtoParaSalvar);
@@ -334,17 +375,18 @@ function Produtos() {
       handleCloseDialog();
     } catch (error) {
       console.error("Erro ao salvar produto:", error);
+      console.error("Resposta da API (400):", error.response?.data);
 
       if (error.response) {
         const errorData = error.response.data;
-        if (errorData.errors) {
-          const firstError = Object.values(errorData.errors)[0];
-          showError(firstError[0] || errorMessages.create(entityNames.produto));
-        } else {
-          showError(
-            errorData.message || errorMessages.create(entityNames.produto),
-          );
-        }
+        const msg =
+          errorData?.message ||
+          (errorData?.errors && typeof errorData.errors === "object"
+            ? (Object.values(errorData.errors).flat().find(Boolean) || errorMessages.create(entityNames.produto))
+            : null) ||
+          (Array.isArray(errorData?.errors) && errorData.errors[0]) ||
+          errorMessages.create(entityNames.produto);
+        showError(msg);
       } else {
         showError(
           editMode
@@ -1033,13 +1075,14 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
-                      <FormControl fullWidth required size="small">
-                        <InputLabel>Categoria</InputLabel>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth required size="small" sx={{ minWidth: 180 }}>
+                        <InputLabel id="prod-categoria-label">Categoria</InputLabel>
                         <Select
                           name="categoria"
                           value={currentProduto.categoria}
                           onChange={handleChange}
+                          labelId="prod-categoria-label"
                           label="Categoria"
                         >
                           {CATEGORIAS.map((cat) => (
@@ -1050,7 +1093,7 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Marca"
@@ -1060,13 +1103,14 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Gênero</InputLabel>
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small" sx={{ minWidth: 180 }}>
+                        <InputLabel id="prod-genero-label">Gênero</InputLabel>
                         <Select
                           name="genero"
                           value={currentProduto.genero}
                           onChange={handleChange}
+                          labelId="prod-genero-label"
                           label="Gênero"
                         >
                           {GENEROS.map((gen) => (
@@ -1077,7 +1121,7 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="SKU"
@@ -1087,7 +1131,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Código de Barras"
@@ -1097,7 +1141,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Fornecedor"
@@ -1139,7 +1183,7 @@ function Produtos() {
                     Variações do Produto
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
                       <Autocomplete
                         multiple
                         options={CORES}
@@ -1147,33 +1191,17 @@ function Produtos() {
                         onChange={(event, newValue) =>
                           handleMultipleChange("cores", newValue)
                         }
-                        renderInput={(params) => (
-                          <TextField {...params} label="Cores *" size="small" />
-                        )}
-                        renderTags={(value, getTagProps) =>
-                          value.map((option, index) => (
-                            <Chip
-                              label={option}
-                              {...getTagProps({ index })}
-                              size="small"
-                            />
-                          ))
-                        }
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Autocomplete
-                        multiple
-                        options={getTamanhosDisponiveis()}
-                        value={currentProduto.tamanhos}
-                        onChange={(event, newValue) =>
-                          handleMultipleChange("tamanhos", newValue)
-                        }
+                        sx={{ minWidth: 220 }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Tamanhos *"
+                            label="Cores *"
                             size="small"
+                            sx={{
+                              minWidth: 220,
+                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
+                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                            }}
                           />
                         )}
                         renderTags={(value, getTagProps) =>
@@ -1187,13 +1215,46 @@ function Produtos() {
                         }
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Material</InputLabel>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
+                      <Autocomplete
+                        multiple
+                        options={getTamanhosDisponiveis()}
+                        value={currentProduto.tamanhos}
+                        onChange={(event, newValue) =>
+                          handleMultipleChange("tamanhos", newValue)
+                        }
+                        sx={{ minWidth: 220 }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Tamanhos *"
+                            size="small"
+                            sx={{
+                              minWidth: 220,
+                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
+                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                            }}
+                          />
+                        )}
+                        renderTags={(value, getTagProps) =>
+                          value.map((option, index) => (
+                            <Chip
+                              label={option}
+                              {...getTagProps({ index })}
+                              size="small"
+                            />
+                          ))
+                        }
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={12}>
+                      <FormControl fullWidth size="small" sx={{ minWidth: 220, maxWidth: 400 }}>
+                        <InputLabel id="prod-material-label">Material</InputLabel>
                         <Select
                           name="material"
                           value={currentProduto.material}
                           onChange={handleChange}
+                          labelId="prod-material-label"
                           label="Material"
                         >
                           {MATERIAIS.map((mat) => (
@@ -1224,7 +1285,7 @@ function Produtos() {
                     Precificação
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Preço de Custo"
@@ -1241,7 +1302,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         required
@@ -1259,7 +1320,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Preço Promocional"
@@ -1276,7 +1337,7 @@ function Produtos() {
                         size="small"
                       />
                     </Grid>
-                    <Grid item xs={6} md={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Margem de Lucro"
