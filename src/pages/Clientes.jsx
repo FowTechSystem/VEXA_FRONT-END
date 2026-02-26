@@ -61,30 +61,7 @@ import {
   validateCNPJ,
   validateRequired,
 } from "../utils/validators";
-
-const getInitials = (nome) => {
-  if (!nome) return "?";
-  const parts = nome.trim().split(" ");
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return nome.substring(0, 2).toUpperCase();
-};
-
-const getAvatarColor = (nome) => {
-  const colors = [
-    "#ef4444",
-    "#f59e0b",
-    "#10b981",
-    "#3b82f6",
-    "#8b5cf6",
-    "#ec4899",
-    "#06b6d4",
-    "#14b8a6",
-  ];
-  const index = nome?.charCodeAt(0) % colors.length || 0;
-  return colors[index];
-};
+import { getInitials, getAvatarColor } from "../utils/avatarUtils";
 
 function Clientes() {
   const theme = useTheme();
@@ -163,7 +140,7 @@ function Clientes() {
       rg: u.rg?.trim() || null,
       cnpj: u.cnpj?.replace(/\D/g, "") || null,
       telefone: (u.telefone || "").replace(/\D/g, "") || null,
-      whatsApp: (u.whatsApp || u.telefone || "").replace(/\D/g, "") || null,
+      whatsApp: (u.whatsApp || "").replace(/\D/g, "") || null,
       email: u.email?.trim() || null,
       dataNascimento: u.dataNascimento || null,
       preferencias: u.preferencias?.trim() || null,

@@ -227,6 +227,8 @@ function Produtos() {
       precoCusto: num(p.precoCusto) ?? 0,
       precoVenda: num(p.precoVenda) ?? 0,
       estoqueMinimo: int(p.estoqueMinimo),
+      cores: Array.isArray(p.cores) ? p.cores : [],
+      tamanhos: Array.isArray(p.tamanhos) ? p.tamanhos : [],
     };
     if (isCreate) payload.quantidadeEstoque = int(p.estoqueTotal);
     const optCodigo = str(p.codigoBarras);
@@ -239,6 +241,20 @@ function Produtos() {
     if (optFoto) payload.foto1 = optFoto;
     if (p.fornecedorId != null && p.fornecedorId !== "") payload.fornecedorId = Number(p.fornecedorId);
     if (marcaId != null) payload.marcaId = marcaId;
+    const optMaterial = str(p.material);
+    if (optMaterial) payload.material = optMaterial;
+    const optPrecoPromocional = num(p.precoPromocional);
+    if (optPrecoPromocional != null) payload.precoPromocional = optPrecoPromocional;
+    if (p.emPromocao != null) payload.emPromocao = Boolean(p.emPromocao);
+    const optObservacoes = str(p.observacoes);
+    if (optObservacoes) payload.observacoes = optObservacoes;
+    const optLargura = num(p.largura);
+    if (optLargura != null) payload.largura = optLargura;
+    const optAltura = num(p.altura);
+    if (optAltura != null) payload.altura = optAltura;
+    const optComprimento = num(p.comprimento);
+    if (optComprimento != null) payload.comprimento = optComprimento;
+    if (p.ativo != null) payload.ativo = Boolean(p.ativo);
     if (!isCreate && p.id != null) payload.id = p.id;
     return payload;
   };
@@ -376,6 +392,11 @@ function Produtos() {
 
     if (!currentProduto.categoriaId) {
       showError("Selecione uma categoria. Cadastre em Cadastros > Categorias se necessário.");
+      return;
+    }
+
+    if (!currentProduto.genero) {
+      showError("Selecione um gênero");
       return;
     }
 
