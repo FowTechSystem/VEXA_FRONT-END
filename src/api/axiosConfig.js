@@ -25,7 +25,7 @@ function getEmpresaAtivaId() {
     if (user.email !== DEV_ADMIN_EMAIL) return null;
     const raw = localStorage.getItem(EMPRESA_ATIVA_KEY);
     const empresa = raw ? JSON.parse(raw) : null;
-    return empresa?.id ?? null;
+    return empresa?.id ?? 1;
   } catch {
     return null;
   }

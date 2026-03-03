@@ -4,8 +4,6 @@ import api from "./axiosConfig";
 export const produtosService = {
   getAll: async () => {
     const response = await api.get("/produtos");
-    console.log("Resposta completa da API:", response);
-    console.log("Dados da resposta:", response.data);
 
     // A API retorna um objeto GetListaProdutosResponse
     // Vamos extrair a lista de produtos

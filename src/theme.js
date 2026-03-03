@@ -174,7 +174,28 @@ const getTheme = (mode) => {
                   ? "rgba(148, 163, 184, 0.3)"
                   : "rgba(0, 0, 0, 0.4)",
               },
+              "&.Mui-focused fieldset": {
+                borderColor: isDark ? "rgba(59, 130, 246, 0.5)" : undefined,
+              },
             },
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            ...(isDark && {
+              backgroundColor: "rgba(15, 23, 42, 0.6)",
+              "&:hover": { backgroundColor: "rgba(30, 41, 59, 0.8)" },
+              "&.Mui-focused": { backgroundColor: "rgba(30, 41, 59, 0.9)" },
+            }),
+          },
+        },
+      },
+      MuiAutocomplete: {
+        styleOverrides: {
+          paper: {
+            ...(isDark && { backgroundColor: "#1E293B" }),
           },
         },
       },

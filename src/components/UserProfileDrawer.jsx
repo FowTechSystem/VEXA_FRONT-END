@@ -198,7 +198,8 @@ function UserProfileDrawer({ open, onClose }) {
 
         {/* Formulário Trocar Senha */}
         {showTrocarSenha && (
-          <Box sx={{ mb: 3, p: 2, border: "1px solid #ddd", borderRadius: 1 }}>
+          <Box sx={{ mb: 3, p: 2, border: "1px solid",
+            borderColor: "divider", borderRadius: 1 }}>
             <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
               Alterar Senha
             </Typography>
@@ -268,7 +269,8 @@ function UserProfileDrawer({ open, onClose }) {
 
             {/* Formulário Adicionar Funcionário */}
             {showAddFuncionario && (
-              <Box sx={{ p: 2, border: "1px solid #ddd", borderRadius: 1 }}>
+              <Box sx={{ p: 2, border: "1px solid",
+            borderColor: "divider", borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
                   Novo Funcionário
                 </Typography>
