@@ -1,5 +1,6 @@
 // src/pages/Produtos.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
   Button,
@@ -117,6 +118,8 @@ const MATERIAIS = [
 function Produtos() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
@@ -206,6 +209,44 @@ function Produtos() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (location.state?.fromCompras && location.state?.openNewProduct) {
+      setOpenDialog(true);
+      setEditMode(false);
+      setCurrentProduto({
+        nome: "",
+        descricao: "",
+        categoria: "",
+        categoriaId: null,
+        genero: "",
+        marca: "",
+        marcaId: null,
+        precoCusto: "",
+        precoVenda: "",
+        precoPromocional: "",
+        emPromocao: false,
+        cores: [],
+        tamanhos: [],
+        tipoTamanho: "roupas",
+        material: "",
+        sku: "",
+        codigoBarras: "",
+        estoqueTotal: "",
+        estoqueMinimo: "",
+        peso: "",
+        largura: "",
+        altura: "",
+        comprimento: "",
+        imagemPrincipal: "",
+        imagensAdicionais: [],
+        fornecedor: "",
+        fornecedorId: null,
+        observacoes: "",
+        ativo: true,
+      });
+    }
+  }, [location.state?.fromCompras, location.state?.openNewProduct]);
 
   /**
    * Converte o formulário para o payload da API conforme contrato.
@@ -426,6 +467,10 @@ function Produtos() {
       } else {
         await produtosService.create(produtoParaSalvar);
         showSuccess(successMessages.create(entityNames.produto));
+        if (location.state?.fromCompras) {
+          navigate("/compras", { state: { returnFromProdutos: true } });
+          return;
+        }
       }
       fetchProdutos();
       handleCloseDialog();

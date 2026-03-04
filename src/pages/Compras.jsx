@@ -1,5 +1,6 @@
 // src/pages/Compras.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
   Button,
@@ -24,6 +25,7 @@ import {
   Chip,
   Paper,
   InputAdornment,
+  Autocomplete,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { showSuccess, showError } from "../utils/notifications";
@@ -36,9 +38,13 @@ import {
   LastPage,
   ChevronLeft,
   ChevronRight,
+  Delete,
+  Inventory,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { comprasService } from "../api/comprasService";
+import { FornecedorService } from "../api/fornecedorService";
+import { produtosService } from "../api/produtosService";
 
 const STATUS_COMPRA = {
   pendente: { label: "Pendente", color: "#d97706", bgcolor: "#fef3c7" },
@@ -49,6 +55,7 @@ const STATUS_COMPRA = {
 
 function Compras() {
   const [compras, setCompras] = useState([]);
+  const [listaFornecedores, setListaFornecedores] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
@@ -59,13 +66,22 @@ function Compras() {
   const comprasPorPagina = 10;
 
   const [currentCompra, setCurrentCompra] = useState({
-    fornecedor: "",
+    fornecedorId: null,
+    fornecedor: null,
     dataPedido: new Date().toISOString().split("T")[0],
     dataEntregaPrevista: "",
-    valorTotal: "",
     status: "pendente",
     observacoes: "",
   });
+
+  const [itensCompra, setItensCompra] = useState([]);
+  const [produtoSelecionado, setProdutoSelecionado] = useState(null);
+  const [quantidadeItem, setQuantidadeItem] = useState("");
+  const [precoUnitarioItem, setPrecoUnitarioItem] = useState("");
+  const [listaProdutos, setListaProdutos] = useState([]);
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const requiredFieldSx = (theme) => ({
     "& .MuiOutlinedInput-root": {
@@ -86,9 +102,11 @@ function Compras() {
     },
   };
 
+  const nomeFornecedor = (c) =>
+    c.fornecedor?.nome ?? c.fornecedor ?? (typeof c.fornecedor === "string" ? c.fornecedor : "");
   const comprasFiltradas = compras.filter(
     (c) =>
-      c.fornecedor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nomeFornecedor(c)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.observacoes?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   const totalPaginas = Math.max(1, Math.ceil(comprasFiltradas.length / comprasPorPagina));
@@ -120,16 +138,103 @@ function Compras() {
     fetchCompras();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    FornecedorService.getAll()
+      .then((data) => {
+        if (cancelled) return;
+        const raw = data?.fornecedor ?? data?.items ?? data?.fornecedores ?? data;
+        setListaFornecedores(Array.isArray(raw) ? raw : []);
+      })
+      .catch(() => {
+        if (!cancelled) setListaFornecedores([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!openDialog) return;
+    let cancelled = false;
+    produtosService.getAll().then((data) => {
+      if (cancelled) return;
+      const prods = Array.isArray(data) ? data : (data?.produtos ?? data?.items ?? []);
+      setListaProdutos(Array.isArray(prods) ? prods : []);
+    }).catch(() => { if (!cancelled) setListaProdutos([]); });
+    return () => { cancelled = true; };
+  }, [openDialog]);
+
+  useEffect(() => {
+    if (location.state?.returnFromProdutos) {
+      const draft = sessionStorage.getItem("compras_draft");
+      if (draft) {
+        try {
+          const { currentCompra: saved, itensCompra: itens } = JSON.parse(draft);
+          if (saved) setCurrentCompra(saved);
+          if (Array.isArray(itens)) setItensCompra(itens);
+        } catch { /* ignore */ }
+        sessionStorage.removeItem("compras_draft");
+      }
+      setOpenDialog(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.returnFromProdutos, navigate, location.pathname]);
+
+  const fornecedorSelecionado = !!(currentCompra.fornecedorId ?? currentCompra.fornecedor);
+
   const handleOpenDialog = () => {
     setCurrentCompra({
-      fornecedor: "",
+      fornecedorId: null,
+      fornecedor: null,
       dataPedido: new Date().toISOString().split("T")[0],
       dataEntregaPrevista: "",
-      valorTotal: "",
       status: "pendente",
       observacoes: "",
     });
+    setItensCompra([]);
+    setProdutoSelecionado(null);
+    setQuantidadeItem("");
+    setPrecoUnitarioItem("");
     setOpenDialog(true);
+  };
+
+  const handleAdicionarItem = () => {
+    if (!produtoSelecionado) return;
+    const qty = parseInt(quantidadeItem, 10);
+    if (!quantidadeItem || isNaN(qty) || qty <= 0) {
+      showError("Informe a quantidade (número inteiro maior que zero).");
+      return;
+    }
+    const preco = parseFloat(String(precoUnitarioItem || "0").replace(",", ".")) || 0;
+    const prod = produtoSelecionado;
+    setItensCompra((prev) => [
+      ...prev,
+      {
+        produtoId: prod.id,
+        produto: prod,
+        quantidade: qty,
+        precoUnitario: preco,
+      },
+    ]);
+    setProdutoSelecionado(null);
+    setQuantidadeItem("");
+    setPrecoUnitarioItem("");
+  };
+
+  const handleRemoverItem = (index) => {
+    setItensCompra((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const valorTotalItens = itensCompra.reduce(
+    (acc, i) => acc + (i.quantidade || 0) * (i.precoUnitario || 0),
+    0
+  );
+
+  const handleIrParaCadastrarProduto = () => {
+    sessionStorage.setItem("compras_draft", JSON.stringify({
+      currentCompra,
+      itensCompra,
+    }));
+    navigate("/produtos", { state: { fromCompras: true, openNewProduct: true } });
   };
 
   const handleCloseDialog = () => setOpenDialog(false);
@@ -141,19 +246,32 @@ function Compras() {
 
   const handleSave = async () => {
     const faltando = [];
-    if (!currentCompra.fornecedor?.trim()) faltando.push("Fornecedor");
-    if (!currentCompra.valorTotal?.toString().trim()) faltando.push("Valor Total");
+    if (!currentCompra.fornecedorId && !currentCompra.fornecedor) faltando.push("Fornecedor");
+    if (itensCompra.length === 0) faltando.push("Pelo menos um item com produto e quantidade");
+    const itensFaltando = itensCompra.filter((i) => !i.produtoId || !i.quantidade || i.quantidade <= 0);
+    if (itensFaltando.length > 0) faltando.push("Todos os itens devem ter produto e quantidade preenchidos");
 
     if (faltando.length > 0) {
-      setMensagemValidacao("Faltam: " + faltando.join(", ") + ".");
+      setMensagemValidacao("Faltam: " + faltando.join(". ") + ".");
       setOpenValidacaoModal(true);
       return;
     }
 
+    const fornecedorId = currentCompra.fornecedorId ?? currentCompra.fornecedor?.id;
+    const itens = itensCompra.map((i) => ({
+      produtoId: i.produtoId,
+      quantidade: i.quantidade,
+      precoUnitario: i.precoUnitario || 0,
+    }));
     try {
       await comprasService.create({
-        ...currentCompra,
-        valorTotal: parseFloat(currentCompra.valorTotal),
+        fornecedorId,
+        dataPedido: currentCompra.dataPedido,
+        dataEntregaPrevista: currentCompra.dataEntregaPrevista || undefined,
+        status: currentCompra.status,
+        observacoes: currentCompra.observacoes || undefined,
+        valorTotal: valorTotalItens,
+        itens,
       });
       showSuccess("Compra cadastrada com sucesso!");
       fetchCompras();
@@ -328,7 +446,7 @@ function Compras() {
                         <TableCell
                           sx={{ py: 2.5, fontWeight: 500, color: "text.primary" }}
                         >
-                          {compra.fornecedor}
+                          {nomeFornecedor(compra) || "—"}
                         </TableCell>
                         <TableCell sx={{ color: "text.secondary", fontSize: "14px" }}>
                           {compra.dataPedido
@@ -493,16 +611,37 @@ function Compras() {
 
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
                 <Grid item xs={12}>
-                  <TextField
+                  <Autocomplete
                     fullWidth
-                    required
-                    label="Fornecedor"
-                    name="fornecedor"
-                    value={currentCompra.fornecedor}
-                    onChange={handleChange}
-                    placeholder="Nome do fornecedor"
-                    size="small"
-                    sx={requiredFieldSx}
+                    options={listaFornecedores}
+                    getOptionLabel={(opt) =>
+                      (opt?.razaoSocial ?? opt?.nome ?? (typeof opt === "string" ? opt : "")) || ""
+                    }
+                    value={
+                      currentCompra.fornecedor ??
+                      listaFornecedores.find((f) => f.id === currentCompra.fornecedorId) ??
+                      null
+                    }
+                    onChange={(_, value) =>
+                      setCurrentCompra({
+                        ...currentCompra,
+                        fornecedor: value,
+                        fornecedorId: value?.id ?? null,
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        required
+                        label="Fornecedor"
+                        placeholder="Selecione um fornecedor cadastrado"
+                        size="small"
+                        sx={requiredFieldSx}
+                      />
+                    )}
+                    isOptionEqualToValue={(opt, val) => opt?.id === val?.id}
+                    noOptionsText="Nenhum fornecedor cadastrado"
+                    disablePortal
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -530,25 +669,6 @@ function Compras() {
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Valor Total"
-                    name="valorTotal"
-                    type="number"
-                    value={currentCompra.valorTotal}
-                    onChange={handleChange}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">R$</InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    size="small"
-                    sx={requiredFieldSx}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -565,6 +685,149 @@ function Compras() {
                     </Select>
                   </FormControl>
                 </Grid>
+              </Grid>
+
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  color: "text.primary",
+                  mt: 4,
+                  mb: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <Inventory fontSize="small" /> Itens da Compra
+              </Typography>
+              {!fornecedorSelecionado && (
+                <Typography variant="body2" sx={{ color: "warning.main", mb: 2, fontWeight: 500 }}>
+                  Selecione o fornecedor acima para habilitar a adição de produtos.
+                </Typography>
+              )}
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  alignItems: "flex-start",
+                  mb: 2,
+                  flexWrap: "wrap",
+                  opacity: fornecedorSelecionado ? 1 : 0.6,
+                  pointerEvents: fornecedorSelecionado ? "auto" : "none",
+                }}
+              >
+                <Autocomplete
+                  sx={{ minWidth: 280 }}
+                  options={listaProdutos}
+                  getOptionLabel={(opt) =>
+                    (opt?.nome ?? (typeof opt === "string" ? opt : "")) + (opt?.sku ? ` (${opt.sku})` : "")
+                  }
+                  value={produtoSelecionado}
+                  onChange={(_, v) => setProdutoSelecionado(v)}
+                  disabled={!fornecedorSelecionado}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Digite para buscar produto..."
+                      size="small"
+                      label="Produto"
+                    />
+                  )}
+                  isOptionEqualToValue={(a, b) => a?.id === b?.id}
+                  noOptionsText="Nenhum produto encontrado. Use o botão abaixo para cadastrar."
+                />
+                <TextField
+                  type="number"
+                  label="Quantidade"
+                  value={quantidadeItem}
+                  onChange={(e) => setQuantidadeItem(e.target.value)}
+                  inputProps={{ min: 1 }}
+                  size="small"
+                  disabled={!fornecedorSelecionado}
+                  sx={{ width: 120 }}
+                />
+                <TextField
+                  type="number"
+                  label="Preço unit."
+                  value={precoUnitarioItem}
+                  onChange={(e) => setPrecoUnitarioItem(e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                  }}
+                  inputProps={{ step: "0.01", min: "0" }}
+                  size="small"
+                  disabled={!fornecedorSelecionado}
+                  sx={{ width: 130 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleAdicionarItem}
+                  startIcon={<Add />}
+                  disabled={!fornecedorSelecionado}
+                  sx={{ textTransform: "none" }}
+                >
+                  Adicionar
+                </Button>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<Add />}
+                  onClick={handleIrParaCadastrarProduto}
+                  sx={{ textTransform: "none" }}
+                >
+                  Cadastrar novo produto
+                </Button>
+              </Box>
+              <TableContainer sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, mb: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: "12px" }}>PRODUTO</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, fontSize: "12px" }}>QUANTIDADE</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "12px" }}>PREÇO UNIT.</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "12px" }}>SUBTOTAL</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, fontSize: "12px" }}>AÇÕES</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {itensCompra.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                          Nenhum item adicionado. Selecione o fornecedor, escolha um produto acima e clique em Adicionar.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      itensCompra.map((item, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            {item.produto?.nome ?? "—"} {item.produto?.sku ? `(${item.produto.sku})` : ""}
+                          </TableCell>
+                          <TableCell align="center">{item.quantidade}</TableCell>
+                          <TableCell align="right">
+                            R$ {(item.precoUnitario || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell align="right">
+                            R$ {((item.quantidade || 0) * (item.precoUnitario || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton size="small" onClick={() => handleRemoverItem(idx)} color="error">
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
+                Valor total: R$ {valorTotalItens.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </Typography>
+
+              <Grid container spacing={2.5} sx={{ mt: 2 }}>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
