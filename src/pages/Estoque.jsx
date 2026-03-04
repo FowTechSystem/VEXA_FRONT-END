@@ -14,38 +14,24 @@ import {
   TableRow,
   IconButton,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   InputAdornment,
   Alert,
 } from "@mui/material";
-import { showError } from "../utils/notifications";
 import {
   Inventory,
-  Add,
-  Remove,
   TrendingUp,
   TrendingDown,
   SwapHoriz,
-  Edit,
   Search,
   Warning,
   CheckCircle,
-  ArrowBack,
   FirstPage,
   LastPage,
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
-import { alpha } from "@mui/material/styles";
 
 const TIPOS_MOVIMENTACAO = {
   entrada: { label: "Entrada", icon: <TrendingUp />, color: "#16a34a" },
@@ -199,29 +185,7 @@ const PaginationControls = ({
 
 function Estoque() {
   const [tabAtual, setTabAtual] = useState(0);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
-  const [mensagemValidacao, setMensagemValidacao] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
-  const selectFieldSx = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: 1.5,
-      bgcolor: "background.paper",
-      "& fieldset": { borderColor: "divider" },
-      "&:hover fieldset": { borderColor: "text.secondary" },
-      "&.Mui-focused fieldset": { borderWidth: 1, borderColor: "primary.main" },
-    },
-  };
 
   // Estados para paginação
   const [paginaAtualProdutos, setPaginaAtualProdutos] = useState(1);
@@ -249,92 +213,7 @@ function Estoque() {
     },
   ]);
 
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [currentMovimentacao, setCurrentMovimentacao] = useState({
-    tipo: "entrada",
-    produtoId: "",
-    quantidade: "",
-    motivo: "",
-    observacoes: "",
-    data: new Date().toISOString().split("T")[0],
-  });
-
-  const handleOpenDialog = () => {
-    setCurrentMovimentacao({
-      tipo: "entrada",
-      produtoId: "",
-      quantidade: "",
-      motivo: "",
-      observacoes: "",
-      data: new Date().toISOString().split("T")[0],
-    });
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentMovimentacao({
-      ...currentMovimentacao,
-      [name]: value,
-    });
-  };
-
-  const handleSaveMovimentacao = () => {
-    const faltando = [];
-    if (!currentMovimentacao.produtoId) faltando.push("Produto");
-    const qty = parseInt(currentMovimentacao.quantidade);
-    if (!currentMovimentacao.quantidade || isNaN(qty) || qty <= 0) {
-      faltando.push(
-        currentMovimentacao.tipo === "ajuste" ? "Novo Estoque" : "Quantidade",
-      );
-    }
-
-    if (faltando.length > 0) {
-      setMensagemValidacao("Faltam: " + faltando.join(", ") + ".");
-      setOpenValidacaoModal(true);
-      return;
-    }
-
-    const produto = produtos.find(
-      (p) => p.id === parseInt(currentMovimentacao.produtoId),
-    );
-    const quantidade = parseInt(currentMovimentacao.quantidade);
-
-    // Atualizar estoque
-    const novoEstoque = [...produtos];
-    const index = novoEstoque.findIndex((p) => p.id === produto.id);
-
-    if (currentMovimentacao.tipo === "entrada") {
-      novoEstoque[index].estoqueAtual += quantidade;
-    } else if (currentMovimentacao.tipo === "saida") {
-      if (novoEstoque[index].estoqueAtual < quantidade) {
-        showError("Estoque insuficiente");
-        return;
-      }
-      novoEstoque[index].estoqueAtual -= quantidade;
-    } else if (currentMovimentacao.tipo === "ajuste") {
-      novoEstoque[index].estoqueAtual = quantidade;
-    }
-
-    setProdutos(novoEstoque);
-
-    // Registrar movimentação
-    const novaMovimentacao = {
-      id: Date.now(),
-      ...currentMovimentacao,
-      produtoNome: produto.nome,
-      produtoSku: produto.sku,
-      timestamp: new Date().toISOString(),
-    };
-    setMovimentacoes([novaMovimentacao, ...movimentacoes]);
-    setPaginaAtualMovimentacoes(1); // Volta para a primeira página
-
-    handleCloseDialog();
-  };
+  const [movimentacoes] = useState([]);
 
   const getProdutoStatus = (produto) => {
     if (produto.estoqueAtual <= produto.estoqueMinimo) {
@@ -419,13 +298,8 @@ function Estoque() {
         bgcolor: "background.default",
         minHeight: "100vh",
         color: "text.primary",
-        ...(openDialog
-          ? { display: "flex", flexDirection: "column", overflow: "hidden" }
-          : {}),
       }}
     >
-      {!openDialog ? (
-        <>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box
@@ -441,22 +315,9 @@ function Estoque() {
               Estoque
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
-              Controle e movimentação de estoque
+              Consulta de estoque. O estoque é atualizado automaticamente pelas compras recebidas.
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleOpenDialog}
-            sx={{
-              textTransform: "none",
-              borderRadius: "8px",
-              px: 3,
-              boxShadow: "none",
-            }}
-          >
-            Nova Movimentação
-          </Button>
         </Box>
 
         {/* Cards de resumo */}
@@ -916,7 +777,7 @@ function Estoque() {
                             Nenhuma movimentação registrada
                           </Typography>
                           <Typography variant="body2" sx={{ mt: 1 }}>
-                            Clique em "Nova Movimentação" para começar
+                            As movimentações são geradas automaticamente quando compras são recebidas.
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -1039,212 +900,6 @@ function Estoque() {
           )}
         </Box>
       </Paper>
-        </>
-      ) : (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            overflow: "hidden",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexShrink: 0 }}>
-            <Button
-              startIcon={<ArrowBack />}
-              onClick={handleCloseDialog}
-              sx={{
-                textTransform: "none",
-                color: "text.secondary",
-                "&:hover": { bgcolor: "action.hover" },
-              }}
-            >
-              Voltar
-            </Button>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
-              Nova Movimentação de Estoque
-            </Typography>
-          </Box>
-
-          <Box
-            component="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSaveMovimentacao();
-            }}
-            sx={{ flex: 1, overflow: "auto", pr: 1 }}
-          >
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: 2,
-                border: "1px solid",
-                borderColor: "divider",
-                bgcolor: "background.paper",
-              }}
-            >
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  fontWeight: 600,
-                  color: "text.primary",
-                  mb: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <SwapHoriz fontSize="small" /> Dados da Movimentação
-              </Typography>
-
-              <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small" sx={selectFieldSx}>
-                    <InputLabel>Tipo de Movimentação</InputLabel>
-                    <Select
-                      name="tipo"
-                      value={currentMovimentacao.tipo}
-                      onChange={handleChange}
-                      label="Tipo de Movimentação"
-                    >
-                      {Object.entries(TIPOS_MOVIMENTACAO).map(([key, value]) => (
-                        <MenuItem key={key} value={key}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            {value.icon}
-                            {value.label}
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required size="small" sx={selectFieldSx}>
-                    <InputLabel>Produto</InputLabel>
-                    <Select
-                      name="produtoId"
-                      value={currentMovimentacao.produtoId}
-                      onChange={handleChange}
-                      label="Produto"
-                    >
-                      {produtos.map((produto) => (
-                        <MenuItem key={produto.id} value={produto.id}>
-                          {produto.nome} ({produto.sku}) - Estoque:{" "}
-                          {produto.estoqueAtual}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    required
-                    label={
-                      currentMovimentacao.tipo === "ajuste"
-                        ? "Novo Estoque"
-                        : "Quantidade"
-                    }
-                    name="quantidade"
-                    type="number"
-                    value={currentMovimentacao.quantidade}
-                    onChange={handleChange}
-                    inputProps={{ min: "1" }}
-                    helperText={
-                      currentMovimentacao.tipo === "ajuste"
-                        ? "Digite o valor correto do estoque"
-                        : "Quantidade a movimentar"
-                    }
-                    size="small"
-                    sx={requiredFieldSx}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Data"
-                    name="data"
-                    type="date"
-                    value={currentMovimentacao.data}
-                    onChange={handleChange}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Motivo"
-                    name="motivo"
-                    value={currentMovimentacao.motivo}
-                    onChange={handleChange}
-                    placeholder="Ex: Compra, Venda, Devolução, Ajuste de inventário"
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Observações"
-                    name="observacoes"
-                    multiline
-                    rows={3}
-                    value={currentMovimentacao.observacoes}
-                    onChange={handleChange}
-                    placeholder="Informações adicionais sobre a movimentação..."
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 2,
-                  mt: 2,
-                  pb: 2,
-                  flexShrink: 0,
-                }}
-              >
-                <Button
-                  type="button"
-                  onClick={handleCloseDialog}
-                  sx={{ textTransform: "none", color: "text.secondary" }}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" variant="contained" sx={{ textTransform: "none", px: 4 }}>
-                  Confirmar Movimentação
-                </Button>
-              </Box>
-            </Paper>
-          </Box>
-        </Box>
-      )}
-
-      <Dialog
-        open={openValidacaoModal}
-        onClose={() => setOpenValidacaoModal(false)}
-        PaperProps={{ sx: { borderRadius: 2, minWidth: 360 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 600 }}>Campos obrigatórios</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px" }}>
-            {mensagemValidacao}
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            variant="contained"
-            onClick={() => setOpenValidacaoModal(false)}
-            sx={{ textTransform: "none", minWidth: 100 }}
-          >
-            OK
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

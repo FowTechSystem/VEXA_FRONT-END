@@ -1,5 +1,6 @@
 // src/pages/Produtos.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
   Button,
@@ -16,6 +17,8 @@ import {
   TextField,
   Grid,
   Chip,
+  ToggleButtonGroup,
+  ToggleButton,
   Paper,
   InputAdornment,
   Select,
@@ -66,19 +69,9 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
-  "33",
-  "34",
-  "35",
-  "36",
-  "37",
-  "38",
-  "39",
-  "40",
-  "41",
-  "42",
-  "43",
-  "44",
+  "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44",
 ];
+const TAMANHOS_ACESSORIOS = ["Único", "P", "M", "G", "GG", "Infantil"];
 
 const CORES = [
   "Preto",
@@ -103,6 +96,10 @@ const CORES = [
 
 const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
 
+// Extrai nome de string ou objeto { id, nome } retornado pela API
+const nomeDe = (v) =>
+  v == null ? null : typeof v === "string" ? v : (v.nome ?? v.razaoSocial ?? null);
+
 const MATERIAIS = [
   "Algodão",
   "Poliéster",
@@ -120,6 +117,9 @@ const MATERIAIS = [
 
 function Produtos() {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [produtos, setProdutos] = useState([]);
   const [produtosFiltrados, setProdutosFiltrados] = useState([]);
@@ -146,6 +146,7 @@ function Produtos() {
     emPromocao: false,
     cores: [],
     tamanhos: [],
+    tipoTamanho: "roupas",
     material: "",
     sku: "",
     codigoBarras: "",
@@ -170,31 +171,82 @@ function Produtos() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      try {
-        const [dataF, dataC, dataM] = await Promise.all([
-          FornecedorService.getAll(),
-          CategoriaService.getAll(),
-          MarcaService.getAll(),
-        ]);
-        const rawF = dataF?.fornecedor ?? dataF?.items ?? dataF?.fornecedores ?? dataF;
-        const rawC = dataC?.categoria ?? dataC?.items ?? dataC?.categorias ?? dataC;
-        const rawM = dataM?.marca ?? dataM?.items ?? dataM?.marcas ?? dataM;
-        if (!cancelled) {
-          setListaFornecedores(Array.isArray(rawF) ? rawF : []);
-          setListaCategorias(Array.isArray(rawC) ? rawC : []);
-          setListaMarcas(Array.isArray(rawM) ? rawM : []);
+      const [rF, rC, rM] = await Promise.allSettled([
+        FornecedorService.getAll(),
+        CategoriaService.getAll(),
+        MarcaService.getAll(),
+      ]);
+      const parseF = (r) => {
+        if (r.status !== "fulfilled") {
+          if (r.reason) console.warn("Erro ao carregar fornecedores:", r.reason?.response?.status ?? r.reason?.message);
+          return [];
         }
-      } catch {
-        if (!cancelled) {
-          setListaFornecedores([]);
-          setListaCategorias([]);
-          setListaMarcas([]);
+        const raw = r.value?.fornecedor ?? r.value?.items ?? r.value?.fornecedores ?? r.value;
+        return Array.isArray(raw) ? raw : [];
+      };
+      const parseC = (r) => {
+        if (r.status !== "fulfilled") {
+          if (r.reason) console.warn("Erro ao carregar categorias:", r.reason?.response?.status ?? r.reason?.message);
+          return [];
         }
+        const raw = r.value?.categoria ?? r.value?.items ?? r.value?.categorias ?? r.value;
+        return Array.isArray(raw) ? raw : [];
+      };
+      const parseM = (r) => {
+        if (r.status !== "fulfilled") {
+          if (r.reason) console.warn("Erro ao carregar marcas:", r.reason?.response?.status ?? r.reason?.message);
+          return [];
+        }
+        const raw = r.value?.marca ?? r.value?.items ?? r.value?.marcas ?? r.value;
+        return Array.isArray(raw) ? raw : [];
+      };
+      if (!cancelled) {
+        setListaFornecedores(parseF(rF));
+        setListaCategorias(parseC(rC));
+        setListaMarcas(parseM(rM));
       }
     };
     load();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (location.state?.fromCompras && location.state?.openNewProduct) {
+      setOpenDialog(true);
+      setEditMode(false);
+      setCurrentProduto({
+        nome: "",
+        descricao: "",
+        categoria: "",
+        categoriaId: null,
+        genero: "",
+        marca: "",
+        marcaId: null,
+        precoCusto: "",
+        precoVenda: "",
+        precoPromocional: "",
+        emPromocao: false,
+        cores: [],
+        tamanhos: [],
+        tipoTamanho: "roupas",
+        material: "",
+        sku: "",
+        codigoBarras: "",
+        estoqueTotal: "",
+        estoqueMinimo: "",
+        peso: "",
+        largura: "",
+        altura: "",
+        comprimento: "",
+        imagemPrincipal: "",
+        imagensAdicionais: [],
+        fornecedor: "",
+        fornecedorId: null,
+        observacoes: "",
+        ativo: true,
+      });
+    }
+  }, [location.state?.fromCompras, location.state?.openNewProduct]);
 
   /**
    * Converte o formulário para o payload da API conforme contrato.
@@ -268,7 +320,14 @@ function Produtos() {
       setProdutosFiltrados(produtosArray);
       setPaginaAtual(1); // Volta para a primeira página
     } catch (error) {
-      console.error("Erro ao buscar produtos:", error);
+      const data = error.response?.data;
+      const msg =
+        (data && typeof data === "object" && (data.mensagem ?? data.message ?? data.detail ?? data.title)) ??
+        (typeof data === "string" ? data : null) ??
+        error.message ??
+        "Erro ao buscar produtos. Verifique se o backend está rodando (https://localhost:5001) e se fez login com dev@gmail.com e clicou em Entrar em empresa.";
+      console.error("Erro ao buscar produtos:", error.response?.data ?? error);
+      showError(msg);
       setProdutos([]);
       setProdutosFiltrados([]);
     } finally {
@@ -286,10 +345,10 @@ function Produtos() {
       const filtrados = produtos.filter(
         (produto) =>
           produto.nome?.toLowerCase().includes(termo) ||
-          produto.categoria?.toLowerCase().includes(termo) ||
+          nomeDe(produto.categoria)?.toLowerCase().includes(termo) ||
           produto.descricao?.toLowerCase().includes(termo) ||
           produto.sku?.toLowerCase().includes(termo) ||
-          produto.marca?.toLowerCase().includes(termo),
+          nomeDe(produto.marca)?.toLowerCase().includes(termo),
       );
       setProdutosFiltrados(filtrados);
     }
@@ -302,19 +361,20 @@ function Produtos() {
       if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
         const found = listaFornecedores.find(
           (f) =>
-            (f.nome || "").trim() === (p.fornecedor || "").trim() ||
-            (f.razaoSocial || "").trim() === (p.fornecedor || "").trim(),
+            (f.nome || "").trim() === (nomeDe(p.fornecedor) || "").trim() ||
+            (f.razaoSocial || "").trim() === (nomeDe(p.fornecedor) || "").trim(),
         );
         if (found) p.fornecedorId = found.id;
       }
       if (p.categoriaId == null && p.categoria && listaCategorias.length > 0) {
-        const found = listaCategorias.find((c) => (c.nome || "").trim() === (p.categoria || "").trim());
+        const found = listaCategorias.find((c) => (c.nome || "").trim() === (nomeDe(p.categoria) || "").trim());
         if (found) p.categoriaId = found.id;
       }
       if (p.marcaId == null && p.marca && listaMarcas.length > 0) {
-        const found = listaMarcas.find((m) => (m.nome || "").trim() === (p.marca || "").trim());
+        const found = listaMarcas.find((m) => (m.nome || "").trim() === (nomeDe(p.marca) || "").trim());
         if (found) p.marcaId = found.id;
       }
+      p.tipoTamanho = p.tipoTamanho || inferirTipoTamanho(p.tamanhos);
       setCurrentProduto(p);
       setEditMode(true);
     } else {
@@ -332,6 +392,7 @@ function Produtos() {
         emPromocao: false,
         cores: [],
         tamanhos: [],
+        tipoTamanho: "roupas",
         material: "",
         sku: "",
         codigoBarras: "",
@@ -406,6 +467,10 @@ function Produtos() {
       } else {
         await produtosService.create(produtoParaSalvar);
         showSuccess(successMessages.create(entityNames.produto));
+        if (location.state?.fromCompras) {
+          navigate("/compras", { state: { returnFromProdutos: true } });
+          return;
+        }
       }
       fetchProdutos();
       handleCloseDialog();
@@ -472,14 +537,32 @@ function Produtos() {
   };
 
   const getTamanhosDisponiveis = () => {
-    if (currentProduto.categoria === "Calçados") {
-      return TAMANHOS_CALCADOS;
-    }
+    const tipo = currentProduto.tipoTamanho || "roupas";
+    if (tipo === "calcados") return TAMANHOS_CALCADOS;
+    if (tipo === "acessorios") return TAMANHOS_ACESSORIOS;
     return TAMANHOS_ROUPA;
   };
 
+  const inferirTipoTamanho = (tamanhos) => {
+    if (!tamanhos || tamanhos.length === 0) return "roupas";
+    const todosCalçados = tamanhos.every((t) => TAMANHOS_CALCADOS.includes(t));
+    if (todosCalçados) return "calcados";
+    const todosAcessorios = tamanhos.every((t) => TAMANHOS_ACESSORIOS.includes(t));
+    if (todosAcessorios) return "acessorios";
+    return "roupas";
+  };
+
+  const handleTipoTamanhoChange = (_, novoValor) => {
+    if (!novoValor) return;
+    setCurrentProduto((prev) => ({
+      ...prev,
+      tipoTamanho: novoValor,
+      tamanhos: [],
+    }));
+  };
+
   useEffect(() => {
-    //fetchProdutos();
+    fetchProdutos();
   }, []);
 
   return (
@@ -632,7 +715,7 @@ function Produtos() {
                       <Avatar
                         src={produto.imagemPrincipal}
                         sx={{
-                          bgcolor: "#eff6ff",
+                          bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#eff6ff",
                           width: 48,
                           height: 48,
                           border: "2px solid",
@@ -649,17 +732,17 @@ function Produtos() {
                           {produto.nome}
                         </Typography>
                         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          {produto.marca || "—"} • SKU: {produto.sku || "—"}
+                          {nomeDe(produto.marca) || "—"} • SKU: {produto.sku || "—"}
                         </Typography>
                       </Box>
                     </Box>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={produto.categoria || "Sem categoria"}
+                      label={nomeDe(produto.categoria) || "Sem categoria"}
                       size="small"
                       sx={{
-                        bgcolor: "#eff6ff",
+                        bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#eff6ff",
                         color: "primary.main",
                         fontWeight: 500,
                         fontSize: "12px",
@@ -711,7 +794,7 @@ function Produtos() {
                         </Typography>
                         <Typography
                           variant="body2"
-                          sx={{ color: "#dc2626", fontWeight: 600 }}
+                          sx={{ color: "error.main", fontWeight: 600 }}
                         >
                           R${" "}
                           {parseFloat(produto.precoPromocional || 0).toFixed(2)}
@@ -729,17 +812,17 @@ function Produtos() {
                         bgcolor:
                           (produto.estoqueTotal || 0) >
                           (produto.estoqueMinimo || 10)
-                            ? "#dcfce7"
+                            ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#dcfce7")
                             : (produto.estoqueTotal || 0) > 0
-                              ? "#fef3c7"
-                              : "#fee2e2",
+                              ? (isDark ? "rgba(245, 158, 11, 0.2)" : "#fef3c7")
+                              : (isDark ? "rgba(239, 68, 68, 0.2)" : "#fee2e2"),
                         color:
                           (produto.estoqueTotal || 0) >
                           (produto.estoqueMinimo || 10)
-                            ? "#16a34a"
+                            ? (isDark ? "#34D399" : "#16a34a")
                             : (produto.estoqueTotal || 0) > 0
-                              ? "#d97706"
-                              : "#dc2626",
+                              ? (isDark ? "#FBBF24" : "#d97706")
+                              : (isDark ? "#F87171" : "#dc2626"),
                         fontWeight: 500,
                         fontSize: "12px",
                       }}
@@ -761,7 +844,7 @@ function Produtos() {
                       onClick={() => handleDelete(produto.id)}
                       sx={{
                         color: "text.secondary",
-                        "&:hover": { bgcolor: "#fef2f2", color: "#dc2626" },
+                        "&:hover": { bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2", color: "error.main" },
                       }}
                     >
                       <Delete fontSize="small" />
@@ -974,40 +1057,28 @@ function Produtos() {
         </AppBar>
 
         <DialogContent sx={{ bgcolor: theme.palette.background.default, p: 0 }}>
-          <Box sx={{ display: "flex", minHeight: "calc(100vh - 64px)" }}>
-            {/* LATERAL ESQUERDA - ÁREA DA IMAGEM (30%) */}
+          <Box sx={{ overflowY: "auto", minHeight: "calc(100vh - 64px)" }}>
+            {/* Imagem no centro superior - sem card */}
             <Box
               sx={{
-                width: "30%",
-                bgcolor: theme.palette.background.paper,
-                borderRight: "1px solid",
-                borderColor: theme.palette.divider,
-                p: 3,
                 display: "flex",
                 flexDirection: "column",
+                alignItems: "center",
+                pt: 4,
+                pb: 2,
+                px: 4,
               }}
             >
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: 600, mb: 3, color: theme.palette.text.primary }}
-              >
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>
                 Imagem do Produto
               </Typography>
-
-              {/* Área de Preview da Imagem */}
               <Box
                 sx={{
-                  flex: 1,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: theme.palette.mode === "dark" ? theme.palette.background.default : theme.palette.grey[50],
-                  borderRadius: 2,
-                  border: "2px dashed",
-                  borderColor: theme.palette.divider,
-                  mb: 3,
-                  minHeight: 450,
-                  position: "relative",
+                  width: 280,
+                  height: 280,
                   overflow: "hidden",
                 }}
               >
@@ -1015,73 +1086,51 @@ function Produtos() {
                   <img
                     src={currentProduto.imagemPrincipal}
                     alt="Preview"
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "100%",
-                      objectFit: "contain",
-                    }}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                   />
                 ) : (
                   <Box sx={{ textAlign: "center", color: theme.palette.text.secondary }}>
-                    <ImageIcon sx={{ fontSize: 80, mb: 2, color: theme.palette.text.secondary }} />
-                    <Typography variant="h6" sx={{ mb: 1, color: theme.palette.text.primary }}>
-                      Sem imagem
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
-                      Cole a URL abaixo ou faça upload
-                    </Typography>
+                    <ImageIcon sx={{ fontSize: 64, mb: 1, color: theme.palette.text.secondary }} />
+                    <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>Sem imagem</Typography>
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: "block", mt: 0.5 }}>Cole a URL ou faça upload</Typography>
                   </Box>
                 )}
               </Box>
-
-              {/* Campo URL da Imagem */}
-              <TextField
-                fullWidth
-                label="URL da Imagem"
-                name="imagemPrincipal"
-                value={currentProduto.imagemPrincipal}
-                onChange={handleChange}
-                placeholder="https://exemplo.com/imagem.jpg"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <ImageIcon sx={{ color: "text.secondary" }} />
-                    </InputAdornment>
-                  ),
-                }}
-                size="small"
-                sx={{ mb: 2 }}
-              />
-
-              {/* Botão de Upload (visual) */}
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<CloudUpload />}
-                sx={{
-                  textTransform: "none",
-                  py: 1.5,
-                  borderColor: "divider",
-                  "&:hover": {
-                    borderColor: "primary.main",
-                    bgcolor: "action.hover",
-                    color: "primary.main",
-                  },
-                }}
-              >
-                Fazer Upload de Imagem
-              </Button>
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center", mt: 2, width: "100%", maxWidth: 420, flexWrap: "wrap", justifyContent: "center" }}>
+                <TextField
+                  label="URL da Imagem"
+                  name="imagemPrincipal"
+                  value={currentProduto.imagemPrincipal}
+                  onChange={handleChange}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <ImageIcon sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  size="small"
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudUpload />}
+                  sx={{
+                    textTransform: "none",
+                    py: 1.25,
+                    borderColor: "divider",
+                    "&:hover": { borderColor: "primary.main", bgcolor: "action.hover", color: "primary.main" },
+                  }}
+                >
+                  Upload
+                </Button>
+              </Box>
             </Box>
 
-            {/* ÁREA DIREITA - INFORMAÇÕES (70%) */}
-            <Box
-              sx={{
-                width: "70%",
-                overflowY: "auto",
-                p: 4,
-              }}
-            >
-              <Stack spacing={3}>
+            <Box sx={{ p: 4 }}>
+            <Stack spacing={3}>
+
                 {/* Informações Básicas */}
                 <Paper
                   elevation={0}
@@ -1368,6 +1417,22 @@ function Produtos() {
                       />
                     </Grid>
                     <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
+                        <Typography variant="subtitle2" sx={{ color: "text.secondary", fontSize: "0.875rem", lineHeight: 1.5 }}>
+                          Tamanhos *
+                        </Typography>
+                        <ToggleButtonGroup
+                          value={currentProduto.tipoTamanho || "roupas"}
+                          exclusive
+                          onChange={handleTipoTamanhoChange}
+                          size="small"
+                          sx={{ "& .MuiToggleButton-root": { py: 0.25, px: 1, fontSize: "0.75rem" } }}
+                        >
+                          <ToggleButton value="roupas">Roupas</ToggleButton>
+                          <ToggleButton value="calcados">Calçados</ToggleButton>
+                          <ToggleButton value="acessorios">Acessórios</ToggleButton>
+                        </ToggleButtonGroup>
+                      </Box>
                       <Autocomplete
                         multiple
                         options={getTamanhosDisponiveis()}
@@ -1379,8 +1444,15 @@ function Produtos() {
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Tamanhos *"
+                            label="Selecione os tamanhos"
                             size="small"
+                            placeholder={
+                              (currentProduto.tipoTamanho || "roupas") === "roupas"
+                                ? "PP, P, M, G..."
+                                : (currentProduto.tipoTamanho || "roupas") === "calcados"
+                                  ? "33, 34, 35..."
+                                  : "Único, P, M..."
+                            }
                             sx={{
                               minWidth: 220,
                               "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
@@ -1498,10 +1570,10 @@ function Produtos() {
                         InputProps={{ readOnly: true }}
                         size="small"
                         sx={{
-                          bgcolor: "#dcfce7",
+                          bgcolor: isDark ? "rgba(16, 185, 129, 0.12)" : "#dcfce7",
                           "& .MuiInputBase-input": {
                             fontWeight: 600,
-                            color: "#16a34a",
+                            color: "success.main",
                           },
                         }}
                       />
