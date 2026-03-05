@@ -39,6 +39,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Delete,
+  Edit,
   Inventory,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
@@ -181,7 +182,10 @@ function Compras() {
 
   const fornecedorSelecionado = !!(currentCompra.fornecedorId ?? currentCompra.fornecedor);
 
+  const [compraIdEdit, setCompraIdEdit] = useState(null);
+
   const handleOpenDialog = () => {
+    setCompraIdEdit(null);
     setCurrentCompra({
       fornecedorId: null,
       fornecedor: null,
@@ -195,6 +199,51 @@ function Compras() {
     setQuantidadeItem("");
     setPrecoUnitarioItem("");
     setOpenDialog(true);
+  };
+
+  const handleOpenEdit = async (compra) => {
+    try {
+      const full = await comprasService.getById(compra.id);
+      const f = full?.fornecedor ?? full;
+      const fornecedorObj = typeof f === "object" ? f : null;
+      setCurrentCompra({
+        fornecedorId: full?.fornecedorId ?? fornecedorObj?.id ?? null,
+        fornecedor: fornecedorObj ?? listaFornecedores.find((x) => x.id === (full?.fornecedorId ?? fornecedorObj?.id)) ?? null,
+        dataPedido: full?.dataPedido ? new Date(full.dataPedido).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+        dataEntregaPrevista: full?.dataEntregaPrevista ? new Date(full.dataEntregaPrevista).toISOString().split("T")[0] : "",
+        status: full?.status ?? "pendente",
+        observacoes: full?.observacoes ?? "",
+      });
+      const itens = full?.itens ?? full?.items ?? [];
+      setItensCompra(
+        Array.isArray(itens)
+          ? itens.map((i) => ({
+              produtoId: i.produtoId ?? i.produto?.id,
+              produto: i.produto ?? { id: i.produtoId, nome: i.produtoNome ?? "—", sku: i.produtoSku },
+              quantidade: i.quantidade ?? 0,
+              precoUnitario: i.precoUnitario ?? 0,
+            }))
+          : []
+      );
+      setCompraIdEdit(compra.id);
+      setProdutoSelecionado(null);
+      setQuantidadeItem("");
+      setPrecoUnitarioItem("");
+      setOpenDialog(true);
+    } catch {
+      showError("Erro ao carregar dados da compra.");
+    }
+  };
+
+  const handleDelete = async (compra) => {
+    if (!window.confirm(`Excluir a compra de ${nomeFornecedor(compra) || "este fornecedor"}?`)) return;
+    try {
+      await comprasService.delete(compra.id);
+      showSuccess("Compra excluída.");
+      fetchCompras();
+    } catch {
+      showError("Erro ao excluir compra.");
+    }
   };
 
   const handleAdicionarItem = () => {
@@ -264,7 +313,7 @@ function Compras() {
       precoUnitario: i.precoUnitario || 0,
     }));
     try {
-      await comprasService.create({
+      const payload = {
         fornecedorId,
         dataPedido: currentCompra.dataPedido,
         dataEntregaPrevista: currentCompra.dataEntregaPrevista || undefined,
@@ -272,12 +321,18 @@ function Compras() {
         observacoes: currentCompra.observacoes || undefined,
         valorTotal: valorTotalItens,
         itens,
-      });
-      showSuccess("Compra cadastrada com sucesso!");
+      };
+      if (compraIdEdit) {
+        await comprasService.update(compraIdEdit, payload);
+        showSuccess("Compra atualizada com sucesso!");
+      } else {
+        await comprasService.create(payload);
+        showSuccess("Compra cadastrada com sucesso!");
+      }
       fetchCompras();
       handleCloseDialog();
     } catch {
-      showError("Erro ao cadastrar compra. Tente novamente.");
+      showError(compraIdEdit ? "Erro ao atualizar compra." : "Erro ao cadastrar compra. Tente novamente.");
     }
   };
 
@@ -403,19 +458,25 @@ function Compras() {
                   >
                     STATUS
                   </TableCell>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}
+                    align="right"
+                  >
+                    AÇÕES
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {carregando ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
+                    <TableCell colSpan={5} align="center">
                       <LoadingBox size={40} py={8} />
                     </TableCell>
                   </TableRow>
                 ) : comprasPaginadas.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       align="center"
                       sx={{ py: 8, color: "text.secondary" }}
                     >
@@ -472,6 +533,22 @@ function Compras() {
                               fontSize: "12px",
                             }}
                           />
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenEdit(compra)}
+                            sx={{ color: "text.secondary", "&:hover": { color: "primary.main", bgcolor: "action.hover" } }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(compra)}
+                            sx={{ color: "text.secondary", "&:hover": { color: "error.main", bgcolor: "action.hover" } }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     );
@@ -573,7 +650,7 @@ function Compras() {
               Voltar
             </Button>
             <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
-              Nova Compra
+              {compraIdEdit ? "Editar Compra" : "Nova Compra"}
             </Typography>
           </Box>
 
@@ -861,7 +938,7 @@ function Compras() {
                   Cancelar
                 </Button>
                 <Button type="submit" variant="contained" sx={{ textTransform: "none", px: 4 }}>
-                  Salvar Compra
+                  {compraIdEdit ? "Salvar alterações" : "Salvar Compra"}
                 </Button>
               </Box>
             </Paper>

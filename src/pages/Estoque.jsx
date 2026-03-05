@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -32,6 +32,9 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
+import { comprasService } from "../api/comprasService";
+import { vendasService } from "../api/vendasService";
+import { LoadingBox } from "../components/LoadingBox";
 
 const TIPOS_MOVIMENTACAO = {
   entrada: { label: "Entrada", icon: <TrendingUp />, color: "#16a34a" },
@@ -186,34 +189,147 @@ const PaginationControls = ({
 function Estoque() {
   const [tabAtual, setTabAtual] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [carregando, setCarregando] = useState(true);
 
   // Estados para paginação
   const [paginaAtualProdutos, setPaginaAtualProdutos] = useState(1);
   const [paginaAtualMovimentacoes, setPaginaAtualMovimentacoes] = useState(1);
   const itensPorPagina = 10;
 
-  const [produtos, setProdutos] = useState([
-    {
-      id: 1,
-      nome: "Camiseta Básica",
-      sku: "CAM-001",
-      estoqueAtual: 45,
-      estoqueMinimo: 20,
-      estoqueMaximo: 100,
-      valorUnitario: 29.9,
-    },
-    {
-      id: 2,
-      nome: "Calça Jeans",
-      sku: "CAL-002",
-      estoqueAtual: 8,
-      estoqueMinimo: 15,
-      estoqueMaximo: 50,
-      valorUnitario: 89.9,
-    },
-  ]);
+  const [produtos, setProdutos] = useState([]);
+  const [movimentacoes, setMovimentacoes] = useState([]);
 
-  const [movimentacoes] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function carregarEstoque() {
+      setCarregando(true);
+      try {
+        const [comprasRes, vendasRes] = await Promise.all([
+          comprasService.getAll(),
+          vendasService.getAll(),
+        ]);
+
+        if (cancelled) return;
+
+        const comprasList = Array.isArray(comprasRes)
+          ? comprasRes
+          : comprasRes?.compras ?? comprasRes?.items ?? comprasRes?.data ?? [];
+        const vendasList = Array.isArray(vendasRes)
+          ? vendasRes
+          : vendasRes?.vendas ?? vendasRes?.items ?? vendasRes?.data ?? [];
+
+        // Produtos apenas de compras recebidas (estoque atualizado pelas compras)
+        const comprasRecebidas = (Array.isArray(comprasList) ? comprasList : []).filter(
+          (c) => (c.status || "").toLowerCase() === "recebida"
+        );
+
+        const mapaProdutos = {}; // produtoId -> { id, nome, sku, entradas, saidas, valorUnitario, estoqueMinimo, estoqueMaximo }
+
+        for (const compra of comprasRecebidas) {
+          const itens = compra.itens ?? compra.items ?? [];
+          for (const item of itens) {
+            const produtoId = item.produtoId ?? item.produto?.id;
+            if (!produtoId) continue;
+            const produto = item.produto ?? {};
+            const nome = produto.nome ?? item.produtoNome ?? item.nome ?? "Produto";
+            const sku = produto.sku ?? item.produtoSku ?? item.sku ?? `#${produtoId}`;
+            const qty = Number(item.quantidade) || 0;
+            const preco = Number(item.precoUnitario ?? produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+
+            if (!mapaProdutos[produtoId]) {
+              mapaProdutos[produtoId] = {
+                id: produtoId,
+                nome,
+                sku,
+                entradas: 0,
+                saidas: 0,
+                valorUnitario: preco,
+                estoqueMinimo: produto.estoqueMinimo ?? 0,
+                estoqueMaximo: produto.estoqueMaximo ?? 999,
+              };
+            }
+            mapaProdutos[produtoId].entradas += qty;
+            if (preco > 0 && (!mapaProdutos[produtoId].valorUnitario || mapaProdutos[produtoId].valorUnitario === 0)) {
+              mapaProdutos[produtoId].valorUnitario = preco;
+            }
+          }
+        }
+
+        // Subtrair saídas das vendas (somente vendas concluídas, excluir canceladas)
+        for (const venda of vendasList) {
+          const status = (venda.status || "").toLowerCase();
+          if (status === "cancelada") continue;
+          const itens = venda.itens ?? venda.items ?? [];
+          for (const item of itens) {
+            const produtoId = item.produtoId ?? item.produto?.id;
+            if (!produtoId) continue;
+            const qty = Number(item.quantidade) || 0;
+            if (mapaProdutos[produtoId]) {
+              mapaProdutos[produtoId].saidas += qty;
+            }
+          }
+        }
+
+        const produtosEstoque = Object.values(mapaProdutos).map((p) => ({
+          id: p.id,
+          nome: p.nome,
+          sku: p.sku,
+          estoqueAtual: Math.max(0, p.entradas - p.saidas),
+          estoqueMinimo: p.estoqueMinimo,
+          estoqueMaximo: p.estoqueMaximo,
+          valorUnitario: p.valorUnitario,
+        }));
+
+        setProdutos(produtosEstoque);
+
+        // Movimentações: todas as vendas (cada item = uma saída)
+        const movs = [];
+        let movId = 1;
+        const vendasOrdenadas = [...vendasList]
+          .filter((v) => (v.status || "").toLowerCase() !== "cancelada")
+          .sort((a, b) => new Date(b.dataVenda || b.data || b.createdAt || 0) - new Date(a.dataVenda || a.data || a.createdAt || 0));
+
+        for (const venda of vendasOrdenadas) {
+          const itens = venda.itens ?? venda.items ?? [];
+          const dataVenda = venda.dataVenda ?? venda.data ?? venda.createdAt ?? new Date().toISOString();
+          const motivo = `Venda #${venda.id ?? movId}`;
+
+          for (const item of itens) {
+            const produto = item.produto ?? {};
+            const produtoNome = produto.nome ?? item.nomeProduto ?? item.produtoNome ?? item.nome ?? "Produto";
+            const produtoSku = produto.sku ?? item.produtoSku ?? item.sku ?? "";
+            const quantidade = Number(item.quantidade) || 0;
+            if (quantidade <= 0) continue;
+
+            movs.push({
+              id: movId++,
+              timestamp: dataVenda,
+              tipo: "saida",
+              produtoNome,
+              produtoSku,
+              quantidade,
+              motivo,
+              observacoes: venda.observacoes ?? ((venda.nomeCliente || venda.cliente) ? `Cliente: ${venda.nomeCliente || venda.cliente}` : "—"),
+            });
+          }
+        }
+
+        setMovimentacoes(movs);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Erro ao carregar estoque:", err);
+          setProdutos([]);
+          setMovimentacoes([]);
+        }
+      } finally {
+        if (!cancelled) setCarregando(false);
+      }
+    }
+
+    carregarEstoque();
+    return () => { cancelled = true; };
+  }, []);
 
   const getProdutoStatus = (produto) => {
     if (produto.estoqueAtual <= produto.estoqueMinimo) {
@@ -290,6 +406,10 @@ function Estoque() {
     setTabAtual(newValue);
     // Mantém as páginas atuais ao trocar de aba
   };
+
+  if (carregando) {
+    return <LoadingBox />;
+  }
 
   return (
     <Box
@@ -777,7 +897,7 @@ function Estoque() {
                             Nenhuma movimentação registrada
                           </Typography>
                           <Typography variant="body2" sx={{ mt: 1 }}>
-                            As movimentações são geradas automaticamente quando compras são recebidas.
+                            As movimentações de saída são exibidas a partir das vendas realizadas.
                           </Typography>
                         </TableCell>
                       </TableRow>

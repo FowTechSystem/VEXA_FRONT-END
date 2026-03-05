@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -27,7 +27,8 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import { showSuccess } from "../utils/notifications";
+import { showSuccess, showError } from "../utils/notifications";
+import { produtosService } from "../api/produtosService";
 import {
   ShoppingCart,
   Search,
@@ -64,6 +65,8 @@ function Caixa() {
   const [etapaAtual, setEtapaAtual] = useState(0);
   const [carrinho, setCarrinho] = useState([]);
   const [searchProduto, setSearchProduto] = useState("");
+  const [listaProdutos, setListaProdutos] = useState([]);
+  const [carregandoProdutos, setCarregandoProdutos] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [desconto, setDesconto] = useState(0);
@@ -132,6 +135,55 @@ function Caixa() {
     setPaginaAtual((prev) => Math.max(prev - 1, 1));
   const irParaProximaPagina = () =>
     setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
+
+  useEffect(() => {
+    let cancelled = false;
+    async function carregarProdutos() {
+      setCarregandoProdutos(true);
+      try {
+        const data = await produtosService.getAll();
+        if (!cancelled) {
+          const prods = Array.isArray(data) ? data : data?.produtos ?? data?.items ?? [];
+          setListaProdutos(Array.isArray(prods) ? prods : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Erro ao carregar produtos:", err);
+          showError("Erro ao carregar produtos. Verifique a conexão com o servidor.");
+          setListaProdutos([]);
+        }
+      } finally {
+        if (!cancelled) setCarregandoProdutos(false);
+      }
+    }
+    carregarProdutos();
+    return () => { cancelled = true; };
+  }, []);
+
+  const produtosFiltrados = listaProdutos.filter((p) => {
+    const termo = (searchProduto || "").trim().toLowerCase();
+    if (!termo) return true;
+    const nome = (p.nome || "").toLowerCase();
+    const sku = (p.sku || "").toLowerCase();
+    const codigo = String(p.id || "").toLowerCase();
+    return nome.includes(termo) || sku.includes(termo) || codigo.includes(termo);
+  });
+
+  const handleAdicionarAoCarrinho = (produto) => {
+    const precoVenda = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+    const item = {
+      id: produto.id,
+      nome: produto.nome || "Produto",
+      precoVenda,
+      quantidade: 1,
+    };
+    const jaNoCarrinho = carrinho.find((c) => c.id === produto.id);
+    if (jaNoCarrinho) {
+      handleAlterarQuantidade(produto.id, jaNoCarrinho.quantidade + 1);
+    } else {
+      setCarrinho([...carrinho, item]);
+    }
+  };
 
   const handleRemoverProduto = (id) => {
     setCarrinho(carrinho.filter((item) => item.id !== id));
@@ -319,14 +371,60 @@ function Caixa() {
           produtos ao carrinho
         </Alert>
 
-        {/* Área para lista de produtos sugeridos */}
+        {/* Lista de produtos */}
         <Box sx={{ flex: 1, mt: 3, overflowY: "auto" }}>
-          <Typography
-            variant="body2"
-            sx={{ color: "text.secondary", textAlign: "center", mt: 8 }}
-          >
-            Os produtos aparecerão aqui conforme você digita
-          </Typography>
+          {carregandoProdutos ? (
+            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+              Carregando produtos...
+            </Typography>
+          ) : produtosFiltrados.length === 0 ? (
+            <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+              {searchProduto.trim()
+                ? "Nenhum produto encontrado para essa busca"
+                : "Nenhum produto cadastrado. Cadastre produtos em Gestão > Produtos."}
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {produtosFiltrados.map((produto) => {
+                const preco = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+                return (
+                  <Paper
+                    key={produto.id}
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      cursor: "pointer",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 2,
+                      "&:hover": {
+                        bgcolor: "action.hover",
+                        borderColor: "primary.main",
+                      },
+                    }}
+                    onClick={() => handleAdicionarAoCarrinho(produto)}
+                  >
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: "text.primary" }}>
+                          {produto.nome || "Produto"}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                          {produto.sku ? `SKU: ${produto.sku}` : `#${produto.id}`}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.main" }}>
+                          R$ {preco.toFixed(2)}
+                        </Typography>
+                        <Add sx={{ color: "primary.main", fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Stack>
+          )}
         </Box>
       </Paper>
 
@@ -1340,7 +1438,7 @@ function Caixa() {
         }}
       >
         <Typography variant="h4" sx={{ fontWeight: 700, color: "text.primary" }}>
-          Caixa / PDV
+          Caixa
         </Typography>
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
           Ponto de Venda - Sistema em Etapas

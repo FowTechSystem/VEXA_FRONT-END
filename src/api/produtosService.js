@@ -2,16 +2,19 @@
 import api from "./axiosConfig";
 
 export const produtosService = {
-  getAll: async () => {
-    const response = await api.get("/produtos");
+  getAll: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.pagina != null) queryParams.append("pagina", params.pagina);
+    if (params.tamanho != null) queryParams.append("tamanho", params.tamanho);
+    const url = queryParams.toString() ? `/produtos?${queryParams}` : "/produtos";
+    const response = await api.get(url);
 
     // A API retorna um objeto GetListaProdutosResponse
     // Vamos extrair a lista de produtos
     const data = response.data;
     if (data && typeof data === "object") {
       // Tentar diferentes propriedades possíveis
-      const produtos = data.produtos || data.items || data.data || data;
-      console.log("Produtos extraídos:", produtos);
+      const produtos = data.produtos || data.Produtos || data.items || data.data || data;
       return Array.isArray(produtos) ? produtos : [];
     }
 
