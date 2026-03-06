@@ -37,21 +37,11 @@ import {
 import { LineChart } from "@mui/x-charts/LineChart";
 import { PieChart } from "@mui/x-charts/PieChart";
 import { BarChart } from "@mui/x-charts/BarChart";
+import { dashboardService } from "../api/dashboardService";
 import { vendasService } from "../api/vendasService";
-import { clientesService } from "../api/clientesService";
-import { produtosService } from "../api/produtosService";
 
 const MESES_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const STORAGE_METAS = "vexa_dashboard_metas";
-
-function getPrimeiroUltimoDiaMes(ano, mes) {
-  const primeiro = new Date(ano, mes, 1);
-  const ultimo = new Date(ano, mes + 1, 0);
-  return {
-    inicio: primeiro.toISOString().split("T")[0],
-    fim: ultimo.toISOString().split("T")[0],
-  };
-}
 
 function Dashboard() {
   const theme = useTheme();
@@ -63,8 +53,6 @@ function Dashboard() {
     ano: hoje.getFullYear(),
     mes: hoje.getMonth(),
   });
-  const { inicio: dataInicio, fim: dataFim } = getPrimeiroUltimoDiaMes(anoMes.ano, anoMes.mes);
-
   const [carregando, setCarregando] = useState(true);
   const [stats, setStats] = useState({
     faturamentoMes: 0,
@@ -102,17 +90,9 @@ function Dashboard() {
     { tipo: "Dinheiro", percentual: 0, valor: 0, cor: "#EAB308" },
   ]);
 
-  const CORES_PRODUTOS = ["#14B8A6", "#8B5CF6", "#3B82F6", "#EAB308", "#EF4444"];
+  const CORES_PRODUTOS = ["#14B8A6", "#8B5CF6", "#3B82F6", "#EAB308"];
   const CORES_VENDEDORES = ["#10B981", "#14B8A6", "#F59E0B"];
-
-  function mapearCategoria(nome) {
-    if (!nome) return null;
-    const n = String(nome).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
-    if (n.includes("roup") || n.includes("vestu")) return "Roupas";
-    if (n.includes("calcad") || n.includes("tenis") || n.includes("sapato") || n.includes("bota") || n.includes("chinelo")) return "Calçados";
-    if (n.includes("acessor") || n.includes("bolsa") || n.includes("relogio") || n.includes("mochila")) return "Acessórios";
-    return null;
-  }
+  const CORES_CATEGORIAS = { Roupas: "#14B8A6", Calçados: "#8B5CF6", Acessórios: "#EAB308", Outros: "#6B7280" };
 
   useEffect(() => {
     try {
@@ -131,213 +111,193 @@ function Dashboard() {
   const fetchDashboardData = useCallback(async () => {
     setCarregando(true);
     try {
-      const [vendasRes, clientesRes, produtosRes] = await Promise.all([
-        vendasService.getAll({ pagina: 1, tamanho: 500 }),
-        clientesService.getAll({ pagina: 1, tamanho: 500 }),
-        produtosService.getAll({ pagina: 1, tamanho: 500 }),
-      ]);
+      const mesApi = anoMes.mes + 1;
+      const res = await dashboardService.getResumo(anoMes.ano, mesApi);
 
-      const vendasList = Array.isArray(vendasRes)
-        ? vendasRes
-        : vendasRes?.vendas ?? vendasRes?.Vendas ?? vendasRes?.items ?? vendasRes?.data ?? [];
-      const clientesList = Array.isArray(clientesRes)
-        ? clientesRes
-        : clientesRes?.clientes ?? clientesRes?.Clientes ?? clientesRes?.items ?? clientesRes?.data ?? [];
-      const produtosList = Array.isArray(produtosRes)
-        ? produtosRes
-        : produtosRes?.produtos ?? produtosRes?.Produtos ?? produtosRes?.items ?? produtosRes?.data ?? [];
+      let fatLucro = Number(res.faturamentoMesLucro ?? res.FaturamentoMesLucro) || 0;
+      let totalV = Number(res.totalVendas ?? res.TotalVendas) || 0;
+      const novosC = Number(res.novosClientes ?? res.NovosClientes) || 0;
+      let fatBruto = Number(res.faturamentoMesBruto ?? res.FaturamentoMesBruto) || 0;
+      let ticket = Number(res.ticketMedio ?? res.TicketMedio) || 0;
 
-      const vendasValidas = vendasList.filter((v) => {
-        const status = (v.status ?? v.Status ?? "").toString().toLowerCase();
-        return status !== "cancelada";
-      });
-
-      const vendasFiltradas = vendasValidas.filter((v) => {
-        const dataStr = v.dataVenda ?? v.DataVenda ?? v.data ?? v.Data ?? v.createdAt ?? v.CreatedAt ?? "";
-        if (!dataStr) return false;
-        const d = new Date(dataStr).toISOString().split("T")[0];
-        return d >= dataInicio && d <= dataFim;
-      });
-
-      let lucroTotal = 0;
-      let valorBrutoTotal = 0;
-
-      for (const venda of vendasFiltradas) {
-        const valorTotal = Number(venda.valorTotal ?? venda.ValorTotal) || 0;
-        valorBrutoTotal += valorTotal;
-        const itens = venda.itens ?? venda.Itens ?? venda.items ?? [];
-        if (itens.length > 0) {
-          for (const item of itens) {
-            const qty = Number(item.quantidade) || 0;
-            const precoVenda =
-              Number(item.precoUnitario ?? item.produto?.precoVenda ?? item.precoVenda) || 0;
-            const precoCusto =
-              Number(item.produto?.precoCusto ?? item.precoCusto) || 0;
-            lucroTotal += (precoVenda - precoCusto) * qty;
+      if (fatLucro === 0 || totalV === 0) {
+        try {
+          const vendasRes = await vendasService.getAll({ pagina: 1, tamanho: 500 });
+          const vendasList = Array.isArray(vendasRes) ? vendasRes : vendasRes?.vendas ?? vendasRes?.Vendas ?? vendasRes?.items ?? vendasRes?.data ?? [];
+          const inicio = new Date(anoMes.ano, anoMes.mes, 1).toISOString().split("T")[0];
+          const fim = new Date(anoMes.ano, anoMes.mes + 1, 0).toISOString().split("T")[0];
+          const vendasFiltradas = vendasList.filter((v) => {
+            if ((v.status ?? v.Status ?? "").toString().toLowerCase() === "cancelada") return false;
+            const d = (v.dataVenda ?? v.DataVenda ?? v.data ?? v.createdAt ?? v.dataCriacao ?? "").toString().split("T")[0];
+            return d && d >= inicio && d <= fim;
+          });
+          let lucroCalc = 0;
+          let valorBrutoCalc = 0;
+          for (const v of vendasFiltradas) {
+            valorBrutoCalc += Number(v.valorTotal ?? v.ValorTotal ?? v.valor ?? 0) || 0;
+            const itens = v.itens ?? v.Itens ?? v.items ?? [];
+            for (const i of itens) {
+              const qty = Number(i.quantidade ?? i.Quantidade) || 0;
+              const pv = Number(i.precoUnitario ?? i.produto?.precoVenda ?? i.precoVenda ?? 0) || 0;
+              const pc = Number(i.produto?.precoCusto ?? i.precoCusto ?? 0) || 0;
+              lucroCalc += (pv - pc) * qty;
+            }
+            if (itens.length === 0) lucroCalc += Number(v.valorTotal ?? v.ValorTotal ?? v.valor ?? 0) || 0;
           }
-        } else {
-          lucroTotal += valorTotal;
-        }
+          if (vendasFiltradas.length > 0) {
+            if (fatLucro === 0) fatLucro = Math.round(lucroCalc * 100) / 100;
+            if (totalV === 0) totalV = vendasFiltradas.length;
+            if (fatBruto === 0) fatBruto = Math.round(valorBrutoCalc * 100) / 100;
+            ticket = totalV > 0 ? Math.round((fatBruto / totalV) * 100) / 100 : 0;
+          }
+        } catch (_) {}
       }
-
-      const novosClientes = clientesList.filter((c) => {
-        const dataStr = c.dataCriacao ?? c.createdAt ?? c.created_at ?? "";
-        if (!dataStr) return false;
-        const d = new Date(dataStr).toISOString().split("T")[0];
-        return d >= dataInicio && d <= dataFim;
-      }).length;
-
-      const ticketMedio =
-        vendasFiltradas.length > 0
-          ? Math.round((valorBrutoTotal / vendasFiltradas.length) * 100) / 100
-          : 0;
 
       setStats({
-        faturamentoMes: Math.round(lucroTotal * 100) / 100,
-        vendasMes: vendasFiltradas.length,
-        novosClientes,
-        ticketMedio,
-        valorBrutoVendas: Math.round(valorBrutoTotal * 100) / 100,
+        faturamentoMes: fatLucro,
+        vendasMes: totalV,
+        novosClientes: novosC,
+        ticketMedio: ticket,
+        valorBrutoVendas: fatBruto,
       });
 
-      // Faturamento mensal - valor bruto por mês do ano selecionado
+      const fatMensal = res.faturamentoMensal ?? res.FaturamentoMensal ?? [];
       const fatPorMes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-      for (const venda of vendasValidas) {
-        const dataStr = venda.dataVenda ?? venda.DataVenda ?? venda.data ?? venda.Data ?? venda.createdAt ?? venda.CreatedAt ?? "";
-        if (!dataStr) continue;
-        const dt = new Date(dataStr);
-        if (dt.getFullYear() !== anoMes.ano) continue;
-        const mes = dt.getMonth();
-        fatPorMes[mes] += Number(venda.valorTotal ?? venda.ValorTotal) || 0;
-      }
+      (Array.isArray(fatMensal) ? fatMensal : []).forEach((item) => {
+        const m = (item.mes ?? item.Mes ?? 1) - 1;
+        if (m >= 0 && m < 12) fatPorMes[m] = Number(item.valorBruto ?? item.ValorBruto) || 0;
+      });
       const maxFat = Math.max(...fatPorMes, 1);
       const valoresChart = fatPorMes.map((v) => Math.round((v / 1000) * 10) / 10);
       setFaturamentoMensal({ meses: MESES_LABEL, valores: valoresChart, maxY: Math.ceil(maxFat / 1000) + 10 });
 
-      // Vendas por categoria - Roupas, Calçados, Acessórios (do mês)
-      const catMap = { Roupas: 0, Calçados: 0, Acessórios: 0 };
-      const produtosById = {};
-      produtosList.forEach((p) => { produtosById[p.id] = p; });
-      for (const venda of vendasFiltradas) {
-        const itens = venda.itens ?? venda.Itens ?? venda.items ?? [];
-        for (const item of itens) {
-          const pid = item.produtoId ?? item.produto?.id;
-          const catNome =
-            item.produto?.categoria?.nome ??
-            item.categoriaNome ??
-            (pid ? (produtosById[pid]?.categoria?.nome ?? produtosById[pid]?.categoriaNome ?? "") : "");
-          const cat = mapearCategoria(catNome);
-          if (cat && catMap[cat] !== undefined) {
-            const valor = (Number(item.precoUnitario ?? item.produto?.precoVenda ?? 0) || 0) * (Number(item.quantidade) || 0);
-            catMap[cat] += valor;
-          }
-        }
-      }
-      const totalCat = Object.values(catMap).reduce((a, b) => a + b, 0);
-      setVendasPorCategoria([
-        { categoria: "Roupas", valor: catMap.Roupas, percentual: totalCat ? Math.round((catMap.Roupas / totalCat) * 100) : 0, cor: "#14B8A6" },
-        { categoria: "Calçados", valor: catMap.Calçados, percentual: totalCat ? Math.round((catMap.Calçados / totalCat) * 100) : 0, cor: "#8B5CF6" },
-        { categoria: "Acessórios", valor: catMap.Acessórios, percentual: totalCat ? Math.round((catMap.Acessórios / totalCat) * 100) : 0, cor: "#EAB308" },
-      ]);
-
-      // Produtos mais vendidos - top 5 por quantidade (do mês)
-      const prodVendas = {};
-      for (const venda of vendasFiltradas) {
-        const itens = venda.itens ?? venda.Itens ?? venda.items ?? [];
-        for (const item of itens) {
-          const pid = item.produtoId ?? item.produto?.id;
-          const nome = item.produto?.nome ?? item.nomeProduto ?? item.nome ?? "Produto";
-          if (!pid) continue;
-          if (!prodVendas[pid]) prodVendas[pid] = { id: pid, nome, quantidade: 0, valor: 0 };
-          const qty = Number(item.quantidade) || 0;
-          const preco = Number(item.precoUnitario ?? item.produto?.precoVenda ?? 0) || 0;
-          prodVendas[pid].quantidade += qty;
-          prodVendas[pid].valor += preco * qty;
-        }
-      }
-      const top5 = Object.values(prodVendas)
-        .sort((a, b) => b.quantidade - a.quantidade)
-        .slice(0, 5)
-        .map((p, i) => ({
-          label: p.nome,
-          valor: Math.round(p.valor * 100) / 100,
-          quantidade: p.quantidade,
-          percentual: 0,
-          cor: CORES_PRODUTOS[i] ?? "#14B8A6",
-        }));
-      const totQty = top5.reduce((a, p) => a + p.quantidade, 0);
-      top5.forEach((p) => { p.percentual = totQty ? Math.round((p.quantidade / totQty) * 100) : 0; });
-      setProdutosMaisVendidos(top5);
-
-      // Estoque crítico - 5 produtos com menor estoque
-      const prodsEstoque = produtosList
-        .map((p) => ({
-          produto: p.nome ?? "Produto",
-          estoque: Number(p.quantidadeEstoque ?? p.estoque ?? 0) || 0,
-          minimo: Number(p.estoqueMinimo ?? 0) || 0,
-          status: "ok",
-        }))
-        .filter((p) => p.estoque >= 0)
-        .sort((a, b) => a.estoque - b.estoque)
-        .slice(0, 5);
-      prodsEstoque.forEach((p) => {
-        p.status = p.estoque <= p.minimo ? "crítico" : p.estoque <= p.minimo * 1.5 ? "baixo" : "ok";
+      const vendasCat = res.vendasPorCategoria ?? res.VendasPorCategoria ?? [];
+      const catList = Array.isArray(vendasCat) ? vendasCat : [];
+      const totalQtd = catList.reduce((a, x) => a + (Number(x.quantidadeVendida ?? x.QuantidadeVendida) || 0), 0);
+      const totalVal = catList.reduce((a, x) => a + (Number(x.valorVendido ?? x.ValorVendido) || 0), 0);
+      const catFormat = catList.map((c) => {
+        const nome = c.categoriaNome ?? c.CategoriaNome ?? "Outros";
+        const valor = Number(c.valorVendido ?? c.ValorVendido) || 0;
+        const qtd = Number(c.quantidadeVendida ?? c.QuantidadeVendida) || 0;
+        const pct = totalQtd ? Math.round((qtd / totalQtd) * 100) : (totalVal ? Math.round((valor / totalVal) * 100) : 0);
+        return {
+          categoria: nome,
+          valor,
+          quantidade: qtd,
+          percentual: pct,
+          cor: CORES_CATEGORIAS[nome] ?? "#6B7280",
+        };
       });
-      setEstoqueCritico(prodsEstoque);
-
-      // Top vendedores - vendas do mês por vendedor
-      const vendedorMap = {};
-      for (const venda of vendasFiltradas) {
-        const vid = venda.vendedorId ?? venda.VendedorId ?? venda.usuarioId ?? venda.UsuarioId ?? venda.vendedor?.id ?? venda.Vendedor?.id ?? venda.usuario?.id ?? venda.Usuario?.id;
-        const vnome = venda.vendedor?.nome ?? venda.Vendedor?.nome ?? venda.usuario?.nome ?? venda.Usuario?.nome ?? venda.nomeVendedor ?? venda.NomeVendedor ?? "Vendedor";
-        const key = vid ?? "sem-id";
-        if (!vendedorMap[key]) vendedorMap[key] = { id: key, nome: vnome, valor: 0 };
-        vendedorMap[key].valor += Number(venda.valorTotal ?? venda.ValorTotal) || 0;
+      if (catFormat.length === 0) {
+        setVendasPorCategoria([
+          { categoria: "Roupas", valor: 0, percentual: 0, cor: "#14B8A6" },
+          { categoria: "Calçados", valor: 0, percentual: 0, cor: "#8B5CF6" },
+          { categoria: "Acessórios", valor: 0, percentual: 0, cor: "#EAB308" },
+        ]);
+      } else {
+        setVendasPorCategoria(catFormat);
       }
-      const topVend = Object.values(vendedorMap)
-        .filter((v) => v.valor > 0)
-        .sort((a, b) => b.valor - a.valor)
-        .slice(0, 3)
-        .map((v, i) => ({
-          nome: v.nome,
-          vendas: `R$ ${v.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-          valor: v.valor,
-          percentual: 0,
-          meta: "R$ 50.000",
-          cor: CORES_VENDEDORES[i] ?? "#10B981",
-        }));
-      const maxVal = topVend[0]?.valor ?? 1;
-      topVend.forEach((v) => { v.percentual = Math.round((v.valor / maxVal) * 100); });
-      setTopVendedores(topVend);
 
-      // Formas de pagamento - distribuição das vendas do mês
-      const fpMap = { credito: 0, debito: 0, pix: 0, dinheiro: 0 };
-      for (const venda of vendasFiltradas) {
-        const fp = (venda.formaPagamento ?? venda.FormaPagamento ?? "").toString().toLowerCase().replace(/[^a-z]/g, "");
-        const val = Number(venda.valorTotal ?? venda.ValorTotal) || 0;
-        if (fp.includes("cred") || fp === "credito") fpMap.credito += val;
-        else if (fp.includes("deb") || fp === "debito") fpMap.debito += val;
-        else if (fp.includes("pix")) fpMap.pix += val;
-        else if (fp.includes("dinhe") || fp === "dinheiro") fpMap.dinheiro += val;
-        else fpMap.credito += val;
-      }
-      const totalFp = Object.values(fpMap).reduce((a, b) => a + b, 0);
-      const pct = (v) => (totalFp ? Math.round((v / totalFp) * 100) : 25);
+      const prodsTop = res.produtosMaisVendidos ?? res.ProdutosMaisVendidos ?? [];
+      const prodsList = Array.isArray(prodsTop) ? prodsTop : [];
+      const totQty = prodsList.reduce((a, p) => a + (Number(p.quantidadeVendida ?? p.QuantidadeVendida) || 0), 0);
+      const prodsFormat = prodsList.slice(0, 4).map((p, i) => ({
+        label: p.produtoNome ?? p.ProdutoNome ?? "Produto",
+        quantidade: Number(p.quantidadeVendida ?? p.QuantidadeVendida) || 0,
+        valor: Number(p.valorVendido ?? p.ValorVendido) || 0,
+        percentual: totQty ? Math.round(((Number(p.quantidadeVendida ?? p.QuantidadeVendida) || 0) / totQty) * 100) : 0,
+        cor: CORES_PRODUTOS[i] ?? "#14B8A6",
+      }));
+      setProdutosMaisVendidos(prodsFormat);
+
+      const estoqueC = res.estoqueCritico ?? res.EstoqueCritico ?? [];
+      const estList = Array.isArray(estoqueC) ? estoqueC : [];
+      const estFormat = estList.map((e) => ({
+        produto: e.produtoNome ?? e.ProdutoNome ?? "Produto",
+        estoque: Number(e.quantidadeAtual ?? e.QuantidadeAtual) ?? 0,
+        minimo: Number(e.estoqueMinimo ?? e.EstoqueMinimo) ?? 0,
+        status: (e.status ?? e.Status ?? "crítico").toString().toLowerCase().includes("crit") ? "crítico" : "baixo",
+      }));
+      setEstoqueCritico(estFormat);
+
+      const topV = res.topVendedores ?? res.TopVendedores ?? [];
+      const topList = Array.isArray(topV) ? topV : [];
+      const maxVal = topList[0] ? (Number(topList[0].valorTotalVendido ?? topList[0].ValorTotalVendido) || 1) : 1;
+      const topFormat = topList.slice(0, 3).map((v, i) => ({
+        nome: v.nome ?? v.Nome ?? "Vendedor",
+        valor: Number(v.valorTotalVendido ?? v.ValorTotalVendido) || 0,
+        vendas: `R$ ${(Number(v.valorTotalVendido ?? v.ValorTotalVendido) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+        percentual: Math.round(((Number(v.valorTotalVendido ?? v.ValorTotalVendido) || 0) / maxVal) * 100),
+        meta: "R$ 50.000",
+        cor: CORES_VENDEDORES[i] ?? "#10B981",
+      }));
+      setTopVendedores(topFormat);
+
+      const formas = res.formasPagamento ?? res.FormasPagamento ?? [];
+      const fpList = Array.isArray(formas) ? formas : [];
+      const fpPorTipo = { Crédito: 0, Débito: 0, Pix: 0, Dinheiro: 0 };
+      fpList.forEach((f) => {
+        const t = (f.formaPagamento ?? f.FormaPagamento ?? "").toString().toLowerCase();
+        const val = Number(f.valor ?? f.Valor) || 0;
+        if (t.includes("cred") || t.includes("credi")) fpPorTipo.Crédito += val;
+        else if (t.includes("deb")) fpPorTipo.Débito += val;
+        else if (t.includes("pix")) fpPorTipo.Pix += val;
+        else if (t.includes("dinhe")) fpPorTipo.Dinheiro += val;
+        else fpPorTipo.Crédito += val;
+      });
+      const totalFp = Object.values(fpPorTipo).reduce((a, b) => a + b, 0);
+      const pctFp = (v) => (totalFp ? Math.round((v / totalFp) * 100) : 25);
       setFormasPagamento([
-        { tipo: "Crédito", valor: fpMap.credito, percentual: pct(fpMap.credito), cor: "#14B8A6" },
-        { tipo: "Débito", valor: fpMap.debito, percentual: pct(fpMap.debito), cor: "#8B5CF6" },
-        { tipo: "Pix", valor: fpMap.pix, percentual: pct(fpMap.pix), cor: "#3B82F6" },
-        { tipo: "Dinheiro", valor: fpMap.dinheiro, percentual: pct(fpMap.dinheiro), cor: "#EAB308" },
+        { tipo: "Crédito", valor: fpPorTipo.Crédito, percentual: pctFp(fpPorTipo.Crédito), cor: "#14B8A6" },
+        { tipo: "Débito", valor: fpPorTipo.Débito, percentual: pctFp(fpPorTipo.Débito), cor: "#8B5CF6" },
+        { tipo: "Pix", valor: fpPorTipo.Pix, percentual: pctFp(fpPorTipo.Pix), cor: "#3B82F6" },
+        { tipo: "Dinheiro", valor: fpPorTipo.Dinheiro, percentual: pctFp(fpPorTipo.Dinheiro), cor: "#EAB308" },
       ]);
     } catch (error) {
       console.error("Erro ao buscar dados do dashboard:", error);
-      setStats({
-        faturamentoMes: 0,
-        vendasMes: 0,
-        novosClientes: 0,
-        ticketMedio: 0,
-        valorBrutoVendas: 0,
-      });
+      try {
+        const vendasRes = await vendasService.getAll({ pagina: 1, tamanho: 500 });
+        const vendasList = Array.isArray(vendasRes) ? vendasRes : vendasRes?.vendas ?? vendasRes?.Vendas ?? vendasRes?.items ?? [];
+        const inicio = new Date(anoMes.ano, anoMes.mes, 1).toISOString().split("T")[0];
+        const fim = new Date(anoMes.ano, anoMes.mes + 1, 0).toISOString().split("T")[0];
+
+        const vendasFiltradas = vendasList.filter((v) => {
+          if ((v.status ?? v.Status ?? "").toString().toLowerCase() === "cancelada") return false;
+          const d = (v.dataVenda ?? v.DataVenda ?? v.data ?? v.createdAt ?? "").toString().split("T")[0];
+          return d >= inicio && d <= fim;
+        });
+
+        let lucro = 0;
+        let valorBruto = 0;
+        for (const v of vendasFiltradas) {
+          valorBruto += Number(v.valorTotal ?? v.ValorTotal) || 0;
+          const itens = v.itens ?? v.Itens ?? v.items ?? [];
+          for (const i of itens) {
+            const qty = Number(i.quantidade) || 0;
+            const pv = Number(i.precoUnitario ?? i.produto?.precoVenda ?? 0) || 0;
+            const pc = Number(i.produto?.precoCusto ?? i.precoCusto ?? 0) || 0;
+            lucro += (pv - pc) * qty;
+          }
+          if (itens.length === 0) lucro += Number(v.valorTotal ?? v.ValorTotal) || 0;
+        }
+        const ticket = vendasFiltradas.length > 0 ? valorBruto / vendasFiltradas.length : 0;
+        setStats({
+          faturamentoMes: Math.round(lucro * 100) / 100,
+          vendasMes: vendasFiltradas.length,
+          novosClientes: 0,
+          ticketMedio: Math.round(ticket * 100) / 100,
+          valorBrutoVendas: Math.round(valorBruto * 100) / 100,
+        });
+      } catch (fallbackErr) {
+        console.error("Fallback vendas também falhou:", fallbackErr);
+        setStats({
+          faturamentoMes: 0,
+          vendasMes: 0,
+          novosClientes: 0,
+          ticketMedio: 0,
+          valorBrutoVendas: 0,
+        });
+      }
       setFaturamentoMensal({ meses: MESES_LABEL, valores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], maxY: 300 });
       setVendasPorCategoria([
         { categoria: "Roupas", valor: 0, percentual: 0, cor: "#14B8A6" },
@@ -356,7 +316,7 @@ function Dashboard() {
     } finally {
       setCarregando(false);
     }
-  }, [dataInicio, dataFim, anoMes.ano]);
+  }, [anoMes.ano, anoMes.mes]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -1036,7 +996,7 @@ function Dashboard() {
                   ]}
                   series={[
                     {
-                      data: vendasPorCategoria.map((item) => item.valor),
+                      data: vendasPorCategoria.map((item) => item.quantidade ?? item.valor ?? 0),
                       color: "#14B8A6",
                     },
                   ]}
@@ -1101,7 +1061,9 @@ function Dashboard() {
                         fontWeight: 700,
                       }}
                     >
-                      R$ {item.valor >= 1000 ? `${(item.valor / 1000).toFixed(0)}K` : item.valor.toFixed(0)} ({item.percentual}%)
+                      {item.quantidade != null
+                        ? `${item.quantidade} un. (${item.percentual}%)`
+                        : `R$ ${(item.valor ?? 0) >= 1000 ? `${((item.valor ?? 0) / 1000).toFixed(0)}K` : (item.valor ?? 0).toFixed(0)} (${item.percentual}%)`}
                     </Typography>
                   </Box>
                 ))}
