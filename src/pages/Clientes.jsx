@@ -547,15 +547,15 @@ function Clientes() {
     <Box
       sx={{
         p: 3,
-        bgcolor: theme.palette.background.default,
+        bgcolor: "background.default",
         minHeight: "100vh",
-        color: theme.palette.text.primary,
+        color: "text.primary",
         ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}),
       }}
     >
       {!openDialog ? (
         <>
-      {/* Header */}
+      {/* Header - mesmo padrão de Usuários */}
       <Box sx={{ mb: 4 }}>
         <Box
           sx={{
@@ -565,10 +565,7 @@ function Clientes() {
             mb: 3,
           }}
         >
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 600, color: theme.palette.text.primary }}
-          >
+          <Typography variant="h4" sx={{ fontWeight: 600, color: "text.primary" }}>
             {entityNames.clientes}
           </Typography>
           <Button
@@ -577,8 +574,6 @@ function Clientes() {
             onClick={() => handleOpenDialog()}
             sx={{
               textTransform: "none",
-              bgcolor: theme.palette.primary.main,
-              "&:hover": { bgcolor: theme.palette.primary.dark },
               borderRadius: "8px",
               px: 3,
               py: 1,
@@ -589,112 +584,63 @@ function Clientes() {
           </Button>
         </Box>
 
-        {/* Search Bar */}
         <TextField
           fullWidth
-          placeholder="Digite o nome ou CPF do cliente..."
+          placeholder="Buscar por nome, email ou CPF..."
           value={valorBusca}
           onChange={handleBuscaChange}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search sx={{ color: theme.palette.text.secondary }} />
+                <Search sx={{ color: "text.secondary" }} />
               </InputAdornment>
             ),
           }}
           sx={{
-            bgcolor: theme.palette.background.paper,
+            bgcolor: "background.paper",
             borderRadius: "10px",
             "& .MuiOutlinedInput-root": {
-              color: theme.palette.text.primary,
-              "& fieldset": { borderColor: theme.palette.divider },
-              "&:hover fieldset": { borderColor: theme.palette.divider },
-              "&.Mui-focused fieldset": {
-                borderColor: theme.palette.primary.main,
-              },
+              "& fieldset": { borderColor: "divider" },
+              "&:hover fieldset": { borderColor: "divider" },
+              "&.Mui-focused fieldset": { borderWidth: "1px", borderColor: "primary.main" },
             },
           }}
         />
 
-        {/* Contador */}
-        <Typography
-          variant="body2"
-          sx={{
-            mt: 2,
-            color: theme.palette.text.secondary,
-            fontSize: "14px",
-          }}
-        >
+        <Typography variant="body2" sx={{ mt: 2, color: "text.secondary", fontSize: "14px" }}>
           {totalRegistros} {totalRegistros === 1 ? "cliente" : "clientes"}
         </Typography>
       </Box>
 
-      {/* Tabela */}
+      {/* Tabela - mesmo padrão de Usuários */}
       <TableContainer
         component={Paper}
         elevation={0}
         sx={{
           borderRadius: "12px",
-          border: `1px solid ${theme.palette.divider}`,
+          border: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
           maxHeight: "70vh",
           overflow: "auto",
-          bgcolor: theme.palette.background.paper,
         }}
       >
         <Table>
           <TableHead>
-            <TableRow
-              sx={{
-                bgcolor: isDark
-                  ? "rgba(255, 255, 255, 0.05)"
-                  : theme.palette.grey[50],
-              }}
-            >
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.text.primary,
-                  fontSize: "13px",
-                  py: 2,
-                }}
-              >
+            <TableRow sx={{ bgcolor: "action.hover" }}>
+              <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px", py: 2 }}>
                 CLIENTE
               </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.text.primary,
-                  fontSize: "13px",
-                }}
-              >
+              <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                 EMAIL
               </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.text.primary,
-                  fontSize: "13px",
-                }}
-              >
+              <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                 CPF
               </TableCell>
-              <TableCell
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.text.primary,
-                  fontSize: "13px",
-                }}
-              >
+              <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                 TELEFONE
               </TableCell>
-              <TableCell
-                align="right"
-                sx={{
-                  fontWeight: 600,
-                  color: theme.palette.text.primary,
-                  fontSize: "13px",
-                }}
-              >
+              <TableCell align="right" sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                 AÇÕES
               </TableCell>
             </TableRow>
@@ -711,11 +657,10 @@ function Clientes() {
                 <TableRow
                   key={cliente.id}
                   sx={{
-                    "&:hover": { bgcolor: theme.palette.action.hover },
+                    "&:hover": { bgcolor: "action.hover" },
                     borderBottom:
-                      index === clientes.length - 1
-                        ? "none"
-                        : `1px solid ${theme.palette.divider}`,
+                      index === clientes.length - 1 ? "none" : "1px solid",
+                    borderColor: "divider",
                   }}
                 >
                   <TableCell sx={{ py: 2.5 }}>
@@ -731,34 +676,21 @@ function Clientes() {
                       >
                         {getInitials(cliente.nomeCompleto)}
                       </Avatar>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 500,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: "text.primary" }}>
                         {cliente.nomeCompleto}
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      color: theme.palette.text.secondary,
-                      fontSize: "14px",
-                    }}
-                  >
+                  <TableCell sx={{ color: "text.secondary", fontSize: "14px" }}>
                     {cliente.email || "—"}
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={cliente.cpf || "Sem CPF"}
+                      label={cliente.cpf || "—"}
                       size="small"
                       sx={{
-                        bgcolor: isDark
-                          ? "rgba(255, 255, 255, 0.08)"
-                          : theme.palette.grey[100],
-                        color: theme.palette.text.primary,
+                        bgcolor: "action.hover",
+                        color: "text.primary",
                         fontWeight: 500,
                         fontSize: "12px",
                       }}
@@ -766,13 +698,11 @@ function Clientes() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={cliente.telefone || "Sem telefone"}
+                      label={cliente.telefone || cliente.whatsApp || "—"}
                       size="small"
                       sx={{
-                        bgcolor: isDark
-                          ? "rgba(255, 255, 255, 0.08)"
-                          : theme.palette.grey[100],
-                        color: theme.palette.text.primary,
+                        bgcolor: "action.hover",
+                        color: "text.primary",
                         fontWeight: 500,
                         fontSize: "12px",
                       }}
@@ -783,11 +713,8 @@ function Clientes() {
                       size="small"
                       onClick={() => handleOpenDialog(cliente)}
                       sx={{
-                        color: theme.palette.text.secondary,
-                        "&:hover": {
-                          bgcolor: theme.palette.action.hover,
-                          color: theme.palette.primary.main,
-                        },
+                        color: "text.secondary",
+                        "&:hover": { bgcolor: "action.hover", color: "primary.main" },
                       }}
                     >
                       <Edit fontSize="small" />
@@ -796,13 +723,8 @@ function Clientes() {
                       size="small"
                       onClick={() => handleDelete(cliente.id)}
                       sx={{
-                        color: theme.palette.text.secondary,
-                        "&:hover": {
-                          bgcolor: isDark
-                            ? "rgba(239, 68, 68, 0.1)"
-                            : "rgba(220, 38, 38, 0.05)",
-                          color: theme.palette.error.main,
-                        },
+                        color: "text.secondary",
+                        "&:hover": { bgcolor: "error.light", color: "error.main" },
                       }}
                     >
                       <Delete fontSize="small" />
@@ -812,11 +734,7 @@ function Clientes() {
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={5}
-                  align="center"
-                  sx={{ py: 8, color: theme.palette.text.secondary }}
-                >
+                <TableCell colSpan={5} align="center" sx={{ py: 8, color: "text.secondary" }}>
                   <Person sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
                   <Typography variant="body1">
                     Nenhum cliente encontrado
@@ -839,16 +757,12 @@ function Clientes() {
               alignItems: "center",
               px: 3,
               py: 2,
-              borderTop: `1px solid ${theme.palette.divider}`,
-              bgcolor: isDark
-                ? "rgba(255, 255, 255, 0.02)"
-                : theme.palette.grey[50],
+              borderTop: "1px solid",
+              borderColor: "divider",
+              bgcolor: "background.paper",
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, fontSize: "14px" }}
-            >
+            <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "14px" }}>
               Mostrando {indiceInicial + 1} a {indiceFinal} de {totalRegistros}{" "}
               {totalRegistros === 1 ? "cliente" : "clientes"}
             </Typography>
@@ -859,9 +773,9 @@ function Clientes() {
                 disabled={paginaAtual === 1}
                 size="small"
                 sx={{
-                  color: theme.palette.text.secondary,
-                  "&:hover": { bgcolor: theme.palette.action.hover },
-                  "&.Mui-disabled": { color: theme.palette.action.disabled },
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "action.hover" },
+                  "&.Mui-disabled": { color: "text.disabled" },
                 }}
               >
                 <FirstPage fontSize="small" />
@@ -872,9 +786,9 @@ function Clientes() {
                 disabled={paginaAtual === 1}
                 size="small"
                 sx={{
-                  color: theme.palette.text.secondary,
-                  "&:hover": { bgcolor: theme.palette.action.hover },
-                  "&.Mui-disabled": { color: theme.palette.action.disabled },
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "action.hover" },
+                  "&.Mui-disabled": { color: "text.disabled" },
                 }}
               >
                 <ChevronLeft fontSize="small" />
@@ -894,25 +808,16 @@ function Clientes() {
                           key={numeroPagina}
                           onClick={() => setPaginaAtual(numeroPagina)}
                           size="small"
+                          variant={paginaAtual === numeroPagina ? "contained" : "text"}
                           sx={{
                             minWidth: "32px",
                             height: "32px",
                             borderRadius: "6px",
                             fontSize: "14px",
                             fontWeight: 500,
-                            color:
-                              paginaAtual === numeroPagina
-                                ? "#fff"
-                                : theme.palette.text.secondary,
-                            bgcolor:
-                              paginaAtual === numeroPagina
-                                ? theme.palette.primary.main
-                                : "transparent",
+                            color: paginaAtual === numeroPagina ? "primary.contrastText" : "text.secondary",
                             "&:hover": {
-                              bgcolor:
-                                paginaAtual === numeroPagina
-                                  ? theme.palette.primary.dark
-                                  : theme.palette.action.hover,
+                              bgcolor: paginaAtual === numeroPagina ? "primary.dark" : "action.hover",
                             },
                           }}
                         >
@@ -926,7 +831,7 @@ function Clientes() {
                       return (
                         <Typography
                           key={numeroPagina}
-                          sx={{ px: 1, color: theme.palette.text.disabled }}
+                          sx={{ px: 1, color: "text.secondary" }}
                         >
                           ...
                         </Typography>
@@ -942,9 +847,9 @@ function Clientes() {
                 disabled={paginaAtual === totalPaginas}
                 size="small"
                 sx={{
-                  color: theme.palette.text.secondary,
-                  "&:hover": { bgcolor: theme.palette.action.hover },
-                  "&.Mui-disabled": { color: theme.palette.action.disabled },
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "action.hover" },
+                  "&.Mui-disabled": { color: "text.disabled" },
                 }}
               >
                 <ChevronRight fontSize="small" />
@@ -955,9 +860,9 @@ function Clientes() {
                 disabled={paginaAtual === totalPaginas}
                 size="small"
                 sx={{
-                  color: theme.palette.text.secondary,
-                  "&:hover": { bgcolor: theme.palette.action.hover },
-                  "&.Mui-disabled": { color: theme.palette.action.disabled },
+                  color: "text.secondary",
+                  "&:hover": { bgcolor: "action.hover" },
+                  "&.Mui-disabled": { color: "text.disabled" },
                 }}
               >
                 <LastPage fontSize="small" />

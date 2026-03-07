@@ -38,6 +38,7 @@ import { showSuccess, showError } from "../utils/notifications";
 import { produtosService } from "../api/produtosService";
 import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
+import { caixaService } from "../api/caixaService";
 import {
   ShoppingCart,
   Search,
@@ -60,6 +61,9 @@ import {
   FilterList,
   Person,
   PersonSearch,
+  AccountBalance,
+  TrendingUp,
+  TrendingDown,
 } from "@mui/icons-material";
 
 const FORMAS_PAGAMENTO = [
@@ -97,6 +101,24 @@ function Caixa() {
   const [searchClienteBusca, setSearchClienteBusca] = useState("");
   const [clientesBusca, setClientesBusca] = useState([]);
   const [carregandoClientesBusca, setCarregandoClientesBusca] = useState(false);
+
+  // Resumo do Caixa (aba 2)
+  const [resumoCaixa, setResumoCaixa] = useState({
+    totalEntradas: 0,
+    totalSaidas: 0,
+    saldoAtual: 0,
+    totalEntradasMenosSaldo: 0,
+    movimentacoes: [],
+  });
+  const [carregandoResumoCaixa, setCarregandoResumoCaixa] = useState(false);
+  const [dataInicioCaixa, setDataInicioCaixa] = useState(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth(), 1).toISOString().split("T")[0];
+  });
+  const [dataFimCaixa, setDataFimCaixa] = useState(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString().split("T")[0];
+  });
 
   // Estados para histórico e paginação (carregado da API)
   const [vendas, setVendas] = useState([]);
@@ -357,6 +379,39 @@ function Caixa() {
     setSearchClienteBusca("");
     setClientesBusca([]);
   };
+
+  useEffect(() => {
+    if (tabAtual !== 2) return;
+    let cancelled = false;
+    setCarregandoResumoCaixa(true);
+    caixaService
+      .getResumo(dataInicioCaixa, dataFimCaixa)
+      .then((data) => {
+        if (cancelled) return;
+        const entradas = Number(data?.totalEntradas ?? data?.TotalEntradas ?? 0) || 0;
+        const saidas = Number(data?.totalSaidas ?? data?.TotalSaidas ?? 0) || 0;
+        const saldo = Number(data?.saldoAtual ?? data?.SaldoAtual ?? 0) || 0;
+        const entradasMenosSaldo = Number(data?.totalEntradasMenosSaldo ?? data?.TotalEntradasMenosSaldo ?? entradas - saldo) ?? (entradas - saldo);
+        const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
+        setResumoCaixa({
+          totalEntradas: entradas,
+          totalSaidas: saidas,
+          saldoAtual: saldo,
+          totalEntradasMenosSaldo: entradasMenosSaldo,
+          movimentacoes: Array.isArray(mov) ? mov : [],
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Erro ao carregar resumo do caixa:", err);
+          setResumoCaixa({ totalEntradas: 0, totalSaidas: 0, saldoAtual: 0, totalEntradasMenosSaldo: 0, movimentacoes: [] });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCarregandoResumoCaixa(false);
+      });
+    return () => { cancelled = true; };
+  }, [tabAtual, dataInicioCaixa, dataFimCaixa]);
 
   useEffect(() => {
     if (!openDialogCliente) return;
@@ -1578,6 +1633,157 @@ function Caixa() {
     </Box>
   );
 
+  // RESUMO DO CAIXA (valores reais: entradas, saídas, saldo, grid vendas/compras)
+  const normalizarMovimentacao = (m) => ({
+    id: m.id ?? m.Id,
+    tipo: (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase(),
+    data: m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "",
+    valor: Number(m.valor ?? m.Valor ?? m.valorTotal ?? m.ValorTotal ?? 0) || 0,
+    descricao: m.descricao ?? m.Descricao ?? m.observacoes ?? (m.tipo === "compra" ? "Compra" : "Venda"),
+  });
+
+  const renderResumoCaixa = () => (
+    <Box>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          mb: 3,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <FilterList sx={{ color: "text.secondary" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "text.primary" }}>
+            Período
+          </Typography>
+        </Box>
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Data Início"
+              type="date"
+              value={dataInicioCaixa}
+              onChange={(e) => setDataInicioCaixa(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Data Fim"
+              type="date"
+              value={dataFimCaixa}
+              onChange={(e) => setDataFimCaixa(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {carregandoResumoCaixa ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+          Carregando resumo do caixa...
+        </Typography>
+      ) : (
+        <>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <TrendingUp sx={{ color: "success.main" }} />
+                  <Typography variant="body2" color="text.secondary">Total Entradas (Vendas Bruta)</Typography>
+                </Box>
+                <Typography variant="h5" fontWeight={700} color="success.main">
+                  R$ {resumoCaixa.totalEntradas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <TrendingDown sx={{ color: "error.main" }} />
+                  <Typography variant="body2" color="text.secondary">Total Saídas (Compras)</Typography>
+                </Box>
+                <Typography variant="h5" fontWeight={700} color="error.main">
+                  R$ {resumoCaixa.totalSaidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "2px solid", borderColor: "primary.main" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                  <AccountBalance sx={{ color: "primary.main" }} />
+                  <Typography variant="body2" color="text.secondary">Saldo Atual</Typography>
+                </Box>
+                <Typography variant="h5" fontWeight={700} color="primary.main">
+                  R$ {resumoCaixa.saldoAtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Total Entradas − Saldo</Typography>
+                <Typography variant="h5" fontWeight={700}>
+                  R$ {resumoCaixa.totalEntradasMenosSaldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 600 }}>Tipo</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Data</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Descrição</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>Valor (R$)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {resumoCaixa.movimentacoes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      Nenhuma movimentação no período.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  [...resumoCaixa.movimentacoes]
+                    .map(normalizarMovimentacao)
+                    .sort((a, b) => new Date(b.data) - new Date(a.data))
+                    .map((m) => (
+                      <TableRow key={`${m.tipo}-${m.id}`} sx={{ "&:hover": { bgcolor: "action.hover" } }}>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={m.tipo === "compra" ? "Compra" : "Venda"}
+                            color={m.tipo === "compra" ? "error" : "success"}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>{m.data ? new Date(m.data).toLocaleString("pt-BR") : "—"}</TableCell>
+                        <TableCell>{m.descricao || "—"}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600, color: m.tipo === "compra" ? "error.main" : "success.main" }}>
+                          {m.tipo === "compra" ? "−" : "+"} R$ {m.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+    </Box>
+  );
+
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
       {/* Header Fixo */}
@@ -1640,6 +1846,11 @@ function Caixa() {
               icon={<History />}
               iconPosition="start"
               label="Histórico de Vendas"
+            />
+            <Tab
+              icon={<AccountBalance />}
+              iconPosition="start"
+              label="Resumo do Caixa"
             />
           </Tabs>
         </Paper>
@@ -1803,6 +2014,7 @@ function Caixa() {
         )}
 
         {tabAtual === 1 && renderHistoricoVendas()}
+        {tabAtual === 2 && renderResumoCaixa()}
       </Container>
 
       {/* Dialog Buscar Cliente */}
