@@ -2,11 +2,15 @@
 import api from "./axiosConfig";
 
 export const vendasService = {
-  // Listar vendas (params opcionais para Dashboard: tamanho=500)
+  // Listar vendas (params: pagina, tamanho, dataInicio, dataFim, mes, ano)
   getAll: async (params = {}) => {
     const queryParams = new URLSearchParams();
     if (params.pagina != null) queryParams.append("pagina", params.pagina);
     if (params.tamanho != null) queryParams.append("tamanho", params.tamanho);
+    if (params.dataInicio) queryParams.append("dataInicio", params.dataInicio);
+    if (params.dataFim) queryParams.append("dataFim", params.dataFim);
+    if (params.mes != null) queryParams.append("mes", params.mes);
+    if (params.ano != null) queryParams.append("ano", params.ano);
     const url = queryParams.toString() ? `/vendas?${queryParams}` : "/vendas";
     const response = await api.get(url);
     return response.data;
