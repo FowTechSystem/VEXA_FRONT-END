@@ -20,6 +20,12 @@ export const comprasService = {
     return response.data;
   },
 
+  // Atualizar compra
+  update: async (id, compra) => {
+    const response = await api.put(`/compras/${id}`, compra);
+    return response.data;
+  },
+
   // Deletar compra
   delete: async (id) => {
     const response = await api.delete(`/compras/${id}`);

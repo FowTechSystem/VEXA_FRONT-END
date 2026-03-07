@@ -26,8 +26,12 @@ export const clientesService = {
     return response.data;
   },
 
-  getAll: async () => {
-    const response = await api.get("/clientes");
+  getAll: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.pagina != null) queryParams.append("pagina", params.pagina);
+    if (params.tamanho != null) queryParams.append("tamanho", params.tamanho);
+    const url = queryParams.toString() ? `/clientes?${queryParams}` : "/clientes";
+    const response = await api.get(url);
     return response.data;
   },
 
