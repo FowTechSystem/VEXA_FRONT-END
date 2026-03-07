@@ -26,9 +26,18 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItemButton,
+  ListItemText,
 } from "@mui/material";
 import { showSuccess, showError } from "../utils/notifications";
 import { produtosService } from "../api/produtosService";
+import { vendasService } from "../api/vendasService";
+import { clientesService } from "../api/clientesService";
 import {
   ShoppingCart,
   Search,
@@ -49,6 +58,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FilterList,
+  Person,
+  PersonSearch,
 } from "@mui/icons-material";
 
 const FORMAS_PAGAMENTO = [
@@ -60,6 +71,15 @@ const FORMAS_PAGAMENTO = [
 
 const ETAPAS = ["Produtos", "Pagamento", "Confirmação"];
 
+const normalizeFormaPagamento = (fp) => {
+  const s = String(fp || "").toLowerCase();
+  if (s.includes("cred") || s.includes("crédito")) return "credito";
+  if (s.includes("deb") || s.includes("débito")) return "debito";
+  if (s.includes("pix")) return "pix";
+  if (s.includes("dinheiro")) return "dinheiro";
+  return "credito";
+};
+
 function Caixa() {
   const [tabAtual, setTabAtual] = useState(0);
   const [etapaAtual, setEtapaAtual] = useState(0);
@@ -69,30 +89,18 @@ function Caixa() {
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
-  const [desconto, setDesconto] = useState(0);
+  const [desconto, setDesconto] = useState("");
 
-  // Estados para histórico e paginação
-  const [vendas, setVendas] = useState([
-    {
-      id: 1,
-      data: "2026-02-12T10:30:00",
-      itens: 3,
-      total: 150.0,
-      formaPagamento: "credito",
-      desconto: 0,
-      status: "finalizada",
-    },
-    {
-      id: 2,
-      data: "2026-02-11T14:20:00",
-      itens: 2,
-      total: 89.9,
-      formaPagamento: "pix",
-      desconto: 10.0,
-      status: "finalizada",
-    },
-    // Adicione mais vendas de exemplo aqui
-  ]);
+  // Cliente da venda (opcional)
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [openDialogCliente, setOpenDialogCliente] = useState(false);
+  const [searchClienteBusca, setSearchClienteBusca] = useState("");
+  const [clientesBusca, setClientesBusca] = useState([]);
+  const [carregandoClientesBusca, setCarregandoClientesBusca] = useState(false);
+
+  // Estados para histórico e paginação (carregado da API)
+  const [vendas, setVendas] = useState([]);
+  const [carregandoVendas, setCarregandoVendas] = useState(false);
 
   // Filtro de data - Primeiro e último dia do mês atual
   const obterPrimeiroDiaMes = () => {
@@ -135,6 +143,41 @@ function Caixa() {
     setPaginaAtual((prev) => Math.max(prev - 1, 1));
   const irParaProximaPagina = () =>
     setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas));
+
+  useEffect(() => {
+    let cancelled = false;
+    async function carregarVendas() {
+      setCarregandoVendas(true);
+      try {
+        const res = await vendasService.getAll({
+          dataInicio,
+          dataFim,
+          tamanho: 500,
+        });
+        if (cancelled) return;
+        const list = Array.isArray(res) ? res : res?.vendas ?? res?.Vendas ?? res?.items ?? res?.data ?? [];
+        const normalizadas = list.map((v) => ({
+          id: v.id ?? v.Id,
+          data: v.dataVenda ?? v.DataVenda ?? v.data ?? v.createdAt ?? v.dataCriacao ?? "",
+          itens: Array.isArray(v.itens ?? v.Itens ?? v.items) ? (v.itens ?? v.Itens ?? v.items).length : (v.itens ?? 0),
+          total: Number(v.valorTotal ?? v.ValorTotal ?? v.total ?? 0) || 0,
+          formaPagamento: normalizeFormaPagamento(v.formaPagamento ?? v.FormaPagamento ?? "credito"),
+          desconto: Number(v.desconto ?? v.Desconto ?? 0) || 0,
+          status: (v.status ?? v.Status ?? "finalizada").toString().toLowerCase(),
+        }));
+        setVendas(normalizadas);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Erro ao carregar vendas:", err);
+          setVendas([]);
+        }
+      } finally {
+        if (!cancelled) setCarregandoVendas(false);
+      }
+    }
+    if (tabAtual === 1) carregarVendas();
+    return () => { cancelled = true; };
+  }, [tabAtual, dataInicio, dataFim]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,7 +252,7 @@ function Caixa() {
   };
 
   const calcularTotal = () => {
-    return calcularSubtotal() - desconto;
+    return calcularSubtotal() - (Number(desconto) || 0);
   };
 
   const calcularTroco = () => {
@@ -241,51 +284,119 @@ function Caixa() {
     setEtapaAtual(etapaAtual - 1);
   };
 
-  const finalizarVenda = () => {
-    const novaVenda = {
-      id: Date.now(),
-      data: new Date().toISOString(),
-      itens: carrinho.length,
-      total: calcularTotal(),
-      formaPagamento,
-      desconto,
-      status: "finalizada",
-      produtos: carrinho,
+  const finalizarVenda = async () => {
+    const total = calcularTotal();
+    const descontoVal = Math.max(0, Number(String(desconto).replace(",", ".")) || 0);
+    const payload = {
+      itens: carrinho.map((item) => ({
+        produtoId: Number(item.id),
+        quantidade: Number(item.quantidade) || 1,
+        precoUnitario: Number(item.precoVenda) || 0,
+      })),
+      valorTotal: Number(total.toFixed(2)),
+      formaPagamento: String(formaPagamento || "credito"),
+      desconto: descontoVal ?? 0,
+      ...(clienteSelecionado?.id != null ? { clienteId: Number(clienteSelecionado.id) } : {}),
     };
-
-    setVendas([novaVenda, ...vendas]);
-
-    console.log("Venda finalizada:", {
-      itens: carrinho,
-      subtotal: calcularSubtotal(),
-      desconto,
-      total: calcularTotal(),
-      formaPagamento,
-      valorRecebido,
-      troco: calcularTroco(),
-    });
-
+    try {
+      const criada = await vendasService.create(payload);
+      const vendaNorm = {
+        id: criada?.id ?? criada?.Id ?? Date.now(),
+        data: criada?.dataVenda ?? criada?.DataVenda ?? criada?.data ?? criada?.createdAt ?? new Date().toISOString(),
+        itens: carrinho.length,
+        total,
+        formaPagamento,
+        desconto: descontoVal,
+        status: "finalizada",
+      };
+      setVendas((prev) => [vendaNorm, ...prev]);
+    } catch (err) {
+      const data = err?.response?.data;
+      const msg = data?.mensagem
+        ?? data?.message
+        ?? (Array.isArray(data?.errors) ? data.errors.flat().find(Boolean) : null)
+        ?? data?.title
+        ?? "Erro ao registrar venda. Verifique os dados e tente novamente.";
+      console.error("Erro ao registrar venda:", data ?? err);
+      showError(typeof msg === "string" ? msg : "Erro ao registrar venda. Tente novamente ou contate o suporte.");
+      return;
+    }
     setCarrinho([]);
-    setDesconto(0);
+    setDesconto("");
     setValorRecebido("");
     setFormaPagamento("");
+    setClienteSelecionado(null);
     setEtapaAtual(0);
-
     showSuccess("Venda realizada com sucesso!");
   };
 
   const cancelarVenda = () => {
     if (window.confirm("Deseja cancelar a venda atual?")) {
       setCarrinho([]);
-      setDesconto(0);
+      setDesconto("");
       setValorRecebido("");
       setFormaPagamento("");
+      setClienteSelecionado(null);
       setEtapaAtual(0);
     }
   };
 
   const handleFiltrarData = () => {
     setPaginaAtual(1); // Volta para primeira página ao filtrar
+  };
+
+  const abrirDialogCliente = () => {
+    setOpenDialogCliente(true);
+    setSearchClienteBusca("");
+    setClientesBusca([]);
+    setCarregandoClientesBusca(true);
+  };
+
+  const fecharDialogCliente = () => {
+    setOpenDialogCliente(false);
+    setSearchClienteBusca("");
+    setClientesBusca([]);
+  };
+
+  useEffect(() => {
+    if (!openDialogCliente) return;
+    let cancelled = false;
+    const delay = searchClienteBusca.trim() ? 400 : 0;
+    const t = setTimeout(async () => {
+      setCarregandoClientesBusca(true);
+      try {
+        let data;
+        if (searchClienteBusca.trim()) {
+          data = await clientesService.listarPaginado({
+            filtro: "nome",
+            valor: searchClienteBusca.trim(),
+            pagina: 1,
+            tamanho: 50,
+          });
+        } else {
+          data = await clientesService.getAll({ pagina: 1, tamanho: 100 });
+        }
+        if (cancelled) return;
+        const list = data?.clientes ?? data?.Clientes ?? (Array.isArray(data) ? data : data?.items ?? []);
+        setClientesBusca(Array.isArray(list) ? list : []);
+      } catch (err) {
+        if (!cancelled) setClientesBusca([]);
+      } finally {
+        if (!cancelled) setCarregandoClientesBusca(false);
+      }
+    }, delay);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [openDialogCliente, searchClienteBusca]);
+
+  const selecionarCliente = (cliente) => {
+    setClienteSelecionado({
+      id: cliente.id ?? cliente.Id,
+      nome: cliente.nomeCompleto ?? cliente.NomeCompleto ?? cliente.nome ?? cliente.Nome ?? "Cliente",
+    });
+    fecharDialogCliente();
   };
 
   const limparFiltros = () => {
@@ -467,6 +578,40 @@ function Caixa() {
           />
         </Box>
 
+        {/* Cliente */}
+        <TextField
+          fullWidth
+          size="small"
+          label="Cliente"
+          placeholder="Clique para selecionar ou buscar cliente"
+          value={clienteSelecionado ? clienteSelecionado.nome : ""}
+          onClick={abrirDialogCliente}
+          readOnly
+          sx={{ mb: 2 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Person sx={{ color: "text.secondary" }} />
+              </InputAdornment>
+            ),
+            endAdornment: clienteSelecionado ? (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setClienteSelecionado(null);
+                  }}
+                  aria-label="Limpar cliente"
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+          inputProps={{ sx: { cursor: "pointer" } }}
+        />
+
         {/* Lista de itens */}
         <Box sx={{ flex: 1, overflowY: "auto", mb: 2 }}>
           {carrinho.length === 0 ? (
@@ -611,8 +756,9 @@ function Caixa() {
                 size="small"
                 label="Desconto (R$)"
                 type="number"
+                placeholder="0"
                 value={desconto}
-                onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setDesconto(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">R$</InputAdornment>
@@ -713,7 +859,7 @@ function Caixa() {
         {/* Formas de pagamento */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
           {FORMAS_PAGAMENTO.map((forma) => (
-            <Grid item xs={6} key={forma.id}>
+            <Grid size={{ xs: 6 }} key={forma.id}>
               <Card
                 onClick={() => setFormaPagamento(forma.id)}
                 sx={{
@@ -933,7 +1079,7 @@ function Caixa() {
               </Typography>
             </Box>
 
-            {desconto > 0 && (
+            {(Number(desconto) || 0) > 0 && (
               <Box
                 sx={{
                   display: "flex",
@@ -947,7 +1093,7 @@ function Caixa() {
                   variant="body1"
                   sx={{ color: "error.main", fontWeight: 500 }}
                 >
-                  - R$ {desconto.toFixed(2)}
+                  - R$ {(Number(desconto) || 0).toFixed(2)}
                 </Typography>
               </Box>
             )}
@@ -1060,7 +1206,7 @@ function Caixa() {
         </Box>
 
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Data Início"
@@ -1071,7 +1217,7 @@ function Caixa() {
               size="small"
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Data Fim"
@@ -1082,7 +1228,7 @@ function Caixa() {
               size="small"
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Box sx={{ display: "flex", gap: 1 }}>
               <Button
                 fullWidth
@@ -1183,7 +1329,17 @@ function Caixa() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {vendasPaginadas.length === 0 ? (
+            {carregandoVendas ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  align="center"
+                  sx={{ py: 8, color: "text.secondary" }}
+                >
+                  <Typography variant="body2">Carregando vendas...</Typography>
+                </TableCell>
+              </TableRow>
+            ) : vendasPaginadas.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -1648,6 +1804,77 @@ function Caixa() {
 
         {tabAtual === 1 && renderHistoricoVendas()}
       </Container>
+
+      {/* Dialog Buscar Cliente */}
+      <Dialog
+        open={openDialogCliente}
+        onClose={fecharDialogCliente}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <PersonSearch /> Buscar cliente
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Digite o nome ou busque pelo ID do cliente..."
+            value={searchClienteBusca}
+            onChange={(e) => setSearchClienteBusca(e.target.value)}
+            autoFocus
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Box sx={{ maxHeight: 360, overflowY: "auto" }}>
+            {carregandoClientesBusca ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                Carregando clientes...
+              </Typography>
+            ) : clientesBusca.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+                {searchClienteBusca.trim() ? "Nenhum cliente encontrado." : "Digite acima para buscar ou liste todos."}
+              </Typography>
+            ) : (
+              <List dense disablePadding>
+                <ListItemButton onClick={() => { setClienteSelecionado(null); fecharDialogCliente(); }} sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 1, mb: 1 }}>
+                  <ListItemText primary="Venda sem cliente" secondary="Não vincular a nenhum cliente" />
+                </ListItemButton>
+                {clientesBusca.map((c) => {
+                  const nome = c.nomeCompleto ?? c.NomeCompleto ?? c.nome ?? c.Nome ?? `Cliente #${c.id ?? c.Id}`;
+                  return (
+                    <ListItemButton
+                      key={c.id ?? c.Id}
+                      onClick={() => selecionarCliente(c)}
+                      sx={{
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        mb: 1,
+                        "&:hover": { bgcolor: "action.hover" },
+                      }}
+                    >
+                      <ListItemText primary={nome} secondary={c.cpf ? `CPF: ${c.cpf}` : `ID: ${c.id ?? c.Id}`} />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharDialogCliente} sx={{ textTransform: "none" }}>
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
