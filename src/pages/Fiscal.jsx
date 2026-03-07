@@ -40,6 +40,7 @@ import {
   LastPage,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from "@mui/icons-material";
 
 const TIPOS_NOTA = {
@@ -225,7 +226,7 @@ function Fiscal() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh", color: "text.primary", ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}) }}>
+    <Box sx={{ position: "relative", p: 3, bgcolor: "background.default", minHeight: "100vh", color: "text.primary", ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}) }}>
       {!openDialog ? (
         <>
       {/* Header */}
@@ -933,6 +934,42 @@ function Fiscal() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Overlay bloqueado - tela existe mas função indisponível */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          backgroundColor: "rgba(0,0,0,0.25)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            maxWidth: 400,
+            textAlign: "center",
+            borderRadius: 2,
+          }}
+        >
+          <Lock sx={{ fontSize: 56, color: "action.disabled", mb: 2 }} />
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            Função indisponível
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Contate o suporte para maiores detalhes.
+          </Typography>
+        </Paper>
+      </Box>
     </Box>
   );
 }
