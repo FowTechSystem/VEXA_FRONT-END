@@ -23,6 +23,7 @@ import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
 import Planos from "./pages/Planos";
+import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
 import Categorias from "./pages/Categorias";
 import Marcas from "./pages/Marcas";
@@ -108,6 +109,7 @@ function AppContent() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="planos" element={<Planos />} />
+          <Route path="condicional" element={<Condicional />} />
           <Route path="empresas" element={<Empresas />} />
           <Route path="configuracoes" element={<Configuracoes />} />
         </Route>

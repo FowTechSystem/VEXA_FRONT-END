@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -47,70 +47,7 @@ import {
   Payment,
   FileDownload,
 } from "@mui/icons-material";
-
-// Dados de exemplo
-const MOVIMENTACOES_EXEMPLO = [
-  {
-    id: 1,
-    tipo: "venda",
-    descricao: "Venda #1234",
-    cliente: "João Silva",
-    data: "2026-01-23",
-    hora: "10:30",
-    valor: 450.0,
-    formaPagamento: "PIX",
-    status: "concluido",
-    observacoes: "Pagamento confirmado via PIX",
-    itens: [
-      { nome: "Produto A", quantidade: 2, valorUnitario: 150.0 },
-      { nome: "Produto B", quantidade: 1, valorUnitario: 150.0 },
-    ],
-  },
-  {
-    id: 2,
-    tipo: "compra",
-    descricao: "Compra de Estoque",
-    fornecedor: "Fornecedor ABC",
-    data: "2026-01-23",
-    hora: "09:15",
-    valor: -1200.0,
-    formaPagamento: "Boleto",
-    status: "concluido",
-    observacoes: "Nota fiscal: NF-12345",
-  },
-  {
-    id: 3,
-    tipo: "venda",
-    descricao: "Venda #1235",
-    cliente: "Maria Santos",
-    data: "2026-01-23",
-    hora: "11:45",
-    valor: 780.5,
-    formaPagamento: "Crédito",
-    status: "concluido",
-    observacoes: "Parcelado em 3x",
-  },
-  {
-    id: 4,
-    tipo: "entrada",
-    descricao: "Entrada de Capital",
-    data: "2026-01-22",
-    hora: "14:20",
-    valor: 5000.0,
-    formaPagamento: "Transferência",
-    status: "concluido",
-  },
-  {
-    id: 5,
-    tipo: "saida",
-    descricao: "Pagamento de Aluguel",
-    data: "2026-01-22",
-    hora: "16:00",
-    valor: -2500.0,
-    formaPagamento: "Transferência",
-    status: "concluido",
-  },
-];
+import { caixaService } from "../api/caixaService";
 
 function Movimentacoes() {
   const theme = useTheme();
@@ -122,21 +59,70 @@ function Movimentacoes() {
   const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState(null);
   const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false);
 
-  const calcularTotais = () => {
-    const entradas = MOVIMENTACOES_EXEMPLO.filter((m) => m.valor > 0).reduce(
-      (acc, m) => acc + m.valor,
-      0,
-    );
-    const saidas = MOVIMENTACOES_EXEMPLO.filter((m) => m.valor < 0).reduce(
-      (acc, m) => acc + Math.abs(m.valor),
-      0,
-    );
-    return { entradas, saidas, saldo: entradas - saidas };
+  const [totalEntradas, setTotalEntradas] = useState(0);
+  const [totalSaidas, setTotalSaidas] = useState(0);
+  const [saldoAtual, setSaldoAtual] = useState(0);
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [carregandoMovimentacoes, setCarregandoMovimentacoes] = useState(true);
+  const [dataInicio, setDataInicio] = useState(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth(), 1).toISOString().split("T")[0];
+  });
+  const [dataFim, setDataFim] = useState(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString().split("T")[0];
+  });
+
+  const totais = { entradas: totalEntradas, saidas: totalSaidas, saldo: saldoAtual };
+
+  const carregarMovimentacoes = () => {
+    setCarregandoMovimentacoes(true);
+    caixaService
+      .getResumo(dataInicio, dataFim)
+      .then((data) => {
+        const entradas = Number(data?.totalEntradas ?? data?.TotalEntradas ?? 0) || 0;
+        const saidas = Number(data?.totalSaidas ?? data?.TotalSaidas ?? 0) || 0;
+        const saldo = Number(data?.saldoAtual ?? data?.SaldoAtual ?? 0) || 0;
+        const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
+        const list = Array.isArray(mov) ? mov : [];
+        const normalizadas = list.map((m) => {
+          const tipo = (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase();
+          const valorNum = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
+          const dataStr = m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "";
+          const d = dataStr ? new Date(dataStr) : null;
+          return {
+            id: m.id ?? m.Id ?? `${tipo}-${Math.random()}`,
+            tipo: tipo === "compra" ? "compra" : tipo === "venda" ? "venda" : tipo,
+            descricao: m.descricao ?? m.Descricao ?? (tipo === "compra" ? "Compra" : "Venda"),
+            cliente: m.cliente ?? m.Cliente ?? m.clienteNome ?? "",
+            fornecedor: m.fornecedor ?? m.Fornecedor ?? m.fornecedorNome ?? "",
+            data: dataStr,
+            hora: d ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
+            valor: tipo === "compra" ? -Math.abs(valorNum) : Math.abs(valorNum),
+            formaPagamento: m.formaPagamento ?? m.FormaPagamento ?? "—",
+            status: m.status ?? m.Status ?? "concluido",
+          };
+        });
+        setTotalEntradas(entradas);
+        setTotalSaidas(saidas);
+        setSaldoAtual(saldo);
+        setMovimentacoes(normalizadas);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar movimentações:", err);
+        setTotalEntradas(0);
+        setTotalSaidas(0);
+        setSaldoAtual(0);
+        setMovimentacoes([]);
+      })
+      .finally(() => setCarregandoMovimentacoes(false));
   };
 
-  const totais = calcularTotais();
+  useEffect(() => {
+    carregarMovimentacoes();
+  }, [dataInicio, dataFim]);
 
-  const movimentacoesFiltradas = MOVIMENTACOES_EXEMPLO.filter((mov) => {
+  const movimentacoesFiltradas = movimentacoes.filter((mov) => {
     const matchSearch =
       mov.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mov.cliente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -263,6 +249,43 @@ function Movimentacoes() {
       </Box>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Filtro de período */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: 2,
+            border: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.background.paper,
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Data Início"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Data Fim"
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+
         {/* Cards de Resumo */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* Card Entradas */}
@@ -301,7 +324,7 @@ function Movimentacoes() {
                         color: isDark ? "#22c55e" : "#16a34a",
                       }}
                     >
-                      R$ {totais.entradas.toFixed(2)}
+                      {carregandoMovimentacoes ? "..." : `R$ ${totais.entradas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                     </Typography>
                   </Box>
                   <Avatar
@@ -354,7 +377,7 @@ function Movimentacoes() {
                         color: isDark ? "#ef4444" : "#dc2626",
                       }}
                     >
-                      R$ {totais.saidas.toFixed(2)}
+                      {carregandoMovimentacoes ? "..." : `R$ ${totais.saidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                     </Typography>
                   </Box>
                   <Avatar
@@ -407,7 +430,7 @@ function Movimentacoes() {
                         color: isDark ? "#3b82f6" : "#2563eb",
                       }}
                     >
-                      R$ {totais.saldo.toFixed(2)}
+                      {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                     </Typography>
                   </Box>
                   <Avatar
@@ -547,6 +570,8 @@ function Movimentacoes() {
                   sx={{ borderColor: theme.palette.divider }}
                 />
                 <IconButton
+                  onClick={carregarMovimentacoes}
+                  disabled={carregandoMovimentacoes}
                   sx={{
                     border: `1px solid ${theme.palette.divider}`,
                     color: theme.palette.text.primary,
@@ -554,6 +579,7 @@ function Movimentacoes() {
                       bgcolor: theme.palette.action.hover,
                     },
                   }}
+                  title="Atualizar"
                 >
                   <Refresh />
                 </IconButton>
@@ -668,13 +694,21 @@ function Movimentacoes() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {movimentacoesFiltradas.length === 0 ? (
+                {carregandoMovimentacoes ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Carregando movimentações...
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : movimentacoesFiltradas.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                       <Box sx={{ color: theme.palette.text.secondary }}>
                         <Receipt sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
                         <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                          Nenhuma movimentação encontrada
+                          Nenhuma movimentação encontrada no período
                         </Typography>
                       </Box>
                     </TableCell>
@@ -736,7 +770,7 @@ function Movimentacoes() {
                             variant="body2"
                             sx={{ color: theme.palette.text.secondary }}
                           >
-                            {mov.cliente || mov.fornecedor || "-"}
+                            {mov.cliente || mov.fornecedor || "—"}
                           </Typography>
                         </TableCell>
                         <TableCell
@@ -752,13 +786,13 @@ function Movimentacoes() {
                                 color: theme.palette.text.primary,
                               }}
                             >
-                              {new Date(mov.data).toLocaleDateString("pt-BR")}
+                              {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
                             </Typography>
                             <Typography
                               variant="caption"
                               sx={{ color: theme.palette.text.secondary }}
                             >
-                              {mov.hora}
+                              {mov.hora || "—"}
                             </Typography>
                           </Box>
                         </TableCell>

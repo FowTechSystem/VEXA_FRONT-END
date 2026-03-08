@@ -60,6 +60,8 @@ function Compras() {
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
+  const [openConfirmDelete, setOpenConfirmDelete] = useState(false);
+  const [compraParaExcluir, setCompraParaExcluir] = useState(null);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
   const [carregando, setCarregando] = useState(false);
 
@@ -235,8 +237,18 @@ function Compras() {
     }
   };
 
+  const abrirConfirmDelete = (compra) => {
+    setCompraParaExcluir(compra);
+    setOpenConfirmDelete(true);
+  };
+
+  const fecharConfirmDelete = () => {
+    setOpenConfirmDelete(false);
+    setCompraParaExcluir(null);
+  };
+
   const handleDelete = async (compra) => {
-    if (!window.confirm(`Excluir a compra de ${nomeFornecedor(compra) || "este fornecedor"}?`)) return;
+    fecharConfirmDelete();
     try {
       await comprasService.delete(compra.id);
       showSuccess("Compra excluída.");
@@ -544,7 +556,7 @@ function Compras() {
                           </IconButton>
                           <IconButton
                             size="small"
-                            onClick={() => handleDelete(compra)}
+                            onClick={() => abrirConfirmDelete(compra)}
                             sx={{ color: "text.secondary", "&:hover": { color: "error.main", bgcolor: "action.hover" } }}
                           >
                             <Delete fontSize="small" />
@@ -945,6 +957,36 @@ function Compras() {
           </Box>
         </Box>
       )}
+
+      <Dialog
+        open={openConfirmDelete}
+        onClose={fecharConfirmDelete}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2, bgcolor: "background.paper" } }}
+      >
+        <DialogTitle sx={{ fontWeight: 600, color: "text.primary", display: "flex", alignItems: "center", gap: 1 }}>
+          <Delete /> Excluir compra
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: "text.secondary" }}>
+            Excluir a compra de <strong>{compraParaExcluir ? (nomeFornecedor(compraParaExcluir) || "este fornecedor") : "este fornecedor"}</strong>?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={fecharConfirmDelete} sx={{ textTransform: "none" }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => compraParaExcluir && handleDelete(compraParaExcluir)}
+            sx={{ textTransform: "none" }}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={openValidacaoModal}

@@ -27,6 +27,7 @@ import {
   AttachMoney,
   Receipt,
   LocalShipping,
+  AssignmentReturn,
   PointOfSale,
   CardMembership,
   Search,
@@ -51,6 +52,7 @@ const menuSectionsBase = [
     items: [
       { text: "Vendas", icon: <PointOfSale />, path: "caixa" },
       { text: "Caixa", icon: <ShoppingCart />, path: "vendas" },
+      { text: "Condicional", icon: <AssignmentReturn />, path: "condicional" },
     ],
   },
   {

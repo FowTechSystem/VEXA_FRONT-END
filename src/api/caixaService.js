@@ -1,0 +1,20 @@
+// src/api/caixaService.js
+// Resumo do Caixa: entradas (vendas bruta), saídas (compras), saldo e grid de movimentações
+import api from "./axiosConfig";
+
+export const caixaService = {
+  /**
+   * Retorna resumo do caixa e movimentações (vendas + compras) do período.
+   * @param {string} dataInicio - ISO date (YYYY-MM-DD)
+   * @param {string} dataFim - ISO date (YYYY-MM-DD)
+   * @returns {Promise<{ totalEntradas, totalSaidas, saldoAtual, totalEntradasMenosSaldo, movimentacoes }>}
+   */
+  getResumo: async (dataInicio, dataFim) => {
+    const params = new URLSearchParams();
+    if (dataInicio) params.append("dataInicio", dataInicio);
+    if (dataFim) params.append("dataFim", dataFim);
+    const url = params.toString() ? `/caixa/resumo?${params.toString()}` : "/caixa/resumo";
+    const response = await api.get(url);
+    return response.data;
+  },
+};
