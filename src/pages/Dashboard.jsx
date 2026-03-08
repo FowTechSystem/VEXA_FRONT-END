@@ -2,8 +2,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Grid,
-  Card,
-  CardContent,
   Typography,
   Box,
   LinearProgress,
@@ -89,6 +87,8 @@ function Dashboard() {
     { tipo: "Pix", percentual: 0, valor: 0, cor: "#3B82F6" },
     { tipo: "Dinheiro", percentual: 0, valor: 0, cor: "#EAB308" },
   ]);
+  const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const [vendasPorDiaSemana, setVendasPorDiaSemana] = useState([0, 0, 0, 0, 0, 0, 0]);
 
   const CORES_PRODUTOS = ["#14B8A6", "#8B5CF6", "#3B82F6", "#EAB308"];
   const CORES_VENDEDORES = ["#10B981", "#14B8A6", "#F59E0B"];
@@ -253,6 +253,11 @@ function Dashboard() {
         { tipo: "Pix", valor: fpPorTipo.Pix, percentual: pctFp(fpPorTipo.Pix), cor: "#3B82F6" },
         { tipo: "Dinheiro", valor: fpPorTipo.Dinheiro, percentual: pctFp(fpPorTipo.Dinheiro), cor: "#EAB308" },
       ]);
+
+      const vendasDia = res.vendasPorDiaSemana ?? res.VendasPorDiaSemana ?? res.vendasPorDia ?? [];
+      if (Array.isArray(vendasDia) && vendasDia.length >= 7) {
+        setVendasPorDiaSemana(vendasDia.slice(0, 7).map((v) => Number(v.quantidade ?? v.valor ?? v) || 0));
+      }
     } catch (error) {
       console.error("Erro ao buscar dados do dashboard:", error);
       try {
@@ -288,6 +293,13 @@ function Dashboard() {
           ticketMedio: Math.round(ticket * 100) / 100,
           valorBrutoVendas: Math.round(valorBruto * 100) / 100,
         });
+        const diasSemana = [0, 0, 0, 0, 0, 0, 0];
+        vendasFiltradas.forEach((v) => {
+          const d = new Date((v.dataVenda ?? v.DataVenda ?? v.data ?? v.createdAt ?? "").toString());
+          const dia = d.getDay();
+          if (!isNaN(dia) && dia >= 0 && dia < 7) diasSemana[dia]++;
+        });
+        setVendasPorDiaSemana(diasSemana);
       } catch (fallbackErr) {
         console.error("Fallback vendas também falhou:", fallbackErr);
         setStats({
@@ -313,6 +325,7 @@ function Dashboard() {
         { tipo: "Pix", percentual: 0, valor: 0, cor: "#3B82F6" },
         { tipo: "Dinheiro", percentual: 0, valor: 0, cor: "#EAB308" },
       ]);
+      setVendasPorDiaSemana([0, 0, 0, 0, 0, 0, 0]);
     } finally {
       setCarregando(false);
     }
@@ -383,61 +396,69 @@ function Dashboard() {
   const formatFaturamento = (v) =>
     v >= 1000 ? `R$ ${(v / 1000).toFixed(v >= 1000000 ? 1 : 2)}${v >= 1000000 ? "M" : "K"}` : `R$ ${v.toFixed(2)}`;
 
+  const gerarTrendData = (valor) => {
+    const base = valor * 0.3;
+    return Array.from({ length: 12 }, (_, i) =>
+      Math.max(0, base + Math.sin(i * 0.8) * (valor * 0.15) + (i / 12) * valor * 0.5)
+    );
+  };
+
   const statCards = [
     {
-      title: "Faturamento do Mês (Lucro)",
+      title: "Faturamento (Lucro)",
       value: formatFaturamento(stats.faturamentoMes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
-      icon: <AttachMoney />,
-      iconBg: "#FEF3C7",
-      iconColor: "#F59E0B",
-      borderColor: "#EAB308",
-      trendData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stats.faturamentoMes],
-      trendColor: "#EAB308",
+      trendData: gerarTrendData(stats.faturamentoMes || 1),
+      trendColor: "#3B82F6",
     },
     {
       title: "Total de Vendas",
-      value: stats.vendasMes,
+      value: String(stats.vendasMes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
-      icon: <ShoppingCart />,
-      iconBg: "#CCFBF1",
-      iconColor: "#14B8A6",
-      borderColor: "#14B8A6",
-      trendData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stats.vendasMes],
-      trendColor: "#14B8A6",
+      trendData: gerarTrendData(stats.vendasMes || 1),
+      trendColor: "#3B82F6",
     },
     {
       title: "Novos Clientes",
-      value: stats.novosClientes,
+      value: String(stats.novosClientes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
-      icon: <PeopleOutline />,
-      iconBg: "#FEE2E2",
-      iconColor: "#EF4444",
-      borderColor: "#EF4444",
-      trendData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stats.novosClientes],
-      trendColor: "#EF4444",
+      trendData: gerarTrendData(stats.novosClientes || 1),
+      trendColor: "#3B82F6",
     },
     {
       title: "Ticket Médio",
       value: `R$ ${stats.ticketMedio.toFixed(2)}`,
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
-      icon: <LocalOffer />,
-      iconBg: "#E0E7FF",
-      iconColor: "#6366F1",
-      borderColor: "#6366F1",
-      trendData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, stats.ticketMedio],
-      trendColor: "#6366F1",
+      trendData: gerarTrendData(stats.ticketMedio || 1),
+      trendColor: "#3B82F6",
     },
   ];
+
+  const stackedSeriesData = (() => {
+    const cats = vendasPorCategoria.filter((c) => (c.percentual ?? 0) > 0);
+    const vals = faturamentoMensal.valores;
+    if (cats.length === 0) {
+      return [{ id: "faturamento", label: "Faturamento", color: "#3B82F6", data: vals }];
+    }
+    const totalPct = cats.reduce((a, c) => a + (c.percentual ?? 0), 0) || 100;
+    return cats.map((c, i) => ({
+      id: c.categoria,
+      label: c.categoria,
+      color: c.cor || ["#3B82F6", "#F59E0B", "#EF4444", "#10B981"][i],
+      data: vals.map((v) => ((c.percentual ?? 0) / totalPct) * v),
+    }));
+  })();
 
   return (
     <Box
       sx={{
         width: "100%",
+        maxWidth: "100vw",
         minHeight: "100vh",
-        bgcolor: theme.palette.background.default,
-        p: { xs: 1.5, sm: 2, md: 2.5 },
+        bgcolor: "background.default",
+        p: { xs: 1.5, sm: 1.5, md: 2 },
         boxSizing: "border-box",
+        overflowX: "hidden",
       }}
     >
       {/* Header */}
@@ -447,29 +468,15 @@ function Dashboard() {
           flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
           alignItems: { xs: "flex-start", sm: "center" },
-          gap: { xs: 1.5, sm: 0 },
-          mb: { xs: 2, md: 2.5 },
+          gap: 2,
+          mb: 2,
         }}
       >
         <Box>
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 700,
-              color: theme.palette.text.primary,
-              mb: 0.5,
-              fontSize: { xs: 20, sm: 24, md: 28 },
-            }}
-          >
+          <Typography variant="h4" sx={{ fontWeight: 700, color: "text.primary", fontSize: { xs: 22, sm: 26, md: 30 }, letterSpacing: "-0.02em" }}>
             Dashboard
           </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: theme.palette.text.secondary,
-              fontSize: { xs: 12, sm: 13, md: 14 },
-            }}
-          >
+          <Typography variant="body2" sx={{ color: "text.secondary", fontSize: 14, mt: 0.5 }}>
             Visão geral da sua loja
           </Typography>
         </Box>
@@ -567,410 +574,141 @@ function Dashboard() {
       {/* Stats Cards + Metas do Mês */}
       <Grid
         container
-        spacing={{ xs: 1, sm: 1.5, md: 2 }}
-        sx={{ mb: { xs: 1.5, md: 2 } }}
+        spacing={{ xs: 1.5, sm: 2, md: 2 }}
+        alignItems="stretch"
+        sx={{ mb: 1 }}
       >
         {/* Stats Cards - 4 colunas em desktop, 2 em mobile */}
         {statCards.map((stat, index) => (
-          <Grid item xs={6} sm={6} md={6} lg={2.4} key={index}>
-            <Card
-              elevation={0}
-              sx={{
-                borderRadius: { xs: 2, md: 3 },
-                bgcolor: theme.palette.background.paper,
-                border: `1px solid ${theme.palette.divider}`,
-                borderTop: `3px solid ${stat.borderColor}`,
-                height: "100%",
-              }}
-            >
-              <CardContent
-                sx={{
-                  p: { xs: 1.5, sm: 2, md: 2.5 },
-                  "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    mb: { xs: 1, md: 1.5 },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: { xs: 36, sm: 42, md: 48 },
-                      height: { xs: 36, sm: 42, md: 48 },
-                      borderRadius: { xs: 1.5, md: 2 },
-                      bgcolor: stat.iconBg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {React.cloneElement(stat.icon, {
-                      sx: {
-                        fontSize: { xs: 18, sm: 20, md: 24 },
-                        color: stat.iconColor,
-                      },
-                    })}
+          <Grid item xs={6} sm={6} md={3} lg={2.4} key={index}>
+            <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 } }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1.5 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 17, fontWeight: 500, display: "block" }}>
+                      {stat.title}
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: "text.primary", fontSize: { xs: 28, sm: 34, md: 36 }, mt: 0.5, letterSpacing: "-0.02em" }}>
+                      {stat.value}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 15, mt: 0.5, display: "block" }}>
+                      {stat.subtitle}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ width: 112, height: 59, flexShrink: 0 }}>
+                    <LineChart
+                      xAxis={[{ data: stat.trendData.map((_, i) => i), hide: true }]}
+                      yAxis={[{ hide: true }]}
+                      series={[{ data: stat.trendData, color: stat.trendColor, showMark: false, curve: "catmullRom", area: true }]}
+                      height={59}
+                      margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
+                      sx={{ "& .MuiAreaElement-root": { opacity: 0.4 }, "& .MuiLineElement-root": { strokeWidth: 2 } }}
+                    />
                   </Box>
                 </Box>
-
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: theme.palette.text.secondary,
-                    fontWeight: 500,
-                    display: "block",
-                    mb: { xs: 0.5, md: 0.8 },
-                    fontSize: { xs: 10, sm: 11, md: 13 },
-                  }}
-                >
-                  {stat.title}
-                </Typography>
-
-                <Typography
-                  variant="h4"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    mb: { xs: 0.8, md: 1.2 },
-                    fontSize: { xs: 18, sm: 24, md: 28 },
-                  }}
-                >
-                  {stat.value}
-                </Typography>
-
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: theme.palette.text.secondary,
-                    fontSize: { xs: 9, sm: 10, md: 12 },
-                  }}
-                >
-                  {stat.subtitle}
-                </Typography>
-
-                <Box
-                  sx={{
-                    width: "100%",
-                    height: { xs: 30, sm: 35, md: 40 },
-                    mt: 0.5,
-                  }}
-                >
-                  <LineChart
-                    xAxis={[
-                      {
-                        data: Array.from(
-                          { length: stat.trendData.length },
-                          (_, i) => i,
-                        ),
-                        hide: true,
-                      },
-                    ]}
-                    yAxis={[{ hide: true }]}
-                    series={[
-                      {
-                        data: stat.trendData,
-                        color: stat.trendColor,
-                        showMark: false,
-                        curve: "catmullRom",
-                        area: true,
-                      },
-                    ]}
-                    height={isMobile ? 30 : isTablet ? 35 : 40}
-                    margin={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                    sx={{
-                      "& .MuiLineElement-root": { strokeWidth: 2 },
-                    }}
-                  />
-                </Box>
-              </CardContent>
-            </Card>
+            </Box>
           </Grid>
         ))}
-
-        {/* Metas do Mês - No canto superior direito */}
-        <Grid item xs={12} sm={12} md={12} lg={2.4}>
-          <Card
-            elevation={0}
-            onClick={handleAbrirMetasDialog}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-              cursor: "pointer",
-              "&:hover": { bgcolor: theme.palette.action.hover },
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 13, sm: 14, md: 15 },
-                  }}
-                >
-                  Metas do Mês
-                </Typography>
-                <CheckCircle
-                  sx={{ fontSize: { xs: 16, md: 18 }, color: "#10B981" }}
-                />
-              </Box>
-
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: { xs: 2.5, md: 3 },
-                }}
-              >
-                {metasDoMes.map((item, index) => (
-                  <Box key={index}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 1,
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: theme.palette.text.primary,
-                          fontSize: { xs: 11, md: 12 },
-                          fontWeight: 600,
-                        }}
-                      >
-                        {item.meta}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          fontSize: { xs: 9, md: 10 },
-                        }}
-                      >
-                        {item.meta === "Faturamento"
-                          ? formatFaturamento(item.atual)
-                          : String(item.atual)}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ position: "relative" }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min(100, item.percentual)}
-                        sx={{
-                          height: { xs: 10, md: 12 },
-                          borderRadius: 1.5,
-                          bgcolor: theme.palette.action.disabledBackground,
-                          "& .MuiLinearProgress-bar": {
-                            bgcolor:
-                              item.percentual >= 90
-                                ? theme.palette.success.main
-                                : item.percentual >= 70
-                                  ? "#14B8A6"
-                                  : theme.palette.warning.main,
-                            borderRadius: 1.5,
-                          },
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          position: "absolute",
-                          right: 8,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          color: "#FFFFFF",
-                          fontWeight: 700,
-                          fontSize: { xs: 8, md: 9 },
-                        }}
-                      >
-                        {item.percentual}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
 
       {/* Conteúdo principal - Grid Responsivo */}
-      <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
-        {/* Faturamento Mensal */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 14, sm: 15, md: 16 },
-                  }}
-                >
-                  Faturamento Mensal
+      <Grid container spacing={{ xs: 1, sm: 1, md: 1.5 }} alignItems="stretch">
+        {/* Linha 1: Faturamento | Vendas por dia (lado a lado, mesmo tamanho) */}
+        <Grid item xs={12} sm={6} sx={{ order: 1 }}>
+          <Box sx={{ p: { xs: 2.5, md: 3 } }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 25 }}>
+                  Faturamento por categoria
                 </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                  <Box
-                    sx={{
-                      width: { xs: 8, md: 10 },
-                      height: { xs: 8, md: 10 },
-                      borderRadius: "50%",
-                      bgcolor: "#14B8A6",
-                    }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: theme.palette.text.secondary,
-                      fontSize: { xs: 10, md: 11 },
-                      fontWeight: 500,
-                    }}
-                  >
-                    {anoMes.ano}
-                  </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <Select
+                      value={anoMes.ano}
+                      onChange={(e) => setAnoMes((p) => ({ ...p, ano: Number(e.target.value) }))}
+                      sx={{ fontSize: 13, height: 36, bgcolor: "action.hover" }}
+                    >
+                      {[anoMes.ano, anoMes.ano - 1, anoMes.ano - 2].map((a) => (
+                        <MenuItem key={a} value={a}>{a}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                    {stackedSeriesData.map((s) => (
+                      <Box key={s.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: s.color }} />
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 12 }}>{s.label}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
                 </Box>
               </Box>
 
-              <Box
-                sx={{ width: "100%", height: { xs: 180, sm: 220, md: 250 } }}
-              >
+              <Box sx={{ width: "100%", height: { xs: 360, sm: 420, md: 480 } }}>
                 <LineChart
-                  xAxis={[
-                    {
-                      scaleType: "point",
-                      data: faturamentoMensal.meses,
-                      tickLabelStyle: {
-                        fontSize: isMobile ? 9 : isTablet ? 10 : 11,
-                        fill: theme.palette.text.secondary,
-                        fontWeight: 500,
-                      },
-                    },
-                  ]}
-                  yAxis={[
-                    {
-                      min: 0,
-                      max: faturamentoMensal.maxY ?? 300,
-                      tickLabelStyle: {
-                        fontSize: isMobile ? 9 : 10,
-                        fill: theme.palette.text.secondary,
-                        fontWeight: 500,
-                      },
-                      valueFormatter: (value) => `${value}K`,
-                    },
-                  ]}
-                  series={[
-                    {
-                      data: faturamentoMensal.valores,
-                      color: "#14B8A6",
-                      showMark: !isMobile,
-                      curve: "catmullRom",
-                      label: "Faturamento",
-                    },
-                  ]}
-                  height={isMobile ? 180 : isTablet ? 220 : 250}
-                  margin={{
-                    left: isMobile ? 40 : 50,
-                    right: isMobile ? 10 : 15,
-                    top: 10,
-                    bottom: isMobile ? 25 : 30,
-                  }}
+                  xAxis={[{
+                    scaleType: "point",
+                    data: faturamentoMensal.meses,
+                    tickLabelStyle: { fontSize: isMobile ? 10 : 12, fill: theme.palette.text.secondary },
+                  }]}
+                  yAxis={[{
+                    min: 0,
+                    max: faturamentoMensal.maxY ? faturamentoMensal.maxY + 20 : 350,
+                    tickLabelStyle: { fontSize: isMobile ? 10 : 11, fill: theme.palette.text.secondary },
+                    valueFormatter: (v) => `${v}K`,
+                  }]}
+                  series={stackedSeriesData.map((s) => ({
+                    data: s.data,
+                    color: s.color,
+                    label: s.label,
+                    area: true,
+                    stack: "total",
+                    curve: "catmullRom",
+                    showMark: !isMobile,
+                  }))}
+                  height={isMobile ? 360 : isTablet ? 420 : 480}
+                  margin={{ left: 55, right: 25, top: 20, bottom: 40 }}
                   grid={{ horizontal: true }}
+                  slotProps={{ legend: { hidden: true } }}
                   sx={{
                     "& .MuiChartsAxis-line": { stroke: theme.palette.divider },
                     "& .MuiChartsAxis-tick": { stroke: theme.palette.divider },
-                    "& .MuiChartsGrid-line": {
-                      stroke: theme.palette.action.disabledBackground,
-                    },
-                    "& .MuiLineElement-root": {
-                      strokeWidth: isMobile ? 2 : 2.5,
-                    },
-                    "& .MuiMarkElement-root": {
-                      scale: "0.6",
-                      fill: theme.palette.background.paper,
-                      strokeWidth: 2,
-                    },
+                    "& .MuiChartsGrid-line": { stroke: theme.palette.action.disabledBackground },
+                    "& .MuiLineElement-root": { strokeWidth: 2 },
+                    "& .MuiAreaElement-root": { opacity: 0.85 },
+                    "& .MuiMarkElement-root": { scale: "0.5", fill: theme.palette.background.paper, strokeWidth: 2 },
                   }}
                 />
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Grid>
 
-        {/* Vendas por Categoria */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: theme.palette.text.primary,
-                  fontSize: { xs: 14, sm: 15, md: 16 },
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
+        {/* Vendas por dia da semana - ao lado do Faturamento, mesmo tamanho */}
+        <Grid item xs={12} sm={6} sx={{ order: 2 }}>
+          <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 }, minHeight: { xs: 360, sm: 420, md: 480 } }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 25, mb: 2 }}>
+                Vendas por dia da semana
+              </Typography>
+              <Box sx={{ width: "100%", height: { xs: 360, sm: 420, md: 480 } }}>
+                <BarChart
+                  xAxis={[{ scaleType: "band", data: DIAS_SEMANA, tickLabelStyle: { fontSize: isMobile ? 10 : 12, fill: theme.palette.text.secondary } }]}
+                  yAxis={[{ tickLabelStyle: { fontSize: isMobile ? 10 : 11, fill: theme.palette.text.secondary } }]}
+                  series={[{ data: vendasPorDiaSemana, color: "#3B82F6", label: "Vendas" }]}
+                  height={isMobile ? 360 : isTablet ? 420 : 480}
+                  margin={{ left: 50, right: 25, top: 20, bottom: 40 }}
+                  sx={{ "& .MuiChartsAxis-line": { stroke: theme.palette.divider }, "& .MuiChartsAxis-tick": { stroke: theme.palette.divider } }}
+                />
+              </Box>
+          </Box>
+        </Grid>
+
+        {/* Linha 3 - Vendas por Categoria */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 5 }}>
+          <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 } }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 21, mb: 2 }}>
                 Vendas por Categoria
               </Typography>
 
               <Box
-                sx={{ width: "100%", height: { xs: 160, sm: 200, md: 220 } }}
+                sx={{ width: "100%", height: { xs: 196, sm: 238, md: 266 } }}
               >
                 <BarChart
                   xAxis={[
@@ -1000,7 +738,7 @@ function Dashboard() {
                       color: "#14B8A6",
                     },
                   ]}
-                  height={isMobile ? 160 : isTablet ? 200 : 220}
+                  height={isMobile ? 220 : isTablet ? 260 : 300}
                   margin={{
                     left: isMobile ? 40 : 50,
                     right: isMobile ? 10 : 15,
@@ -1068,43 +806,14 @@ function Dashboard() {
                   </Box>
                 ))}
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Grid>
 
-        {/* Produtos Mais Vendidos */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 14, sm: 15, md: 16 },
-                  }}
-                >
+        {/* Produtos Mais Vendidos - ao lado de Formas de Pagamento */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 3 }}>
+          <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 } }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 21 }}>
                   Produtos Mais Vendidos
                 </Typography>
                 <Typography
@@ -1129,8 +838,8 @@ function Dashboard() {
               >
                 <Box
                   sx={{
-                    width: { xs: 140, sm: 160, md: 180 },
-                    height: { xs: 140, sm: 160, md: 180 },
+                    width: { xs: 196, sm: 224, md: 252 },
+                    height: { xs: 196, sm: 224, md: 252 },
                     flexShrink: 0,
                   }}
                 >
@@ -1143,12 +852,12 @@ function Dashboard() {
                           label: item.label,
                           color: item.cor,
                         })),
-                        innerRadius: isMobile ? 45 : isTablet ? 50 : 55,
-                        outerRadius: isMobile ? 65 : isTablet ? 75 : 85,
+                        innerRadius: isMobile ? 63 : isTablet ? 70 : 77,
+                        outerRadius: isMobile ? 91 : isTablet ? 105 : 119,
                       },
                     ]}
-                    height={isMobile ? 140 : isTablet ? 160 : 180}
-                    width={isMobile ? 140 : isTablet ? 160 : 180}
+                    height={isMobile ? 196 : isTablet ? 224 : 252}
+                    width={isMobile ? 196 : isTablet ? 224 : 252}
                     slotProps={{
                       legend: { hidden: true },
                     }}
@@ -1251,43 +960,68 @@ function Dashboard() {
                   </Box>
                 ))}
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Grid>
 
-        {/* Estoque Crítico */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card
-            elevation={0}
+        {/* Metas do Mês - junto com Estoque Crítico e Top Vendedores */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 6 }}>
+          <Box
+            onClick={handleAbrirMetasDialog}
             sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
               height: "100%",
+              p: { xs: 2, md: 2.8 },
+              cursor: "pointer",
+              borderRadius: 2,
+              transition: "all 0.2s",
+              "&:hover": { bgcolor: "action.hover" },
             }}
           >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 14, sm: 15, md: 16 },
-                  }}
-                >
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: { xs: 1.5, md: 2 } }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.text.primary, fontSize: { xs: 18, sm: 20, md: 21 } }}>
+                Metas do Mês
+              </Typography>
+              <CheckCircle sx={{ fontSize: { xs: 22, md: 25 }, color: "#10B981" }} />
+            </Box>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
+              {metasDoMes.map((item, index) => (
+                <Box key={index}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: theme.palette.text.primary, fontSize: { xs: 15, md: 17 }, fontWeight: 600 }}>
+                      {item.meta}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: { xs: 13, md: 14 } }}>
+                      {item.meta === "Faturamento" ? formatFaturamento(item.atual) : String(item.atual)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ position: "relative" }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(100, item.percentual)}
+                      sx={{
+                        height: { xs: 14, md: 17 },
+                        borderRadius: 1.5,
+                        bgcolor: theme.palette.action.disabledBackground,
+                        "& .MuiLinearProgress-bar": {
+                          bgcolor: item.percentual >= 90 ? theme.palette.success.main : item.percentual >= 70 ? "#14B8A6" : theme.palette.warning.main,
+                          borderRadius: 1.5,
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "#FFFFFF", fontWeight: 700, fontSize: { xs: 11, md: 13 } }}>
+                      {item.percentual}%
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Grid>
+
+        {/* Estoque Crítico - junto com Metas e Top Vendedores */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 7 }}>
+          <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 } }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 21 }}>
                   Estoque Crítico
                 </Typography>
                 <Chip
@@ -1308,7 +1042,7 @@ function Dashboard() {
                 sx={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: { xs: 2, md: 2.5 },
+                  gap: { xs: 1.5, md: 2 },
                 }}
               >
                 {estoqueCritico.map((item, index) => (
@@ -1318,7 +1052,7 @@ function Dashboard() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        mb: 0.8,
+                        mb: 1,
                       }}
                     >
                       <Typography
@@ -1351,14 +1085,15 @@ function Dashboard() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        mb: 0.6,
+                        mb: 1,
+                        mt: 0.5,
                       }}
                     >
                       <Typography
                         variant="caption"
                         sx={{
                           color: theme.palette.text.secondary,
-                          fontSize: { xs: 10, md: 11 },
+                          fontSize: { xs: 11, md: 12 },
                         }}
                       >
                         Atual: {item.estoque} un.
@@ -1391,201 +1126,24 @@ function Dashboard() {
                   </Box>
                 ))}
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Grid>
 
-        {/* Top Vendedores */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 14, sm: 15, md: 16 },
-                  }}
-                >
-                  Top Vendedores
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#14B8A6",
-                    fontSize: { xs: 11, md: 12 },
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Este mês
-                </Typography>
-              </Box>
-
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: { xs: 2.5, md: 3.5 },
-                }}
-              >
-                {topVendedores.map((item, index) => (
-                  <Box key={index}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 1.2,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: theme.palette.text.primary,
-                            fontSize: { xs: 12, md: 13 },
-                            fontWeight: 600,
-                            mb: 0.3,
-                          }}
-                        >
-                          {item.nome}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: theme.palette.text.secondary,
-                            fontSize: { xs: 10, md: 11 },
-                          }}
-                        >
-                          Meta: {item.meta}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: theme.palette.text.primary,
-                          fontSize: { xs: 12, md: 14 },
-                          fontWeight: 700,
-                        }}
-                      >
-                        {item.vendas}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ position: "relative" }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={item.percentual}
-                        sx={{
-                          height: { xs: 10, md: 12 },
-                          borderRadius: 2,
-                          bgcolor: theme.palette.action.disabledBackground,
-                          "& .MuiLinearProgress-bar": {
-                            bgcolor: item.cor,
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          position: "absolute",
-                          left: 8,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          color: "#FFFFFF",
-                          fontWeight: 700,
-                          fontSize: { xs: 8, md: 9 },
-                        }}
-                      >
-                        {item.percentual}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Formas de Pagamento */}
-        <Grid item xs={12} sm={6} lg={4}>
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: { xs: 2, md: 3 },
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-              height: "100%",
-            }}
-          >
-            <CardContent
-              sx={{
-                p: { xs: 1.5, sm: 2, md: 2.5 },
-                "&:last-child": { pb: { xs: 1.5, sm: 2, md: 2.5 } },
-              }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                    fontSize: { xs: 14, sm: 15, md: 16 },
-                  }}
-                >
+        {/* Formas de Pagamento - ao lado de Produtos Mais Vendidos */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 4 }}>
+          <Box sx={{ height: "100%", p: { xs: 2.5, md: 3 } }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 21 }}>
                   Formas de Pagamento
                 </Typography>
-                <CreditCard
-                  sx={{
-                    fontSize: { xs: 16, md: 18 },
-                    color: theme.palette.text.secondary,
-                  }}
-                />
+                <CreditCard sx={{ fontSize: { xs: 22, md: 25 }, color: "text.secondary" }} />
               </Box>
 
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  alignItems: "center",
-                  mb: { xs: 1.5, md: 2 },
-                  justifyContent: "center",
-                }}
-              >
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2, justifyContent: "center" }}>
                 <Box
                   sx={{
-                    width: { xs: 130, sm: 150, md: 160 },
-                    height: { xs: 130, sm: 150, md: 160 },
+                    width: { xs: 182, sm: 210, md: 224 },
+                    height: { xs: 182, sm: 210, md: 224 },
                     flexShrink: 0,
                   }}
                 >
@@ -1597,12 +1155,12 @@ function Dashboard() {
                           label: item.tipo,
                           color: item.cor,
                         })),
-                        innerRadius: isMobile ? 40 : isTablet ? 45 : 50,
-                        outerRadius: isMobile ? 60 : isTablet ? 70 : 75,
+                        innerRadius: isMobile ? 56 : isTablet ? 63 : 70,
+                        outerRadius: isMobile ? 84 : isTablet ? 98 : 105,
                       },
                     ]}
-                    height={isMobile ? 130 : isTablet ? 150 : 160}
-                    width={isMobile ? 130 : isTablet ? 150 : 160}
+                    height={isMobile ? 182 : isTablet ? 210 : 224}
+                    width={isMobile ? 182 : isTablet ? 210 : 224}
                     slotProps={{
                       legend: { hidden: true },
                     }}
@@ -1613,25 +1171,10 @@ function Dashboard() {
                 </Box>
               </Box>
 
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: { xs: 1.2, md: 1.5 },
-                }}
-              >
+              <Box sx={{ display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
                 {formasPagamento.map((item, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Box
-                      sx={{ display: "flex", alignItems: "center", gap: 0.8 }}
-                    >
+                  <Box key={index} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 0.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                       <Box
                         sx={{
                           width: { xs: 8, md: 10 },
@@ -1640,14 +1183,7 @@ function Dashboard() {
                           bgcolor: item.cor,
                         }}
                       />
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          fontSize: { xs: 11, md: 12 },
-                          fontWeight: 500,
-                        }}
-                      >
+                      <Typography variant="body2" sx={{ color: "text.secondary", fontSize: { xs: 12, md: 13 }, fontWeight: 500 }}>
                         {item.tipo}
                       </Typography>
                     </Box>
@@ -1665,9 +1201,73 @@ function Dashboard() {
                   </Box>
                 ))}
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Grid>
+
+        {/* Top Vendedores - junto com Metas e Estoque Crítico */}
+        <Grid item xs={12} sm={6} md={4} lg={4} sx={{ order: 8 }}>
+          <Box sx={{ height: "100%", p: { xs: 2, md: 3 } }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", fontSize: 23 }}>
+                  Top Vendedores
+                </Typography>
+                <Typography variant="body2" sx={{ color: "#14B8A6", fontSize: { xs: 16, md: 18 }, fontWeight: 600 }}>
+                  Este mês
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: "flex", flexDirection: "column", gap: { xs: 2.5, md: 3 } }}>
+                {topVendedores.map((item, index) => (
+                  <Box key={index}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5, gap: 2 }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ color: "text.primary", fontSize: { xs: 14, md: 15 }, fontWeight: 600, display: "block", mb: 0.5 }}>
+                          {item.nome}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: { xs: 13, md: 14 }, display: "block" }}>
+                          Meta: {item.meta}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ color: "text.primary", fontSize: { xs: 14, md: 16 }, fontWeight: 700 }}>
+                        {item.vendas}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ position: "relative", mt: 0.5 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={item.percentual}
+                        sx={{
+                          height: { xs: 12, md: 14 },
+                          borderRadius: 2,
+                          bgcolor: theme.palette.action.disabledBackground,
+                          "& .MuiLinearProgress-bar": {
+                            bgcolor: item.cor,
+                            borderRadius: 2,
+                          },
+                        }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          position: "absolute",
+                          left: 10,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: "#FFFFFF",
+                          fontWeight: 700,
+                          fontSize: { xs: 10, md: 11 },
+                        }}
+                      >
+                        {item.percentual}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+          </Box>
+        </Grid>
+
       </Grid>
 
       {/* Dialog de configuração das Metas */}
