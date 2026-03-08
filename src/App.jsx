@@ -27,6 +27,8 @@ import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
 import Categorias from "./pages/Categorias";
 import Marcas from "./pages/Marcas";
+import CatalogoDigital from "./pages/CatalogoDigital";
+import CatalogoPublico from "./pages/CatalogoPublico";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
 
@@ -82,8 +84,9 @@ function AppContent() {
       />
 
       <Routes>
-        {/* Rota Pública - Login */}
+        {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
+        <Route path="/catalogo-publico/:id" element={<CatalogoPublico />} />
 
         {/* Rotas Protegidas (com sidebar) */}
         <Route
@@ -112,9 +115,10 @@ function AppContent() {
           <Route path="condicional" element={<Condicional />} />
           <Route path="empresas" element={<Empresas />} />
           <Route path="configuracoes" element={<Configuracoes />} />
+          <Route path="catalogo-digital" element={<CatalogoDigital />} />
         </Route>
 
-        {/* Rota 404 - Redireciona para Login */}
+        {/* Rota 404 - Redireciona para Login (exceto catálogo público) */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
