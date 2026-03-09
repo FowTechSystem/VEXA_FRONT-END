@@ -20,6 +20,7 @@ import {
   ShoppingCart,
   Inventory,
   Warehouse,
+  MenuBook,
   AccountCircle,
   Assessment,
   Settings,
@@ -50,6 +51,7 @@ const menuSectionsBase = [
   {
     title: "Operação",
     items: [
+      { text: "Catálogo Digital", icon: <MenuBook />, path: "catalogo-digital" },
       { text: "Vendas", icon: <PointOfSale />, path: "caixa" },
       { text: "Caixa", icon: <ShoppingCart />, path: "vendas" },
       { text: "Condicional", icon: <AssignmentReturn />, path: "condicional" },
