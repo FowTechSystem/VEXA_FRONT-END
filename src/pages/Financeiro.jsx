@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -27,6 +27,7 @@ import {
   Tab,
 } from "@mui/material";
 import { showError } from "../utils/notifications";
+import { caixaService } from "../api/caixaService";
 import {
   AttachMoney,
   TrendingUp,
@@ -41,8 +42,20 @@ import {
   LastPage,
   ChevronLeft,
   ChevronRight,
+  Refresh,
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
+
+function getMonthBounds(mesAno) {
+  // mesAno = "YYYY-MM"
+  const [ano, mes] = mesAno.split("-").map(Number);
+  const primeiro = new Date(ano, mes - 1, 1);
+  const ultimo = new Date(ano, mes, 0);
+  return {
+    dataInicio: primeiro.toISOString().split("T")[0],
+    dataFim: ultimo.toISOString().split("T")[0],
+  };
+}
 
 const TIPOS_MOVIMENTACAO = {
   receita: { label: "Receita", color: "success.main", bgcolor: "success.light" },
@@ -72,11 +85,54 @@ function Financeiro() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
-  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [movimentacoes, setMovimentacoes] = useState([]); // manuais (receita/despesa)
+  const [movimentacoesSistema, setMovimentacoesSistema] = useState([]); // da API (vendas, compras, etc.)
+  const [carregandoMovimentacoes, setCarregandoMovimentacoes] = useState(true);
+  const [mesAno, setMesAno] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
   const movimentacoesPorPagina = 10;
+
+  const { dataInicio, dataFim } = getMonthBounds(mesAno);
+
+  const carregarMovimentacoesSistema = () => {
+    setCarregandoMovimentacoes(true);
+    caixaService
+      .getResumo(dataInicio, dataFim)
+      .then((data) => {
+        const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
+        const list = Array.isArray(mov) ? mov : [];
+        const normalizadas = list.map((m) => {
+          const tipoApi = (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase();
+          const valorNum = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
+          const dataStr = m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "";
+          const tipo = tipoApi === "compra" ? "despesa" : "receita";
+          return {
+            id: m.id ?? m.Id ?? `sistema-${tipoApi}-${Math.random()}`,
+            tipo,
+            descricao: m.descricao ?? m.Descricao ?? (tipoApi === "compra" ? "Compra" : "Venda"),
+            categoria: tipoApi === "compra" ? "Compras" : "Vendas",
+            data: dataStr ? dataStr.toString().split("T")[0] : dataStr,
+            valor: tipoApi === "compra" ? -Math.abs(valorNum) : Math.abs(valorNum),
+            origem: "sistema",
+          };
+        });
+        setMovimentacoesSistema(normalizadas);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar movimentações do sistema:", err);
+        setMovimentacoesSistema([]);
+      })
+      .finally(() => setCarregandoMovimentacoes(false));
+  };
+
+  useEffect(() => {
+    carregarMovimentacoesSistema();
+  }, [dataInicio, dataFim]);
 
   const [currentMovimentacao, setCurrentMovimentacao] = useState({
     tipo: "receita",
@@ -158,17 +214,34 @@ function Financeiro() {
   const handleDelete = (id) => {
     if (window.confirm("Deseja realmente excluir esta movimentação?")) {
       setMovimentacoes(movimentacoes.filter((m) => m.id !== id));
+      setPaginaAtual(1);
     }
   };
 
-  const calcularTotais = () => {
-    const receitas = movimentacoes
-      .filter((m) => m.tipo === "receita")
-      .reduce((acc, m) => acc + m.valor, 0);
+  // Movimentações manuais do mês selecionado
+  const movimentacoesManuaisDoMes = movimentacoes.filter((m) => {
+    const d = (m.data || "").toString().split("T")[0];
+    return d.startsWith(mesAno);
+  });
 
-    const despesas = movimentacoes
+  // Lista unificada: sistema + manuais do mês, ordenada por data (mais recente primeiro)
+  const todasMovimentacoesDoMes = [
+    ...movimentacoesSistema,
+    ...movimentacoesManuaisDoMes,
+  ].sort((a, b) => {
+    const da = (a.data || "").toString();
+    const db = (b.data || "").toString();
+    return db.localeCompare(da);
+  });
+
+  const calcularTotais = () => {
+    const receitas = todasMovimentacoesDoMes
+      .filter((m) => m.tipo === "receita")
+      .reduce((acc, m) => acc + (m.valor > 0 ? m.valor : Math.abs(m.valor)), 0);
+
+    const despesas = todasMovimentacoesDoMes
       .filter((m) => m.tipo === "despesa")
-      .reduce((acc, m) => acc + m.valor, 0);
+      .reduce((acc, m) => acc + Math.abs(m.valor), 0);
 
     return {
       receitas,
@@ -181,10 +254,10 @@ function Financeiro() {
 
   const movimentacoesFiltradas =
     tabAtual === 0
-      ? movimentacoes
+      ? todasMovimentacoesDoMes
       : tabAtual === 1
-        ? movimentacoes.filter((m) => m.tipo === "receita")
-        : movimentacoes.filter((m) => m.tipo === "despesa");
+        ? todasMovimentacoesDoMes.filter((m) => m.tipo === "receita")
+        : todasMovimentacoesDoMes.filter((m) => m.tipo === "despesa");
 
   // Cálculos de paginação
   const totalPaginas = Math.ceil(
@@ -221,6 +294,8 @@ function Financeiro() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
             mb: 3,
           }}
         >
@@ -229,22 +304,45 @@ function Financeiro() {
               Financeiro
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
-              Gestão financeira e fluxo de caixa
+              Todas as movimentações do sistema por mês
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleOpenDialog}
-            sx={{
-              textTransform: "none",
-              borderRadius: "8px",
-              px: 3,
-              boxShadow: "none",
-            }}
-          >
-            Nova Movimentação
-          </Button>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <TextField
+              label="Mês"
+              type="month"
+              value={mesAno}
+              onChange={(e) => {
+                setMesAno(e.target.value);
+                setPaginaAtual(1);
+              }}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160 }}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={carregarMovimentacoesSistema}
+              disabled={carregandoMovimentacoes}
+              sx={{ textTransform: "none" }}
+            >
+              Atualizar
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={handleOpenDialog}
+              sx={{
+                textTransform: "none",
+                borderRadius: "8px",
+                px: 3,
+                boxShadow: "none",
+              }}
+            >
+              Nova Movimentação
+            </Button>
+          </Box>
         </Box>
 
         {/* Cards de resumo */}
@@ -272,7 +370,7 @@ function Financeiro() {
                 variant="h4"
                 sx={{ fontWeight: 600, color: "success.main" }}
               >
-                R$ {totais.receitas.toFixed(2)}
+                {carregandoMovimentacoes ? "..." : `R$ ${totais.receitas.toFixed(2)}`}
               </Typography>
             </Paper>
           </Grid>
@@ -300,7 +398,7 @@ function Financeiro() {
                 variant="h4"
                 sx={{ fontWeight: 600, color: "error.main" }}
               >
-                R$ {totais.despesas.toFixed(2)}
+                {carregandoMovimentacoes ? "..." : `R$ ${totais.despesas.toFixed(2)}`}
               </Typography>
             </Paper>
           </Grid>
@@ -339,7 +437,7 @@ function Financeiro() {
                   color: totais.saldo >= 0 ? "primary.main" : "warning.main",
                 }}
               >
-                R$ {totais.saldo.toFixed(2)}
+                {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toFixed(2)}`}
               </Typography>
             </Paper>
           </Grid>
@@ -427,7 +525,17 @@ function Financeiro() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {movimentacoesPaginadas.length === 0 ? (
+              {carregandoMovimentacoes ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    align="center"
+                    sx={{ py: 8, color: "text.secondary" }}
+                  >
+                    <Typography variant="body1">Carregando movimentações do mês...</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : movimentacoesPaginadas.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -436,10 +544,10 @@ function Financeiro() {
                   >
                     <AttachMoney sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
                     <Typography variant="body1">
-                      Nenhuma movimentação financeira
+                      Nenhuma movimentação neste mês
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 1 }}>
-                      Clique em "Nova Movimentação" para começar
+                      Selecione outro mês ou adicione uma movimentação manual
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -499,25 +607,29 @@ function Financeiro() {
                         {mov.valor.toFixed(2)}
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          sx={{
-                            color: "text.secondary",
-                            "&:hover": { bgcolor: "action.hover", color: "primary.main" },
-                          }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(mov.id)}
-                          sx={{
-                            color: "text.secondary",
-                            "&:hover": { bgcolor: "#fef2f2", color: "error.main" },
-                          }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
+                        {mov.origem !== "sistema" && (
+                          <>
+                            <IconButton
+                              size="small"
+                              sx={{
+                                color: "text.secondary",
+                                "&:hover": { bgcolor: "action.hover", color: "primary.main" },
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDelete(mov.id)}
+                              sx={{
+                                color: "text.secondary",
+                                "&:hover": { bgcolor: "#fef2f2", color: "error.main" },
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
