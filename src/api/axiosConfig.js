@@ -10,11 +10,25 @@ const USER_DATA_KEY = "userData";
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
 const DEV_ADMIN_EMAIL = "dev@gmail.com";
 
-/** Produção: defina VITE_API_BASE_URL no build (ex.: https://api.seudominio.com) ou use proxy /api no nginx. */
+/**
+ * Dev: base `/api` → Vite proxy (vite.config.js) encaminha para o backend local.
+ * Produção: defina `VITE_API_URL` (host da API, sem /api no final), ex.: http://187.77.40.99:8080
+ * Opcional: `VITE_API_BASE_URL` com o path completo até /api (sobrescreve VITE_API_URL).
+ */
 const apiBaseURL = (() => {
-  const raw = import.meta.env.VITE_API_BASE_URL?.trim();
-  return raw ? raw.replace(/\/$/, "") : "/api";
+  const full = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (full) return full.replace(/\/$/, "");
+  const host = import.meta.env.VITE_API_URL?.trim();
+  if (host) return `${host.replace(/\/$/, "")}/api`;
+  return "/api";
 })();
+
+if (import.meta.env.PROD && apiBaseURL === "/api") {
+  // Sem VITE_API_URL o bundle chama /api no mesmo host do front (Nginx/CDN) — não é a API na VPS.
+  console.warn(
+    "[VEXA] Build de produção sem VITE_API_URL: defina VITE_API_URL (ou VITE_API_BASE_URL) antes de npm run build.",
+  );
+}
 
 const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);
@@ -38,7 +52,7 @@ function getEmpresaAtivaId() {
 }
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: apiBaseURL,
   headers: {
     "Content-Type": "application/json",
   },

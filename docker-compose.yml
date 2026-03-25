@@ -1,0 +1,19 @@
+# VEXA CRM — front estático (Nginx) na VPS
+#
+# 1. Copie .env.docker.example para .env e ajuste VITE_API_URL (URL pública da API).
+# 2. docker compose up -d --build
+# 3. Abra no navegador: http://SEU_IP:80 (ou a porta mapeada abaixo)
+
+services:
+  vexa-front:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    image: vexa-crm-front:latest
+    ports:
+      - "${FRONT_PORT:-8081}:80"
+    restart: unless-stopped
+    container_name: vexa-crm-front

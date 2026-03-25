@@ -325,7 +325,7 @@ function Produtos() {
         (data && typeof data === "object" && (data.mensagem ?? data.message ?? data.detail ?? data.title)) ??
         (typeof data === "string" ? data : null) ??
         error.message ??
-        "Erro ao buscar produtos. Verifique se o backend está rodando (https://localhost:5001) e se fez login com dev@gmail.com e clicou em Entrar em empresa.";
+        "Erro ao buscar produtos. Verifique se a API está acessível, se você está logado e, como usuário dev, se selecionou a empresa corretamente.";
       console.error("Erro ao buscar produtos:", error.response?.data ?? error);
       showError(msg);
       setProdutos([]);
