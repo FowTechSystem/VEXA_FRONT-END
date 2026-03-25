@@ -10,6 +10,12 @@ const USER_DATA_KEY = "userData";
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
 const DEV_ADMIN_EMAIL = "dev@gmail.com";
 
+/** Produção: defina VITE_API_BASE_URL no build (ex.: https://api.seudominio.com) ou use proxy /api no nginx. */
+const apiBaseURL = (() => {
+  const raw = import.meta.env.VITE_API_BASE_URL?.trim();
+  return raw ? raw.replace(/\/$/, "") : "/api";
+})();
+
 const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(AUTH_KEY);
