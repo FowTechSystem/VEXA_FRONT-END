@@ -1,3 +1,11 @@
+# VEXA CRM (front-end)
+
+React + Vite. **Deploy na VPS / API:** [`docs/FRONTEND-DEPLOY-VPS.md`](./docs/FRONTEND-DEPLOY-VPS.md). Produção: `VITE_API_URL` — veja [`.env.production.example`](./.env.production.example).
+
+**Docker (Nginx na VPS):** `cp .env.docker.example .env` → ajuste `VITE_API_URL` → `docker compose up -d --build`. Detalhes: [`docs/DOCKER-FRONT.md`](./docs/DOCKER-FRONT.md).
+
+---
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
