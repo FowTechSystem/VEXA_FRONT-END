@@ -3,8 +3,8 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 // Em dev, `/api` → proxy. Alvo padrão: API local HTTPS (launchSettings).
-// Para testar contra a VPS: crie `.env.development` com, por exemplo:
-// VITE_DEV_PROXY_TARGET=http://187.77.40.99:8080
+// Para testar contra um backend remoto em dev: `.env.development` com, por exemplo:
+// VITE_DEV_PROXY_TARGET=https://sistemavexa.com  (ou http apenas em página http local)
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const proxyTarget =

@@ -2,7 +2,8 @@
 # VEXA CRM — build do front (Vite) + Nginx servindo arquivos estáticos
 # =============================================================================
 # A URL da API entra no bundle no momento do build (VITE_*).
-# Ex.: docker compose build --build-arg VITE_API_URL=http://SEU_IP:8080
+# Produção com Nginx em /api: omita VITE_API_URL (bundle usa /api no mesmo host).
+# Só use build-arg se a API for outro host HTTPS: --build-arg VITE_API_URL=https://seudominio.com
 
 FROM node:22-alpine AS builder
 
