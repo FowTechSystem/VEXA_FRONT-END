@@ -10,6 +10,8 @@
  * - VITE_API_URL — host sem /api no final (ex.: https://sistemavexa.com)
  *
  * Não use http:// + IP em builds servidos em HTTPS: o navegador bloqueia (Mixed Content).
+ *
+ * Contrato da API: docs/CONTRATO-API-FRONT-BACKEND.md
  */
 export function resolveApiBaseURL() {
   const full = import.meta.env.VITE_API_BASE_URL?.trim();

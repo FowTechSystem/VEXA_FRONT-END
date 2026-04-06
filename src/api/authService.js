@@ -1,24 +1,11 @@
 /**
- * =============================================================================
- * AUTH SERVICE - Ponto de Integração para o Backend (Multi-tenancy)
- * =============================================================================
+ * Autenticação — alinhado ao backend ASP.NET Core (CRMVEXA).
  *
- * O BACKEND DEVE IMPLEMENTAR:
+ * Contrato: POST /api/Auth/login, JSON camelCase { email, password }.
+ * Resposta 200: { token, user } (aceita também Token/User se vier PascalCase).
+ * Demais chamadas: Authorization: Bearer <token> (axiosConfig).
  *
- * POST /api/auth/login
- *   Body: { email: string, password: string }
- *   Success 200: {
- *     token: string,
- *     user: { id, empresaId, nome, email, perfil [, empresaNome ] }
- *   }
- *   Error 401: { message: "Credenciais inválidas" }
- *   Error 500: { message: "Erro interno" }
- *
- * Multi-tenancy:
- * - O backend retorna user.empresaId no login; o frontend guarda o user completo.
- * - Todas as requisições autenticadas enviam apenas: Authorization: Bearer <token>.
- * - NÃO envie empresaId no body (POST/PUT) nem na query (GET); o backend usa o token.
- * =============================================================================
+ * Detalhes: docs/CONTRATO-API-FRONT-BACKEND.md
  */
 
 import api from "./axiosConfig";
@@ -28,22 +15,33 @@ const TOKEN_KEY = "token";
 const USER_EMAIL_KEY = "userEmail";
 const USER_DATA_KEY = "userData";
 
+/** Normaliza resposta do login (camelCase padrão; fallback PascalCase). */
+function normalizeLoginResponse(data) {
+  if (!data || typeof data !== "object") return { token: undefined, user: undefined };
+  const token = data.token ?? data.Token;
+  const user = data.user ?? data.User ?? undefined;
+  return { ...data, token, user };
+}
+
 export const authService = {
   /**
-   * Faz login no backend. Guarda token e user (com empresaId).
    * @param {string} email
    * @param {string} password
-   * @returns {Promise<{token: string, user?: { id, empresaId, nome, email, perfil } }>}
+   * @returns {Promise<{ token?: string, user?: object }>}
    */
   async login(email, password) {
-    const response = await api.post("/auth/login", { email, password });
-    const data = response.data;
+    const trimmedEmail = String(email ?? "").trim();
+    const response = await api.post("/Auth/login", {
+      email: trimmedEmail,
+      password: String(password ?? ""),
+    });
+    const data = normalizeLoginResponse(response.data);
 
     if (data.token) {
       localStorage.setItem(TOKEN_KEY, data.token);
       localStorage.setItem(AUTH_KEY, "true");
       sessionStorage.setItem(AUTH_KEY, "true");
-      localStorage.setItem(USER_EMAIL_KEY, email);
+      localStorage.setItem(USER_EMAIL_KEY, trimmedEmail);
       if (data.user) {
         localStorage.setItem(USER_DATA_KEY, JSON.stringify(data.user));
       }
@@ -52,9 +50,6 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Remove token e user (logout). Próximo login trará dados novos.
-   */
   logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(AUTH_KEY);
@@ -63,10 +58,6 @@ export const authService = {
     sessionStorage.removeItem(AUTH_KEY);
   },
 
-  /**
-   * Retorna o usuário logado (com empresaId). {} se não houver.
-   * @returns {{ id?: number, empresaId?: number, nome?: string, email?: string, perfil?: string, empresaNome?: string }}
-   */
   getUsuario() {
     try {
       const raw = localStorage.getItem(USER_DATA_KEY);
@@ -76,9 +67,6 @@ export const authService = {
     }
   },
 
-  /**
-   * Verifica se o usuário está autenticado.
-   */
   isAuthenticated() {
     const token = localStorage.getItem(TOKEN_KEY);
     const hasAuth =
@@ -87,9 +75,6 @@ export const authService = {
     return !!(token && hasAuth);
   },
 
-  /**
-   * Retorna o token atual (usado no header Authorization).
-   */
   getToken() {
     return localStorage.getItem(TOKEN_KEY);
   },

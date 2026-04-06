@@ -1,5 +1,6 @@
 // src/api/axiosConfig.js
-// Multi-tenancy: envie apenas Authorization: Bearer <token>. Não envie empresaId no body nem na query.
+// Base URL: src/config/apiBase.js (produção: /api no mesmo host HTTPS — ver docs/CONTRATO-API-FRONT-BACKEND.md).
+// Autenticação: Authorization: Bearer <token>. Multi-tenancy dev: X-Empresa-Id (admin); não enviar empresaId no body/query.
 import axios from "axios";
 import { apiBaseURL } from "../config/apiBase";
 
