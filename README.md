@@ -8,6 +8,8 @@ React + Vite.
 
 **Docker:** `cp .env.docker.example .env` → deixe `VITE_API_URL` vazio se o proxy `/api` estiver no mesmo domínio → `docker compose up -d --build`.
 
+**Contrato com a API (ASP.NET):** [`docs/CONTRATO-API-FRONT-BACKEND.md`](./docs/CONTRATO-API-FRONT-BACKEND.md) · checklist proxy/HTTPS: [`docs/VERIFICACAO-API-PROXY-HTTPS.md`](./docs/VERIFICACAO-API-PROXY-HTTPS.md).
+
 ---
 
 # React + Vite

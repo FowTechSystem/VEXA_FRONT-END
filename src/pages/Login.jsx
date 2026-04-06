@@ -67,11 +67,13 @@ function Login() {
         setOpenAviso(true);
       } else if (error.code === "ERR_NETWORK") {
         showError(
-          "Servidor indisponível. Verifique se o backend está rodando em /api/auth/login",
+          "Servidor indisponível. Confirme se a API responde em /api/Auth/login no mesmo domínio (HTTPS) e se o proxy Nginx encaminha /api.",
         );
       } else {
         setMensagemAviso(
-          error.response?.data?.message || "Erro ao fazer login. Tente novamente.",
+          error.response?.data?.message ||
+            error.response?.data?.Message ||
+            "Erro ao fazer login. Tente novamente.",
         );
         setOpenAviso(true);
       }
