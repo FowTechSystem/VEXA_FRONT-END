@@ -1,6 +1,7 @@
 // src/api/axiosConfig.js
 // Multi-tenancy: envie apenas Authorization: Bearer <token>. Não envie empresaId no body nem na query.
 import axios from "axios";
+import { apiBaseURL } from "../config/apiBase";
 
 const TOKEN_KEY = "token";
 const AUTH_KEY = "isAuthenticated";
@@ -9,26 +10,6 @@ const USER_DATA_KEY = "userData";
 
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
 const DEV_ADMIN_EMAIL = "dev@gmail.com";
-
-/**
- * Dev: base `/api` → Vite proxy (vite.config.js) encaminha para o backend local.
- * Produção: defina `VITE_API_URL` (host da API, sem /api no final), ex.: http://187.77.40.99:8080
- * Opcional: `VITE_API_BASE_URL` com o path completo até /api (sobrescreve VITE_API_URL).
- */
-const apiBaseURL = (() => {
-  const full = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (full) return full.replace(/\/$/, "");
-  const host = import.meta.env.VITE_API_URL?.trim();
-  if (host) return `${host.replace(/\/$/, "")}/api`;
-  return "/api";
-})();
-
-if (import.meta.env.PROD && apiBaseURL === "/api") {
-  // Sem VITE_API_URL o bundle chama /api no mesmo host do front (Nginx/CDN) — não é a API na VPS.
-  console.warn(
-    "[VEXA] Build de produção sem VITE_API_URL: defina VITE_API_URL (ou VITE_API_BASE_URL) antes de npm run build.",
-  );
-}
 
 const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);

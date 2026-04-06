@@ -1,8 +1,12 @@
 # VEXA CRM (front-end)
 
-React + Vite. **Deploy na VPS / API:** [`docs/FRONTEND-DEPLOY-VPS.md`](./docs/FRONTEND-DEPLOY-VPS.md). Produção: `VITE_API_URL` — veja [`.env.production.example`](./.env.production.example).
+React + Vite.
 
-**Docker (Nginx na VPS):** `cp .env.docker.example .env` → ajuste `VITE_API_URL` → `docker compose up -d --build`. Detalhes: [`docs/DOCKER-FRONT.md`](./docs/DOCKER-FRONT.md).
+**Produção (HTTPS, sem Mixed Content):** com o front em `https://sistemavexa.com`, o padrão é chamar a API em `/api/...` no **mesmo** host (requisição relativa). Configure o Nginx para fazer `proxy_pass` de `/api` para o backend interno (ex.: porta 8080). Só defina `VITE_API_URL` ou `VITE_API_BASE_URL` se a API estiver em outro domínio — e use **HTTPS**, nunca `http://` + IP no bundle de um site HTTPS. Veja [`.env.production.example`](./.env.production.example).
+
+**Após alterar qualquer variável `VITE_*`:** rode `npm run build` de novo e publique o novo artefato (os valores são embutidos no JavaScript no momento do build).
+
+**Docker:** `cp .env.docker.example .env` → deixe `VITE_API_URL` vazio se o proxy `/api` estiver no mesmo domínio → `docker compose up -d --build`.
 
 ---
 

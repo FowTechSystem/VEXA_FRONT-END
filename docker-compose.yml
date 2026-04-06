@@ -1,6 +1,6 @@
 # VEXA CRM — front estático (Nginx) na VPS
 #
-# 1. Copie .env.docker.example para .env e ajuste VITE_API_URL (URL pública da API).
+# 1. Copie .env.docker.example para .env. Com proxy /api no mesmo domínio, deixe VITE_API_URL vazio.
 # 2. docker compose up -d --build
 # 3. Abra no navegador: http://SEU_IP:80 (ou a porta mapeada abaixo)
 
