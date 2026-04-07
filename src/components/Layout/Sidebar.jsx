@@ -1,5 +1,5 @@
 // src/components/Layout/Sidebar.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Drawer,
@@ -13,6 +13,8 @@ import {
   Typography,
   TextField,
   InputAdornment,
+  Collapse,
+  IconButton,
 } from "@mui/material";
 import {
   Dashboard,
@@ -35,6 +37,8 @@ import {
   Business,
   Category,
   Label,
+  ExpandLess,
+  ExpandMore,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
@@ -42,6 +46,9 @@ import { useEmpresa } from "../../contexts/EmpresaContext";
 
 const drawerWidth = 260;
 const DEV_ADMIN_EMAIL = "dev@gmail.com";
+
+/** Rotas consideradas “dentro” do grupo Produtos (mantém submenu aberto e destaque no pai). */
+const PRODUTOS_GROUP_PATHS = ["produtos", "categorias", "marcas"];
 
 const menuSectionsBase = [
   {
@@ -60,7 +67,15 @@ const menuSectionsBase = [
   {
     title: "Gestão",
     items: [
-      { text: "Produtos", icon: <Inventory />, path: "produtos" },
+      {
+        text: "Produtos",
+        icon: <Inventory />,
+        path: "produtos",
+        children: [
+          { text: "Categorias", icon: <Category />, path: "categorias" },
+          { text: "Marcas", icon: <Label />, path: "marcas" },
+        ],
+      },
       { text: "Estoque", icon: <Warehouse />, path: "estoque" },
       { text: "Compras", icon: <ShoppingBag />, path: "compras" },
     ],
@@ -78,8 +93,6 @@ const menuSectionsBase = [
       { text: "Usuários", icon: <AccountCircle />, path: "usuarios" },
       { text: "Clientes", icon: <People />, path: "clientes" },
       { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores" },
-      { text: "Categorias", icon: <Category />, path: "categorias" },
-      { text: "Marcas", icon: <Label />, path: "marcas" },
     ],
   },
   {
@@ -95,13 +108,49 @@ const menuSectionsBase = [
   },
 ];
 
+function isProdutosGroupActive(pathname) {
+  return PRODUTOS_GROUP_PATHS.some((p) => {
+    const normalized = `/${p}`;
+    return pathname === normalized || pathname.startsWith(`${normalized}/`);
+  });
+}
+
+function filterMenuSections(sections, termo) {
+  const t = termo.trim().toLowerCase();
+  if (!t) return sections;
+
+  return sections
+    .map((section) => {
+      const items = section.items
+        .map((item) => {
+          if (item.children?.length) {
+            const parentHit = item.text.toLowerCase().includes(t);
+            const matchedChildren = item.children.filter((c) =>
+              c.text.toLowerCase().includes(t),
+            );
+            if (parentHit) return { ...item, children: item.children };
+            if (matchedChildren.length)
+              return { ...item, children: matchedChildren };
+            return null;
+          }
+          return item.text.toLowerCase().includes(t) ? item : null;
+        })
+        .filter(Boolean);
+
+      return { ...section, items };
+    })
+    .filter((section) => section.items.length > 0);
+}
+
 function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pesquisa, setPesquisa] = useState("");
+  const [produtosSubmenuOpen, setProdutosSubmenuOpen] = useState(false);
   const user = authService.getUsuario();
   const { empresaAtiva } = useEmpresa();
   const isDevAdmin = user.email === DEV_ADMIN_EMAIL;
+
   const menuSections = useMemo(() => {
     if (!isDevAdmin) return menuSectionsBase;
     return [
@@ -113,21 +162,35 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
     ];
   }, [isDevAdmin]);
 
-  const isActive = (path) =>
-    location.pathname === (path.startsWith("/") ? path : "/" + path);
+  const menuFiltrado = useMemo(
+    () => filterMenuSections(menuSections, pesquisa),
+    [pesquisa, menuSections],
+  );
 
-  const menuFiltrado = useMemo(() => {
-    const termo = pesquisa.trim().toLowerCase();
-    if (!termo) return menuSections;
-    return menuSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) =>
-          item.text.toLowerCase().includes(termo)
-        ),
-      }))
-      .filter((section) => section.items.length > 0);
-  }, [pesquisa, menuSections]);
+  const pesquisaAtiva = pesquisa.trim().length > 0;
+
+  const pesquisaMostraSubmenuProdutos = useMemo(() => {
+    if (!pesquisaAtiva) return false;
+    const gestao = menuFiltrado.find((s) => s.title === "Gestão");
+    return !!gestao?.items.some(
+      (i) => i.text === "Produtos" && i.children?.length,
+    );
+  }, [menuFiltrado, pesquisaAtiva]);
+
+  useEffect(() => {
+    if (isProdutosGroupActive(location.pathname)) {
+      setProdutosSubmenuOpen(true);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (pesquisaMostraSubmenuProdutos) {
+      setProdutosSubmenuOpen(true);
+    }
+  }, [pesquisaMostraSubmenuProdutos]);
+
+  const isActive = (path) =>
+    location.pathname === (path.startsWith("/") ? path : `/${path}`);
 
   const drawer = (
     <Box
@@ -138,7 +201,6 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         bgcolor: "background.paper",
       }}
     >
-      {/* Logo */}
       <Toolbar
         sx={{
           bgcolor: "primary.main",
@@ -153,13 +215,12 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
       <Divider />
 
-      {/* Pesquisa */}
       <Box sx={{ px: 1.5, py: 2 }}>
         <TextField
           fullWidth
           size="small"
           label="Pesquisa"
-          placeholder="Buscar menu (ex.: cli, fiscal)"
+          placeholder="Buscar menu (ex.: prod, categoria, marca)"
           value={pesquisa}
           onChange={(e) => setPesquisa(e.target.value)}
           InputProps={{
@@ -180,14 +241,11 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
       <Divider />
 
-      {/* Menu */}
       <Box
         sx={{
           flexGrow: 1,
           overflowY: "auto",
-          "&::-webkit-scrollbar": {
-            display: "none",
-          },
+          "&::-webkit-scrollbar": { display: "none" },
           msOverflowStyle: "none",
           scrollbarWidth: "none",
         }}
@@ -209,49 +267,165 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                 {section.title}
               </Typography>
 
-              {section.items.map((item) => (
-                <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-                  <ListItemButton
-                    onClick={() => {
-                      navigate(item.path);
-                      if (onDrawerToggle) onDrawerToggle();
-                    }}
-                    sx={{
-                      borderRadius: 2,
-                      bgcolor: isActive(item.path)
-                        ? "primary.main"
-                        : "transparent",
-                      color: isActive(item.path) ? "white" : "text.primary",
-                      "&:hover": {
-                        bgcolor: isActive(item.path)
-                          ? "primary.dark"
-                          : "action.hover",
-                      },
-                    }}
-                  >
-                    <ListItemIcon
+              {section.items.map((item) => {
+                if (item.children?.length) {
+                  const parentActive =
+                    isActive(item.path) || isProdutosGroupActive(location.pathname);
+                  const open =
+                    produtosSubmenuOpen || (pesquisaAtiva && parentActive);
+
+                  return (
+                    <Box key={item.text}>
+                      <ListItem
+                        disablePadding
+                        secondaryAction={
+                          <IconButton
+                            edge="end"
+                            size="small"
+                            aria-label={open ? "Recolher submenu" : "Expandir submenu"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProdutosSubmenuOpen((v) => !v);
+                            }}
+                            sx={{ mr: 0.5, color: "text.secondary" }}
+                          >
+                            {open ? (
+                              <ExpandLess fontSize="small" />
+                            ) : (
+                              <ExpandMore fontSize="small" />
+                            )}
+                          </IconButton>
+                        }
+                        sx={{ display: "block", mb: 0.5 }}
+                      >
+                        <ListItemButton
+                          onClick={() => {
+                            navigate(`/${item.path}`);
+                            setProdutosSubmenuOpen(true);
+                            if (onDrawerToggle) onDrawerToggle();
+                          }}
+                          sx={{
+                            borderRadius: 2,
+                            pr: 5,
+                            bgcolor: parentActive ? "primary.main" : "transparent",
+                            color: parentActive ? "white" : "text.primary",
+                            "&:hover": {
+                              bgcolor: parentActive
+                                ? "primary.dark"
+                                : "action.hover",
+                            },
+                          }}
+                        >
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 40,
+                              color: parentActive ? "white" : "text.secondary",
+                            }}
+                          >
+                            {item.icon}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={item.text}
+                            primaryTypographyProps={{
+                              fontWeight: parentActive ? 600 : 400,
+                            }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+
+                      <Collapse in={open} timeout="auto" unmountOnExit={false}>
+                        <List component="div" disablePadding sx={{ pl: 1.5 }}>
+                          {item.children.map((sub) => {
+                            const subActive = isActive(sub.path);
+                            return (
+                              <ListItem key={sub.path} disablePadding sx={{ mb: 0.25 }}>
+                                <ListItemButton
+                                  onClick={() => {
+                                    navigate(`/${sub.path}`);
+                                    if (onDrawerToggle) onDrawerToggle();
+                                  }}
+                                  sx={{
+                                    borderRadius: 2,
+                                    pl: 2,
+                                    py: 0.75,
+                                    bgcolor: subActive ? "action.selected" : "transparent",
+                                    color: "text.primary",
+                                    "&:hover": {
+                                      bgcolor: subActive
+                                        ? "action.selected"
+                                        : "action.hover",
+                                    },
+                                  }}
+                                >
+                                  <ListItemIcon
+                                    sx={{
+                                      minWidth: 36,
+                                      color: subActive ? "primary.main" : "text.secondary",
+                                    }}
+                                  >
+                                    {sub.icon}
+                                  </ListItemIcon>
+                                  <ListItemText
+                                    primary={sub.text}
+                                    primaryTypographyProps={{
+                                      variant: "body2",
+                                      fontWeight: subActive ? 600 : 400,
+                                      fontSize: "0.875rem",
+                                    }}
+                                  />
+                                </ListItemButton>
+                              </ListItem>
+                            );
+                          })}
+                        </List>
+                      </Collapse>
+                    </Box>
+                  );
+                }
+
+                return (
+                  <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      onClick={() => {
+                        navigate(item.path.startsWith("/") ? item.path : `/${item.path}`);
+                        if (onDrawerToggle) onDrawerToggle();
+                      }}
                       sx={{
-                        minWidth: 40,
-                        color: isActive(item.path) ? "white" : "text.secondary",
+                        borderRadius: 2,
+                        bgcolor: isActive(item.path)
+                          ? "primary.main"
+                          : "transparent",
+                        color: isActive(item.path) ? "white" : "text.primary",
+                        "&:hover": {
+                          bgcolor: isActive(item.path)
+                            ? "primary.dark"
+                            : "action.hover",
+                        },
                       }}
                     >
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.text}
-                      primaryTypographyProps={{
-                        fontWeight: isActive(item.path) ? 600 : 400,
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 40,
+                          color: isActive(item.path) ? "white" : "text.secondary",
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontWeight: isActive(item.path) ? 600 : 400,
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </Box>
           ))}
         </List>
       </Box>
 
-      {/* Footer */}
       <Box sx={{ p: 2, borderTop: "1px solid", borderColor: "divider" }}>
         <Typography
           variant="caption"
@@ -261,7 +435,9 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         >
           VEXA v1.0
         </Typography>
-        {(empresaAtiva ? (empresaAtiva.nome || empresaAtiva.nomeFantasia) : user.empresaNome) && (
+        {(empresaAtiva
+          ? empresaAtiva.nome || empresaAtiva.nomeFantasia
+          : user.empresaNome) && (
           <Typography
             variant="caption"
             color="text.secondary"
@@ -269,7 +445,11 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
             display="block"
             sx={{ fontWeight: 600 }}
           >
-            {empresaAtiva ? (empresaAtiva.nome || empresaAtiva.nomeFantasia || `Empresa #${empresaAtiva.id}`) : user.empresaNome}
+            {empresaAtiva
+              ? empresaAtiva.nome ||
+                empresaAtiva.nomeFantasia ||
+                `Empresa #${empresaAtiva.id}`
+              : user.empresaNome}
           </Typography>
         )}
         <Typography
@@ -286,7 +466,6 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   return (
     <>
-      {/* Desktop */}
       <Drawer
         variant="permanent"
         sx={{
@@ -303,7 +482,6 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         {drawer}
       </Drawer>
 
-      {/* Mobile */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
