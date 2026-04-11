@@ -24,7 +24,6 @@ import {
   MenuItem,
   InputAdornment,
 } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 import { showError, showInfo, showSuccess } from "../utils/notifications";
 import {
   Receipt,
@@ -73,15 +72,6 @@ function Fiscal() {
   const [mensagemValidacao, setMensagemValidacao] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
   const selectFieldSx = {
     "& .MuiOutlinedInput-root": {
       borderRadius: 1.5,
@@ -834,7 +824,6 @@ function Fiscal() {
                     onChange={handleChange}
                     placeholder="Nome do cliente"
                     size="small"
-                    sx={requiredFieldSx}
                   />
                 </Grid>
 
@@ -866,7 +855,6 @@ function Fiscal() {
                     }}
                     inputProps={{ step: "0.01", min: "0" }}
                     size="small"
-                    sx={requiredFieldSx}
                   />
                 </Grid>
 

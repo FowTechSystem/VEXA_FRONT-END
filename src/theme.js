@@ -1,5 +1,5 @@
 // src/theme.js
-import { createTheme } from "@mui/material/styles";
+import { createTheme, alpha } from "@mui/material/styles";
 
 const getTheme = (mode) => {
   const isDark = mode === "dark";
@@ -178,6 +178,53 @@ const getTheme = (mode) => {
                 borderColor: isDark ? "rgba(59, 130, 246, 0.5)" : undefined,
               },
             },
+          },
+        },
+      },
+      /** Campos com `required`: destaque (borda, fundo e label) em relação aos opcionais */
+      MuiFormControl: {
+        styleOverrides: {
+          root: ({ theme, ownerState }) => {
+            if (!ownerState.required) return {};
+            const p = theme.palette.primary;
+            return {
+              "& .MuiOutlinedInput-root:not(.Mui-error):not(.Mui-disabled)": {
+                backgroundColor: alpha(
+                  p.main,
+                  theme.palette.mode === "dark" ? 0.12 : 0.06,
+                ),
+                "& fieldset": {
+                  borderColor: alpha(p.main, theme.palette.mode === "dark" ? 0.75 : 0.55),
+                  borderWidth: 2,
+                },
+                "&:hover fieldset": {
+                  borderColor: p.main,
+                },
+                "&.Mui-focused fieldset": {
+                  borderColor: p.main,
+                  borderWidth: 2,
+                },
+              },
+            };
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: ({ theme, ownerState }) => {
+            if (!ownerState.required) return {};
+            const p = theme.palette.primary;
+            return {
+              fontWeight: 600,
+              color:
+                theme.palette.mode === "dark" ? p.light : p.dark,
+              "&.Mui-focused": {
+                color: p.main,
+              },
+              "& .MuiInputLabel-asterisk": {
+                color: p.main,
+              },
+            };
           },
         },
       },

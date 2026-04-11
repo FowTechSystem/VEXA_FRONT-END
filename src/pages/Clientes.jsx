@@ -34,7 +34,6 @@ import {
   Edit,
   Delete,
   Search,
-  CameraAlt,
   Person,
   Home,
   Extension,
@@ -47,6 +46,7 @@ import {
 } from "@mui/icons-material";
 import { alpha } from "@mui/material/styles";
 import { LoadingBox } from "../components/LoadingBox";
+import { FotoPerfilPicker } from "../components/FotoPerfilPicker";
 import { clientesService } from "../api/clientesService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
 import {
@@ -94,6 +94,9 @@ function Clientes() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
+  const [openConfirmDelete, setOpenConfirmDelete] = useState(false);
+  const [clienteParaExcluir, setClienteParaExcluir] = useState(null);
+  const [excluindoCliente, setExcluindoCliente] = useState(false);
 
   // Estados para busca e paginação
   const [filtro] = useState("nome");
@@ -107,7 +110,6 @@ function Clientes() {
   // Estado para foto
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
-
   // Estados para validação
   const [cpfError, setCpfError] = useState("");
   const [cpfChecking, setCpfChecking] = useState(false);
@@ -294,6 +296,9 @@ function Clientes() {
       cnpj: cnpj,
     });
 
+    if (cnpj.length > 0) {
+      setCpfError("");
+    }
     if (cnpj.length > 0 && cnpj.length < 14) {
       setCnpjError(validationMessages.exactLength("CNPJ", 14));
     } else if (cnpj.length === 14) {
@@ -351,21 +356,9 @@ function Clientes() {
     setPaginaAtual(1);
   };
 
-  const handleFotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        showError("Imagem deve ter no máximo 5MB");
-        return;
-      }
-
-      setFotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handlePhotoReady = ({ dataUrl, file }) => {
+    setFotoPreview(dataUrl);
+    if (file) setFotoFile(file);
   };
 
   const handleOpenDialog = (cliente = null) => {
@@ -438,6 +431,33 @@ function Clientes() {
     const faltando = [];
     if (!currentCliente.nomeCompleto?.trim()) faltando.push("Nome");
     if (!currentCliente.dataNascimento?.trim()) faltando.push("Data de Nascimento");
+
+    const cpfDigits = (currentCliente.cpf || "").replace(/\D/g, "");
+    const cnpjDigits = (currentCliente.cnpj || "").replace(/\D/g, "");
+    const usandoCnpj = cnpjDigits.length > 0;
+
+    if (usandoCnpj) {
+      if (cnpjDigits.length !== 14) {
+        faltando.push(validationMessages.exactLength("CNPJ", 14));
+      } else {
+        const cnpjOk = validateCNPJ(currentCliente.cnpj || cnpjDigits);
+        if (!cnpjOk.valid) faltando.push(cnpjOk.message);
+      }
+      if (cpfDigits.length > 0 && cpfDigits.length < 11) {
+        faltando.push("Complete o CPF com 11 dígitos ou deixe o CPF em branco ao usar CNPJ.");
+      } else if (cpfDigits.length === 11) {
+        const cpfOk = validateCPF(currentCliente.cpf || cpfDigits);
+        if (!cpfOk.valid) faltando.push(cpfOk.message);
+      }
+    } else {
+      if (!cpfDigits.length) {
+        faltando.push("CPF");
+      } else {
+        const cpfOk = validateCPF(currentCliente.cpf || cpfDigits);
+        if (!cpfOk.valid) faltando.push(cpfOk.message);
+      }
+    }
+
     if (cpfError || cnpjError) {
       faltando.push("Corrija CPF ou CNPJ antes de salvar");
     }
@@ -454,7 +474,21 @@ function Clientes() {
       if (fotoFile) {
         if (editMode) {
           const uploadResult = await clientesService.uploadFoto(fotoFile);
-          fotoUrl = uploadResult.url;
+          const novaUrl =
+            uploadResult?.url ??
+            uploadResult?.fotoUrl ??
+            uploadResult?.path ??
+            uploadResult?.location ??
+            (typeof uploadResult === "string" ? uploadResult : null);
+          if (novaUrl) {
+            fotoUrl = novaUrl;
+          } else {
+            console.warn("[Clientes] POST /clientes/upload-foto: resposta sem URL conhecida", uploadResult);
+            showError(
+              "A foto foi enviada, mas a API não retornou a URL no formato esperado (url, fotoUrl ou path). Verifique o backend.",
+            );
+            return;
+          }
         } else {
           fotoBase64 = fotoPreview?.includes(",") ? fotoPreview.split(",")[1] : null;
         }
@@ -480,38 +514,66 @@ function Clientes() {
       fetchClientes();
       handleCloseDialog();
     } catch (error) {
-      console.error("Erro ao salvar cliente:", error);
+      const res = error.response;
+      const status = res?.status;
+      const errorData = res?.data;
+      console.error("[Clientes] Erro ao salvar cliente", {
+        status,
+        url: res?.config?.url,
+        method: res?.config?.method,
+        data: errorData,
+        payloadEnviado: res?.config?.data,
+      });
 
-      if (error.response) {
-        const errorData = error.response.data;
+      const fallback = editMode
+        ? errorMessages.update(entityNames.cliente)
+        : errorMessages.create(entityNames.cliente);
+
+      if (res && errorData) {
         if (errorData.errors) {
           const firstError = Object.values(errorData.errors)[0];
-          showError(firstError[0] || errorMessages.create(entityNames.cliente));
+          showError(
+            Array.isArray(firstError) ? firstError[0] : firstError || fallback,
+          );
         } else {
           showError(
-            errorData.message || errorMessages.create(entityNames.cliente),
+            errorData.message ||
+              errorData.detail ||
+              errorData.title ||
+              (typeof errorData === "string" ? errorData : fallback),
           );
         }
       } else {
-        showError(
-          editMode
-            ? errorMessages.update(entityNames.cliente)
-            : errorMessages.create(entityNames.cliente),
-        );
+        showError(fallback);
       }
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm(confirmMessages.delete(entityNames.cliente))) {
-      try {
-        await clientesService.delete(id);
-        showSuccess(successMessages.delete(entityNames.cliente));
-        fetchClientes();
-      } catch (error) {
-        console.error("Erro ao excluir cliente:", error);
-        showError(errorMessages.delete(entityNames.cliente));
-      }
+  const handleAbrirConfirmExcluir = (cliente) => {
+    setClienteParaExcluir({ id: cliente.id, nome: cliente.nomeCompleto || "" });
+    setOpenConfirmDelete(true);
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoCliente) return;
+    setOpenConfirmDelete(false);
+    setClienteParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!clienteParaExcluir?.id) return;
+    setExcluindoCliente(true);
+    try {
+      await clientesService.delete(clienteParaExcluir.id);
+      showSuccess(successMessages.delete(entityNames.cliente));
+      fetchClientes();
+      setOpenConfirmDelete(false);
+      setClienteParaExcluir(null);
+    } catch (error) {
+      console.error("Erro ao excluir cliente:", error);
+      showError(errorMessages.delete(entityNames.cliente));
+    } finally {
+      setExcluindoCliente(false);
     }
   };
 
@@ -522,15 +584,6 @@ function Clientes() {
     });
   };
 
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
   const selectFieldSx = {
     "& .MuiOutlinedInput-root": {
       borderRadius: 1.5,
@@ -542,6 +595,12 @@ function Clientes() {
     "& .MuiInputLabel-root": { color: theme.palette.text.secondary },
     "& .MuiSelect-select": { py: 1.25, fontSize: "0.875rem" },
   };
+
+  /** Com qualquer dígito em CNPJ: documento principal é CNPJ (estilo obrigatório nele); senão, CPF. */
+  const cnpjDigitsSomente = (currentCliente.cnpj || "").replace(/\D/g, "");
+  const documentoPrincipalCnpj = cnpjDigitsSomente.length > 0;
+  const cpfObrigatorio = !documentoPrincipalCnpj;
+  const cnpjObrigatorio = documentoPrincipalCnpj;
 
   return (
     <Box
@@ -721,7 +780,7 @@ function Clientes() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(cliente.id)}
+                      onClick={() => handleAbrirConfirmExcluir(cliente)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { bgcolor: "error.light", color: "error.main" },
@@ -903,27 +962,22 @@ function Clientes() {
               }}
             >
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pb: 3, mb: 3, borderBottom: 1, borderColor: "divider" }}>
-                <Avatar
-                  src={fotoPreview}
-                  sx={{
-                    width: 100,
-                    height: 100,
-                    bgcolor: isDark ? theme.palette.grey[700] : theme.palette.grey[400],
-                    mb: 1.5,
-                  }}
-                >
-                  {!fotoPreview && <Person sx={{ fontSize: 50, color: theme.palette.common.white }} />}
+                <Avatar src={fotoPreview || undefined} sx={{ width: 100, height: 100, bgcolor: "action.hover", mb: 1.5 }}>
+                  {!fotoPreview && <Person sx={{ fontSize: 50, color: "text.secondary" }} />}
                 </Avatar>
-                <input accept="image/*" style={{ display: "none" }} id="foto-upload" type="file" onChange={handleFotoChange} />
-                <label htmlFor="foto-upload"><Button component="span" startIcon={<CameraAlt />} sx={{ textTransform: "none", color: theme.palette.text.secondary, fontSize: "13px" }}>Adicionar Foto</Button></label>
+                <FotoPerfilPicker
+                  onPhotoReady={handlePhotoReady}
+                  onError={showError}
+                  sx={{ mt: 0.5, width: "100%", maxWidth: 320 }}
+                />
               </Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2, display: "flex", alignItems: "center", gap: 1 }}><Person fontSize="small" /> Geral</Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12}><TextField fullWidth required label="Nome" name="nomeCompleto" value={currentCliente.nomeCompleto} onChange={handleChange} placeholder="Nome completo do cliente" size="small" sx={requiredFieldSx} /></Grid>
-                <Grid item xs={12} md={3}><TextField fullWidth label="CPF" name="cpf" value={currentCliente.cpf} onChange={handleCPFChange} error={!!cpfError} helperText={cpfError || ""} size="small" placeholder="000.000.000-00" InputProps={{ endAdornment: cpfChecking && <CircularProgress size={20} /> }} /></Grid>
+                <Grid item xs={12}><TextField fullWidth required label="Nome" name="nomeCompleto" value={currentCliente.nomeCompleto} onChange={handleChange} placeholder="Nome completo do cliente" size="small" /></Grid>
+                <Grid item xs={12} md={3}><TextField fullWidth required={cpfObrigatorio} label="CPF" name="cpf" value={currentCliente.cpf} onChange={handleCPFChange} error={!!cpfError} helperText={cpfError || ""} size="small" placeholder="000.000.000-00" InputProps={{ endAdornment: cpfChecking && <CircularProgress size={20} /> }} /></Grid>
                 <Grid item xs={12} md={3}><TextField fullWidth label="RG" name="rg" value={currentCliente.rg} onChange={handleChange} size="small" placeholder="RG" /></Grid>
-                <Grid item xs={12} md={3}><TextField fullWidth label="CNPJ" name="cnpj" value={currentCliente.cnpj} onChange={handleCNPJChange} error={!!cnpjError} helperText={cnpjError || ""} size="small" placeholder="00.000.000/0000-00" /></Grid>
-                <Grid item xs={12} md={3}><TextField fullWidth required label="Data Nascimento" name="dataNascimento" type="date" value={currentCliente.dataNascimento} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} sx={requiredFieldSx} /></Grid>
+                <Grid item xs={12} md={3}><TextField fullWidth required={cnpjObrigatorio} label="CNPJ" name="cnpj" value={currentCliente.cnpj} onChange={handleCNPJChange} error={!!cnpjError} helperText={cnpjError || ""} size="small" placeholder="00.000.000/0000-00" /></Grid>
+                <Grid item xs={12} md={3}><TextField fullWidth required label="Data Nascimento" name="dataNascimento" type="date" value={currentCliente.dataNascimento} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentCliente.whatsApp} onChange={handleChange} size="small" placeholder="(00) 00000-0000" /></Grid>
                 <Grid item xs={12} md={4}><FormControl fullWidth size="small" sx={selectFieldSx}><InputLabel id="tipo-tel-label">Tipo</InputLabel><Select labelId="tipo-tel-label" label="Tipo" defaultValue="Celular"><MenuItem value="Celular">Celular</MenuItem><MenuItem value="Fixo">Fixo</MenuItem><MenuItem value="Comercial">Comercial</MenuItem></Select></FormControl></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentCliente.telefone} onChange={handleChange} size="small" placeholder="(00) 0000-0000" /></Grid>
@@ -962,6 +1016,59 @@ function Clientes() {
         <DialogTitle id="validacao-dialog-title" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Campos obrigatórios</DialogTitle>
         <DialogContent><Typography variant="body2" sx={{ color: theme.palette.text.primary, fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}><Button variant="contained" autoFocus onClick={() => setOpenValidacaoModal(false)} sx={{ textTransform: "none", minWidth: 100 }}>OK</Button></DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openConfirmDelete}
+        onClose={handleFecharConfirmExcluir}
+        aria-labelledby="confirm-delete-cliente-title"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            minWidth: 380,
+            maxWidth: 440,
+            bgcolor: theme.palette.background.paper,
+            border: "1px solid",
+            borderColor: "divider",
+          },
+        }}
+      >
+        <DialogTitle id="confirm-delete-cliente-title" sx={{ fontWeight: 600, color: "text.primary", pb: 1 }}>
+          Excluir cliente
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px", lineHeight: 1.6 }}>
+            {confirmMessages.delete(entityNames.cliente)}
+          </Typography>
+          {clienteParaExcluir?.nome ? (
+            <Typography
+              variant="subtitle2"
+              sx={{ mt: 2, fontWeight: 600, color: "text.primary", wordBreak: "break-word" }}
+            >
+              {clienteParaExcluir.nome}
+            </Typography>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1 }}>
+          <Button
+            type="button"
+            onClick={handleFecharConfirmExcluir}
+            disabled={excluindoCliente}
+            sx={{ textTransform: "none", color: "text.secondary" }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="contained"
+            color="error"
+            onClick={handleConfirmarExcluir}
+            disabled={excluindoCliente}
+            sx={{ textTransform: "none", minWidth: 100 }}
+          >
+            {excluindoCliente ? "Excluindo…" : "Excluir"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

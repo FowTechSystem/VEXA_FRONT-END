@@ -1,5 +1,5 @@
 // src/pages/CatalogoDigital.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -11,98 +11,104 @@ import {
   TextField,
   Chip,
   Alert,
-  Paper,
   useTheme,
-  CircularProgress,
-  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
   Tooltip,
 } from "@mui/material";
 import {
-  AddShoppingCart,
-  OpenInNew,
+  PictureAsPdf,
   Refresh,
-  TrendingUp,
-  TrendingFlat,
-  TrendingDown,
-  Lock,
+  WhatsApp,
+  SelectAll,
+  Deselect,
 } from "@mui/icons-material";
 import { produtosService } from "../api/produtosService";
-import { vendasService } from "../api/vendasService";
 import { catalogoService } from "../api/catalogoService";
+import {
+  montarDocumentoCatalogoPdf,
+  catalogoPdfParaBlob,
+  nomeArquivoCatalogoPdf,
+} from "../utils/catalogoPdf";
+import { CategoriaService } from "../api/categoriaService";
 import { authService } from "../api/authService";
 import { useEmpresa } from "../contexts/EmpresaContext";
 import { showSuccess, showError } from "../utils/notifications";
 import { LoadingBox } from "../components/LoadingBox";
 
-const MIN_PRODUTOS = 20;
+const MIN_PRODUTOS_GERAR = 1;
 
-// Classifica produtos por vendas: mais vendidos, mediana, baixa
-function classificarProdutos(produtos, vendasPorProduto) {
-  const comVendas = produtos.map((p) => {
-    const id = p.id ?? p.Id;
-    const qtd = vendasPorProduto[id] ?? 0;
-    return { ...p, _qtdVendida: qtd };
-  });
-  comVendas.sort((a, b) => b._qtdVendida - a._qtdVendida);
-  const total = comVendas.length;
-  const terco = Math.ceil(total / 3);
-  return {
-    maisVendidos: comVendas.slice(0, terco),
-    vendaMediana: comVendas.slice(terco, terco * 2),
-    baixaVenda: comVendas.slice(terco * 2),
-  };
-}
+const TIPOS_PRODUTO = [
+  { value: "", label: "Todos os tipos" },
+  { value: "roupas", label: "Roupas" },
+  { value: "calcados", label: "Calçados" },
+  { value: "acessorios", label: "Acessórios" },
+];
+
+const nomeProduto = (p) => p.nome ?? p.Nome ?? "Produto";
 
 function sugerirPreco(produto) {
   const pv = Number(produto.precoVenda ?? produto.PrecoVenda ?? 0);
   const pc = Number(produto.precoCusto ?? produto.PrecoCusto ?? 0);
   if (pv > 0) return pv;
-  if (pc > 0) return Math.round((pc * 1.5) * 100) / 100;
+  if (pc > 0) return Math.round(pc * 1.5 * 100) / 100;
   return 0;
 }
 
-const nomeProduto = (p) => p.nome ?? p.Nome ?? "Produto";
+function getTipoProduto(p) {
+  const t = (p.tipoTamanho ?? p.TipoTamanho ?? "roupas").toString().toLowerCase();
+  if (t === "calcados" || t === "acessorios") return t;
+  return "roupas";
+}
+
+function labelTipo(t) {
+  if (t === "calcados") return "Calçados";
+  if (t === "acessorios") return "Acessórios";
+  return "Roupas";
+}
+
+function parseListaCategorias(res) {
+  const raw = res?.categorias ?? res?.Categorias ?? res?.items ?? res;
+  if (Array.isArray(raw)) return raw;
+  return [];
+}
 
 function CatalogoDigital() {
   const theme = useTheme();
   const { empresaAtiva } = useEmpresa();
   const user = authService.getUsuario();
+
   const [carregando, setCarregando] = useState(true);
   const [produtos, setProdutos] = useState([]);
-  const [classificados, setClassificados] = useState({
-    maisVendidos: [],
-    vendaMediana: [],
-    baixaVenda: [],
-  });
+  const [categorias, setCategorias] = useState([]);
+
+  const [busca, setBusca] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroCategoriaId, setFiltroCategoriaId] = useState("");
+
   const [selecionados, setSelecionados] = useState({});
   const [precosSugeridos, setPrecosSugeridos] = useState({});
   const [gerando, setGerando] = useState(false);
+  /** Dados do último catálogo gerado (PDF + link) — necessário para WhatsApp com anexo. */
+  const [ultimoCatalogo, setUltimoCatalogo] = useState(null);
 
   const buscarDados = useCallback(async () => {
     setCarregando(true);
     try {
-      const [prodsRes, vendasRes] = await Promise.all([
-        produtosService.getAll({ tamanho: 500 }),
-        vendasService.getAll({ pagina: 1, tamanho: 500 }),
+      const [prodsRes, catRes] = await Promise.all([
+        produtosService.getAll({ pagina: 1, tamanho: 2000 }),
+        CategoriaService.getAll().catch(() => null),
       ]);
-      const prods = Array.isArray(prodsRes) ? prodsRes : prodsRes?.produtos ?? prodsRes?.items ?? [];
-      setProdutos(prods);
 
-      const vendasList = Array.isArray(vendasRes) ? vendasRes : vendasRes?.vendas ?? vendasRes?.Vendas ?? vendasRes?.items ?? [];
-      const vendasPorProduto = {};
-      vendasList.forEach((v) => {
-        if ((v.status ?? v.Status ?? "").toString().toLowerCase() === "cancelada") return;
-        const itens = v.itens ?? v.Itens ?? v.items ?? [];
-        itens.forEach((i) => {
-          const pid = i.produtoId ?? i.produto?.id ?? i.ProdutoId;
-          if (pid) {
-            vendasPorProduto[pid] = (vendasPorProduto[pid] ?? 0) + (Number(i.quantidade ?? i.Quantidade) || 0);
-          }
-        });
-      });
+      const prods = Array.isArray(prodsRes)
+        ? prodsRes
+        : prodsRes?.produtos ?? prodsRes?.Produtos ?? prodsRes?.items ?? [];
+      setProdutos(Array.isArray(prods) ? prods : []);
 
-      const cls = classificarProdutos(prods, vendasPorProduto);
-      setClassificados(cls);
+      setCategorias(parseListaCategorias(catRes));
 
       const precos = {};
       prods.forEach((p) => {
@@ -112,7 +118,7 @@ function CatalogoDigital() {
       setPrecosSugeridos(precos);
     } catch (err) {
       console.error(err);
-      showError("Erro ao carregar produtos e vendas.");
+      showError("Erro ao carregar produtos.");
     } finally {
       setCarregando(false);
     }
@@ -122,12 +128,61 @@ function CatalogoDigital() {
     buscarDados();
   }, [buscarDados]);
 
+  const produtosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return produtos.filter((p) => {
+      if (filtroTipo && getTipoProduto(p) !== filtroTipo) return false;
+
+      if (filtroCategoriaId !== "" && filtroCategoriaId != null) {
+        const cid = p.categoriaId ?? p.CategoriaId ?? p.categoria?.id ?? p.Categoria?.id;
+        if (Number(cid) !== Number(filtroCategoriaId)) return false;
+      }
+
+      if (!termo) return true;
+      const nome = nomeProduto(p).toLowerCase();
+      const sku = String(p.sku ?? p.Sku ?? "").toLowerCase();
+      const desc = String(p.descricao ?? p.Descricao ?? "").toLowerCase();
+      return nome.includes(termo) || sku.includes(termo) || desc.includes(termo);
+    });
+  }, [produtos, busca, filtroTipo, filtroCategoriaId]);
+
+  const idsFiltrados = useMemo(
+    () => produtosFiltrados.map((p) => String(p.id ?? p.Id)).filter(Boolean),
+    [produtosFiltrados],
+  );
+
+  const todosVisiveisSelecionados =
+    idsFiltrados.length > 0 &&
+    idsFiltrados.every((id) => selecionados[id]);
+
   const toggleSelecao = (id) => {
     setSelecionados((prev) => ({
       ...prev,
       [id]: !prev[id],
     }));
   };
+
+  const handleSelecionarTodosVisiveis = () => {
+    if (todosVisiveisSelecionados) {
+      setSelecionados((prev) => {
+        const next = { ...prev };
+        idsFiltrados.forEach((id) => {
+          next[id] = false;
+        });
+        return next;
+      });
+      return;
+    }
+    setSelecionados((prev) => {
+      const next = { ...prev };
+      idsFiltrados.forEach((id) => {
+        next[id] = true;
+      });
+      return next;
+    });
+  };
+
+  const limparSelecao = () => setSelecionados({});
 
   const setPreco = (id, valor) => {
     const v = parseFloat(valor);
@@ -136,57 +191,154 @@ function CatalogoDigital() {
     }
   };
 
-  const totalSelecionados = Object.values(selecionados).filter(Boolean).length;
-  const podeGerar = totalSelecionados >= MIN_PRODUTOS;
+  const totalSelecionados = Object.entries(selecionados).filter(([, v]) => v).length;
+  const podeGerar = totalSelecionados >= MIN_PRODUTOS_GERAR;
+
+  const whatsappDigits = useMemo(() => {
+    try {
+      const cfg = JSON.parse(localStorage.getItem("vexa_config") || "{}");
+      return String(cfg.telefone || user.telefone || user.Telefone || "").replace(/\D/g, "");
+    } catch {
+      return String(user.telefone || user.Telefone || "").replace(/\D/g, "");
+    }
+  }, [user.telefone, user.Telefone]);
 
   const handleGerarCatalogo = () => {
     if (!podeGerar) {
-      showError(`Selecione pelo menos ${MIN_PRODUTOS} produtos.`);
+      showError(`Selecione pelo menos ${MIN_PRODUTOS_GERAR} produto(s).`);
       return;
     }
     setGerando(true);
     try {
-      const itens = [];
-      Object.keys(selecionados).forEach((id) => {
-        if (!selecionados[id]) return;
-        const p = produtos.find((x) => String(x.id ?? x.Id) === String(id));
+      const empresaNome =
+        empresaAtiva?.nome ??
+        empresaAtiva?.nomeFantasia ??
+        user.empresaNome ??
+        "Loja";
+
+      const linhas = [];
+      Object.keys(selecionados).forEach((idStr) => {
+        if (!selecionados[idStr]) return;
+        const p = produtos.find((x) => String(x.id ?? x.Id) === idStr);
         if (p) {
-          itens.push({
-            produtoId: p.id ?? p.Id,
+          const pid = p.id ?? p.Id;
+          const preco = precosSugeridos[pid] ?? sugerirPreco(p);
+          linhas.push({
+            produtoId: pid,
             nome: nomeProduto(p),
-            preco: precosSugeridos[p.id ?? p.Id] ?? sugerirPreco(p),
+            preco,
             quantidade: 1,
+            sku: String(p.sku ?? p.Sku ?? "").trim() || "—",
+            tipo: labelTipo(getTipoProduto(p)),
           });
         }
       });
 
-      const config = JSON.parse(localStorage.getItem("vexa_config") || "{}");
-      const telefone = config.telefone || user.telefone || "";
-      const whatsapp = String(telefone).replace(/\D/g, "");
+      const produtosStorage = linhas.map(({ produtoId, nome, preco, quantidade }) => ({
+        produtoId,
+        nome,
+        preco,
+        quantidade,
+      }));
 
       const catalogoId = catalogoService.criar({
-        produtos: itens,
+        produtos: produtosStorage,
         criadorNome: user.nome ?? user.Nome ?? user.email,
-        criadorWhatsApp: whatsapp,
-        empresaNome: empresaAtiva?.nome ?? empresaAtiva?.nomeFantasia ?? user.empresaNome ?? "Loja",
+        criadorWhatsApp: whatsappDigits,
+        empresaNome,
       });
 
       const link = catalogoService.getLinkPublico(catalogoId);
-      window.open(link, "_blank", "noopener,noreferrer");
-      showSuccess("Catálogo criado! Nova aba aberta.");
+      const itensPdf = linhas.map(({ nome, preco, sku, tipo }) => ({
+        nome,
+        preco,
+        sku,
+        tipo,
+      }));
 
-      setSelecionados({});
+      setUltimoCatalogo({
+        itensPdf,
+        empresaNome,
+        link,
+      });
+
+      const doc = montarDocumentoCatalogoPdf({
+        itens: itensPdf,
+        empresaNome,
+        linkPublico: link,
+      });
+      doc.save(nomeArquivoCatalogoPdf(empresaNome));
+
+      showSuccess("Catálogo em PDF gerado e baixado. Use Enviar por WhatsApp para compartilhar o PDF.");
     } catch (err) {
-      showError("Erro ao gerar catálogo.");
+      console.error(err);
+      showError("Erro ao gerar catálogo em PDF.");
     } finally {
       setGerando(false);
     }
   };
 
-  const renderProdutoCard = (p, icone) => {
+  const handleEnviarWhatsApp = async () => {
+    if (!ultimoCatalogo?.link || !ultimoCatalogo?.itensPdf?.length) {
+      showError("Gere o catálogo em PDF primeiro.");
+      return;
+    }
+
+    const { itensPdf, empresaNome, link } = ultimoCatalogo;
+    const doc = montarDocumentoCatalogoPdf({
+      itens: itensPdf,
+      empresaNome,
+      linkPublico: link,
+    });
+    const blob = catalogoPdfParaBlob(doc);
+    const fileName = nomeArquivoCatalogoPdf(empresaNome);
+    const file = new File([blob], fileName, { type: "application/pdf" });
+
+    const textoPlano = `Olá! Segue nosso catálogo em PDF da ${empresaNome}. Você também pode acessar online: ${link}`;
+
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Catálogo — ${empresaNome}`,
+          text: textoPlano,
+        });
+        showSuccess("Compartilhamento enviado.");
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+      }
+    }
+
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      showError("Não foi possível preparar o PDF.");
+      return;
+    }
+
+    showSuccess("PDF salvo novamente. Abra o WhatsApp e anexe o arquivo baixado.");
+    const encoded = encodeURIComponent(textoPlano);
+    const waUrl = whatsappDigits
+      ? `https://wa.me/${whatsappDigits}?text=${encoded}`
+      : `https://api.whatsapp.com/send?text=${encoded}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const renderProdutoCard = (p) => {
     const id = String(p.id ?? p.Id);
     const sel = !!selecionados[id];
     const preco = precosSugeridos[id] ?? sugerirPreco(p);
+    const tipo = getTipoProduto(p);
+
     return (
       <Card
         key={id}
@@ -210,10 +362,14 @@ function CatalogoDigital() {
               <Typography variant="body2" fontWeight={600} noWrap title={nomeProduto(p)}>
                 {nomeProduto(p)}
               </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                {labelTipo(tipo)}
+                {(p.sku ?? p.Sku) && ` · SKU ${p.sku ?? p.Sku}`}
+              </Typography>
               <TextField
                 size="small"
                 type="number"
-                label="Preço sugerido"
+                label="Preço no catálogo"
                 value={preco}
                 onChange={(e) => setPreco(id, e.target.value)}
                 inputProps={{ min: 0, step: 0.01 }}
@@ -221,7 +377,6 @@ function CatalogoDigital() {
                 fullWidth
               />
             </Box>
-            <Box sx={{ color: "text.secondary" }}>{icone}</Box>
           </Box>
         </CardContent>
       </Card>
@@ -231,129 +386,165 @@ function CatalogoDigital() {
   if (carregando) return <LoadingBox />;
 
   return (
-    <Box sx={{ position: "relative", p: { xs: 2, md: 3 }, bgcolor: "background.default", minHeight: "100vh" }}>
-      <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 3 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "background.default", minHeight: "100vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <Box>
           <Typography variant="h4" fontWeight={700} color="text.primary">
-            Catálogo Digital
+            Catálogo digital
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Selecione pelo menos {MIN_PRODUTOS} produtos para montar seu catálogo. O cliente acessa pelo link e finaliza via WhatsApp.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
+            Selecione os produtos, gere o <strong>catálogo em PDF</strong> (download automático) e use Enviar por WhatsApp
+            para compartilhar o PDF (quando o navegador permitir) ou baixar de novo e anexar na conversa. O link da vitrine
+            online também entra no PDF e na mensagem.
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button startIcon={<Refresh />} onClick={buscarDados} variant="outlined" size="medium">
             Atualizar
           </Button>
+          <Tooltip title="Marca ou desmarca todos os produtos da lista filtrada atual">
+            <Button
+              startIcon={<SelectAll />}
+              onClick={handleSelecionarTodosVisiveis}
+              variant="outlined"
+              size="medium"
+              disabled={produtosFiltrados.length === 0}
+            >
+              {todosVisiveisSelecionados ? "Desmarcar lista" : "Selecionar lista"}
+            </Button>
+          </Tooltip>
           <Button
-            startIcon={<OpenInNew />}
+            startIcon={<Deselect />}
+            onClick={limparSelecao}
+            variant="outlined"
+            size="medium"
+            disabled={totalSelecionados === 0}
+          >
+            Limpar seleção
+          </Button>
+          <Button
+            startIcon={<PictureAsPdf />}
             onClick={handleGerarCatalogo}
             disabled={!podeGerar || gerando}
             variant="contained"
             size="medium"
           >
-            {gerando ? "Gerando..." : `Gerar catálogo (${totalSelecionados}/${MIN_PRODUTOS})`}
+            {gerando ? "Gerando PDF..." : "Gerar catálogo (PDF)"}
           </Button>
-        </Box>
+          <Button
+            startIcon={<WhatsApp />}
+            onClick={() => void handleEnviarWhatsApp()}
+            color="success"
+            variant="contained"
+            size="medium"
+            disabled={!ultimoCatalogo?.link}
+          >
+            Enviar por WhatsApp
+          </Button>
+        </Stack>
       </Box>
 
-      {!podeGerar && totalSelecionados > 0 && (
+      {!whatsappDigits && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Selecione pelo menos {MIN_PRODUTOS} produtos. Faltam {MIN_PRODUTOS - totalSelecionados}.
+          Para abrir o WhatsApp já no seu número, cadastre o telefone em Configurações (ou dados do usuário).
+          Ainda assim você pode usar &quot;Enviar por WhatsApp&quot; para escolher o contato manualmente.
         </Alert>
       )}
 
-      {produtos.length === 0 && (
-        <Alert severity="warning">Nenhum produto encontrado. Cadastre produtos primeiro.</Alert>
-      )}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={2}
+        sx={{ mb: 2 }}
+        flexWrap="wrap"
+        useFlexGap
+      >
+        <TextField
+          label="Buscar produto"
+          placeholder="Nome, SKU ou descrição..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          size="small"
+          sx={{ flex: { sm: "1 1 240px" }, minWidth: 200 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Tipo de produto</InputLabel>
+          <Select
+            label="Tipo de produto"
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+          >
+            {TIPOS_PRODUTO.map((o) => (
+              <MenuItem key={o.value || "all"} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Categoria</InputLabel>
+          <Select
+            label="Categoria"
+            value={filtroCategoriaId}
+            onChange={(e) => setFiltroCategoriaId(e.target.value)}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            {categorias.map((c) => (
+              <MenuItem key={c.id ?? c.Id} value={c.id ?? c.Id}>
+                {c.nome ?? c.Nome ?? `Categoria #${c.id ?? c.Id}`}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
 
-      {produtos.length > 0 && (
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <Typography variant="h6" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
-              <TrendingUp color="success" /> Produtos mais vendidos
-            </Typography>
-            <Grid container spacing={1.5}>
-              {classificados.maisVendidos.map((p) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={p.id ?? p.Id}>
-                  {renderProdutoCard(p, <TrendingUp fontSize="small" color="success" />)}
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
-
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
-              <TrendingFlat color="action" /> Produtos de venda mediana
-            </Typography>
-            <Grid container spacing={1.5}>
-              {classificados.vendaMediana.map((p) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={p.id ?? p.Id}>
-                  {renderProdutoCard(p, <TrendingFlat fontSize="small" color="action" />)}
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
-
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
-              <TrendingDown color="disabled" /> Produtos com baixa venda
-            </Typography>
-            <Grid container spacing={1.5}>
-              {classificados.baixaVenda.map((p) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={p.id ?? p.Id}>
-                  {renderProdutoCard(p, <TrendingDown fontSize="small" color="disabled" />)}
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
-        </Grid>
-      )}
-
-      <Box sx={{ mt: 3, display: "flex", alignItems: "center", gap: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 2 }}>
         <Chip
-          icon={<AddShoppingCart />}
-          label={`${totalSelecionados} produtos selecionados`}
-          color={podeGerar ? "success" : "default"}
+          label={`${produtosFiltrados.length} produto(s) na lista filtrada`}
+          size="small"
           variant="outlined"
         />
+        <Chip
+          label={`${totalSelecionados} selecionado(s)`}
+          color={podeGerar ? "success" : "default"}
+          size="small"
+          variant={podeGerar ? "filled" : "outlined"}
+        />
+        {ultimoCatalogo?.link && (
+          <Chip
+            label="Último PDF gerado — WhatsApp usa o mesmo catálogo"
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
+        )}
       </Box>
 
-      {/* Overlay bloqueado - funcionalidade em desenvolvimento */}
-      <Box
-        sx={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          backgroundColor: "rgba(0,0,0,0.25)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-        }}
-      >
-        <Paper
-          elevation={8}
-          sx={{
-            p: 4,
-            maxWidth: 400,
-            textAlign: "center",
-            borderRadius: 2,
-          }}
-        >
-          <Lock sx={{ fontSize: 56, color: "action.disabled", mb: 2 }} />
-          <Typography variant="h6" fontWeight={600} gutterBottom>
-            Funcionalidade em desenvolvimento
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Em breve você poderá criar e compartilhar catálogos digitais.
-          </Typography>
-        </Paper>
-      </Box>
+      {produtos.length === 0 && (
+        <Alert severity="warning">Nenhum produto encontrado. Cadastre produtos em Produtos.</Alert>
+      )}
+
+      {produtos.length > 0 && produtosFiltrados.length === 0 && (
+        <Alert severity="info">Nenhum produto corresponde aos filtros. Ajuste a busca ou os filtros.</Alert>
+      )}
+
+      {produtosFiltrados.length > 0 && (
+        <Grid container spacing={1.5}>
+          {produtosFiltrados.map((p) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={p.id ?? p.Id}>
+              {renderProdutoCard(p)}
+            </Grid>
+          ))}
+        </Grid>
+      )}
     </Box>
   );
 }

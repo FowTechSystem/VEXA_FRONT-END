@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
+import NovaMovimentacaoCaixa from "./pages/NovaMovimentacaoCaixa";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
 import Estoque from "./pages/Estoque";
@@ -99,6 +100,7 @@ function AppContent() {
         >
           <Route index element={<Dashboard />} />
           <Route path="caixa" element={<Caixa />} />
+          <Route path="vendas/nova-movimentacao" element={<NovaMovimentacaoCaixa />} />
           <Route path="vendas" element={<Vendas />} />
           <Route path="produtos" element={<Produtos />} />
           <Route path="estoque" element={<Estoque />} />

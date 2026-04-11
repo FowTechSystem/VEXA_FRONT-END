@@ -32,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "@mui/icons-material";
-import { alpha } from "@mui/material/styles";
 import { LoadingBox } from "../components/LoadingBox";
 import { FornecedorService } from "../api/fornecedorService";
 import { showSuccess, showError } from "../utils/notifications";
@@ -228,16 +227,6 @@ function Fornecedores() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
 
   const handleSave = async () => {
     const faltando = [];
@@ -735,9 +724,9 @@ function Fornecedores() {
             <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>Geral</Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={4}><TextField fullWidth required label="Nome" name="nome" value={currentFornecedor.nome} onChange={handleChange} error={!!errors.nome} helperText={errors.nome} size="small" sx={requiredFieldSx} /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth required label="Nome" name="nome" value={currentFornecedor.nome} onChange={handleChange} error={!!errors.nome} helperText={errors.nome} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Razão Social" name="razaoSocial" value={currentFornecedor.razaoSocial} onChange={handleChange} size="small" /></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth required label="CNPJ" name="cnpj" value={currentFornecedor.cnpj} onChange={handleChange} error={!!errors.cnpj} helperText={errors.cnpj} placeholder="00.000.000/0000-00" size="small" sx={requiredFieldSx} /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth required label="CNPJ" name="cnpj" value={currentFornecedor.cnpj} onChange={handleChange} error={!!errors.cnpj} helperText={errors.cnpj} placeholder="00.000.000/0000-00" size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Nome do Representante" name="nomeRepresentante" value={currentFornecedor.nomeRepresentante} onChange={handleChange} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentFornecedor.telefone} onChange={handleChange} placeholder="(00) 0000-0000" size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentFornecedor.whatsApp} onChange={handleChange} placeholder="(00) 00000-0000" size="small" /></Grid>

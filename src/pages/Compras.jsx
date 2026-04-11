@@ -27,7 +27,6 @@ import {
   InputAdornment,
   Autocomplete,
 } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 import { showSuccess, showError } from "../utils/notifications";
 import {
   ShoppingBag,
@@ -86,15 +85,6 @@ function Compras() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
   const selectFieldSx = {
     "& .MuiOutlinedInput-root": {
       borderRadius: 1.5,
@@ -725,7 +715,6 @@ function Compras() {
                         label="Fornecedor"
                         placeholder="Selecione um fornecedor cadastrado"
                         size="small"
-                        sx={requiredFieldSx}
                       />
                     )}
                     isOptionEqualToValue={(opt, val) => opt?.id === val?.id}

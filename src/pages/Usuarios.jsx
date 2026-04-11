@@ -27,8 +27,10 @@ import {
   MenuItem,
   Switch,
   FormControlLabel,
+  FormHelperText,
   Divider,
   Autocomplete,
+  useTheme,
 } from "@mui/material";
 import {
   Add,
@@ -36,7 +38,6 @@ import {
   Delete,
   Search,
   Person,
-  CameraAlt,
   FirstPage,
   LastPage,
   ChevronLeft,
@@ -47,15 +48,16 @@ import {
   Settings,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
+import { FotoPerfilPicker } from "../components/FotoPerfilPicker";
 import api from "../api/axiosConfig";
 import { usuariosService } from "../api/usuariosService";
 import { listarPermissoes } from "../api/permissoesService";
 import { showSuccess, showError } from "../utils/notifications";
-import { alpha } from "@mui/material/styles";
 import {
   successMessages,
   errorMessages,
   entityNames,
+  confirmMessages,
 } from "../utils/entityMessages";
 import { validateCPF } from "../utils/validators";
 
@@ -91,14 +93,19 @@ const ESTADOS_BR = [
 ];
 
 function Usuarios() {
+  const theme = useTheme();
   const [usuarios, setUsuarios] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
+  const [openConfirmDelete, setOpenConfirmDelete] = useState(false);
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState(null);
+  const [excluindoUsuario, setExcluindoUsuario] = useState(false);
   const [cpfError, setCpfError] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
+  const [fotoPreview, setFotoPreview] = useState(null);
 
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -138,15 +145,6 @@ function Usuarios() {
   const [permissoes, setPermissoes] = useState([]);
 
   const PERFIS = ["Administrador", "Gerente", "Vendedor", "Suporte"];
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
   const selectFieldSx = {
     "& .MuiOutlinedInput-root": {
       borderRadius: 1.5,
@@ -224,6 +222,10 @@ function Usuarios() {
     setPaginaAtual(1);
   };
 
+  const handlePhotoReady = ({ dataUrl }) => {
+    setFotoPreview(dataUrl);
+  };
+
   const handleOpenDialog = async (usuario = null) => {
     if (usuario?.id) {
       try {
@@ -255,6 +257,13 @@ function Usuarios() {
         permissaoIds: Array.isArray(usuario.permissaoIds) ? usuario.permissaoIds : [],
         senha: "",
       });
+      setFotoPreview(
+        usuario.fotoUrl ||
+          usuario.avatarUrl ||
+          usuario.urlFoto ||
+          usuario.foto ||
+          null,
+      );
       setEditMode(true);
     } else {
       setCurrentUsuario({
@@ -283,6 +292,7 @@ function Usuarios() {
         observacoes: "",
         permissaoIds: [],
       });
+      setFotoPreview(null);
       setEditMode(false);
     }
     setCpfError("");
@@ -351,6 +361,7 @@ function Usuarios() {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setFotoPreview(null);
   };
 
   const handleChange = (e) => {
@@ -482,16 +493,31 @@ function Usuarios() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir este usuário?")) {
-      try {
-        await api.delete(`/usuarios/${id}`);
-        showSuccess(successMessages.delete(entityNames.usuario));
-        recarregarUsuarios();
-      } catch (error) {
-        console.error("Erro ao excluir usuário:", error);
-        showError(errorMessages.delete(entityNames.usuario));
-      }
+  const handleAbrirConfirmExcluir = (usuario) => {
+    setUsuarioParaExcluir({ id: usuario.id, nome: usuario.nome || "" });
+    setOpenConfirmDelete(true);
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoUsuario) return;
+    setOpenConfirmDelete(false);
+    setUsuarioParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!usuarioParaExcluir?.id) return;
+    setExcluindoUsuario(true);
+    try {
+      await api.delete(`/usuarios/${usuarioParaExcluir.id}`);
+      showSuccess(successMessages.delete(entityNames.usuario));
+      recarregarUsuarios();
+      setOpenConfirmDelete(false);
+      setUsuarioParaExcluir(null);
+    } catch (error) {
+      console.error("Erro ao excluir usuário:", error);
+      showError(errorMessages.delete(entityNames.usuario));
+    } finally {
+      setExcluindoUsuario(false);
     }
   };
 
@@ -714,7 +740,7 @@ function Usuarios() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(usuario.id)}
+                      onClick={() => handleAbrirConfirmExcluir(usuario)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { bgcolor: "error.light", color: "error.main" },
@@ -934,12 +960,14 @@ function Usuarios() {
             >
               {/* Avatar */}
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pb: 3, mb: 3, borderBottom: 1, borderColor: "divider" }}>
-                <Avatar sx={{ width: 100, height: 100, bgcolor: "action.hover", mb: 1.5 }}>
-                  <Person sx={{ fontSize: 50, color: "text.secondary" }} />
+                <Avatar src={fotoPreview || undefined} sx={{ width: 100, height: 100, bgcolor: "action.hover", mb: 1.5 }}>
+                  {!fotoPreview && <Person sx={{ fontSize: 50, color: "text.secondary" }} />}
                 </Avatar>
-                <Button startIcon={<CameraAlt />} sx={{ textTransform: "none", color: "text.secondary", fontSize: "13px" }}>
-                  Adicionar Foto
-                </Button>
+                <FotoPerfilPicker
+                  onPhotoReady={handlePhotoReady}
+                  onError={showError}
+                  sx={{ mt: 0.5, width: "100%", maxWidth: 320 }}
+                />
               </Box>
 
               {/* Seção Geral */}
@@ -948,7 +976,7 @@ function Usuarios() {
               </Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
                 <Grid item xs={12}>
-                  <TextField fullWidth required label="Nome" name="nome" value={currentUsuario.nome} onChange={handleChange} placeholder="Nome completo do usuário" size="small" sx={requiredFieldSx} />
+                  <TextField fullWidth required label="Nome" name="nome" value={currentUsuario.nome} onChange={handleChange} placeholder="Nome completo do usuário" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
@@ -1001,7 +1029,7 @@ function Usuarios() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField fullWidth required label="Email" name="email" type="email" value={currentUsuario.email} onChange={handleChange} placeholder="usuario@exemplo.com" size="small" sx={requiredFieldSx} />
+                  <TextField fullWidth required label="Email" name="email" type="email" value={currentUsuario.email} onChange={handleChange} placeholder="usuario@exemplo.com" size="small" />
                 </Grid>
               </Grid>
 
@@ -1090,7 +1118,7 @@ function Usuarios() {
               </Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required size="small" sx={[selectFieldSx, requiredFieldSx]}>
+                  <FormControl fullWidth required size="small" sx={selectFieldSx}>
                     <InputLabel id="perfil-label" shrink>Perfil de Acesso</InputLabel>
                     <Select
                       name="perfil"
@@ -1109,50 +1137,33 @@ function Usuarios() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="Cargo" name="cargo" value={currentUsuario.cargo} onChange={handleChange} placeholder="Ex: Vendedor" size="small" />
+                  <TextField fullWidth required label="Cargo" name="cargo" value={currentUsuario.cargo} onChange={handleChange} placeholder="Ex: Vendedor" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      component="label"
-                      htmlFor="departamento-select"
-                      sx={{
-                        display: "block",
-                        mb: 0.75,
-                        fontWeight: 500,
-                        color: "text.primary",
-                      }}
-                    >
+                  <FormControl fullWidth size="small" sx={selectFieldSx}>
+                    <InputLabel id="departamento-label" shrink>
                       Departamento
-                    </Typography>
-                    <FormControl fullWidth size="small" sx={selectFieldSx}>
-                      <Select
-                        id="departamento-select"
-                        name="departamento"
-                        value={currentUsuario.departamento || ""}
-                        onChange={handleChange}
-                        displayEmpty
-                        renderValue={(v) => v || "Selecione o departamento"}
-                        sx={{ borderRadius: 1.5 }}
-                      >
-                        <MenuItem value="">Selecione o departamento</MenuItem>
-                        {DEPARTAMENTOS.map((d) => (
-                          <MenuItem key={d} value={d}>{d}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 0.5, display: "block" }}
+                    </InputLabel>
+                    <Select
+                      labelId="departamento-label"
+                      id="departamento-select"
+                      name="departamento"
+                      label="Departamento"
+                      value={currentUsuario.departamento || ""}
+                      onChange={handleChange}
+                      displayEmpty
+                      renderValue={(v) => v || "Selecione o departamento"}
                     >
-                      Ex.: Vendas, RH, TI
-                    </Typography>
-                  </Box>
+                      <MenuItem value="">Selecione o departamento</MenuItem>
+                      {DEPARTAMENTOS.map((d) => (
+                        <MenuItem key={d} value={d}>{d}</MenuItem>
+                      ))}
+                    </Select>
+                    <FormHelperText>Ex.: Vendas, RH, TI</FormHelperText>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label={editMode ? "Nova Senha (opcional)" : "Senha"} name="senha" type="password" value={currentUsuario.senha} onChange={handleChange} placeholder="••••••••" helperText={editMode ? "Deixe em branco para manter a senha atual" : "Mínimo 6 caracteres"} size="small" sx={!editMode ? requiredFieldSx : undefined} />
+                  <TextField fullWidth required={!editMode} label={editMode ? "Nova Senha (opcional)" : "Senha"} name="senha" type="password" value={currentUsuario.senha} onChange={handleChange} placeholder="••••••••" helperText={editMode ? "Deixe em branco para manter a senha atual" : "Mínimo 6 caracteres"} size="small" />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField fullWidth label="Observações" name="observacoes" value={currentUsuario.observacoes} onChange={handleChange} placeholder="Informações adicionais" multiline rows={4} size="small" />
@@ -1231,6 +1242,59 @@ function Usuarios() {
             sx={{ textTransform: "none", minWidth: 100 }}
           >
             OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openConfirmDelete}
+        onClose={handleFecharConfirmExcluir}
+        aria-labelledby="confirm-delete-usuario-title"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            minWidth: 380,
+            maxWidth: 440,
+            bgcolor: theme.palette.background.paper,
+            border: "1px solid",
+            borderColor: "divider",
+          },
+        }}
+      >
+        <DialogTitle id="confirm-delete-usuario-title" sx={{ fontWeight: 600, color: "text.primary", pb: 1 }}>
+          Excluir usuário
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px", lineHeight: 1.6 }}>
+            {confirmMessages.delete(entityNames.usuario)}
+          </Typography>
+          {usuarioParaExcluir?.nome ? (
+            <Typography
+              variant="subtitle2"
+              sx={{ mt: 2, fontWeight: 600, color: "text.primary", wordBreak: "break-word" }}
+            >
+              {usuarioParaExcluir.nome}
+            </Typography>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1 }}>
+          <Button
+            type="button"
+            onClick={handleFecharConfirmExcluir}
+            disabled={excluindoUsuario}
+            sx={{ textTransform: "none", color: "text.secondary" }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="contained"
+            color="error"
+            onClick={handleConfirmarExcluir}
+            disabled={excluindoUsuario}
+            sx={{ textTransform: "none", minWidth: 100 }}
+          >
+            {excluindoUsuario ? "Excluindo…" : "Excluir"}
           </Button>
         </DialogActions>
       </Dialog>

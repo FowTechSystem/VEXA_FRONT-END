@@ -33,4 +33,10 @@ export const vendasService = {
     const response = await api.post(`/vendas/${id}/cancelar`, { motivo });
     return response.data;
   },
+
+  /** Exclusão física da venda, se o backend expuser DELETE (ver handoff). */
+  delete: async (id) => {
+    const response = await api.delete(`/vendas/${id}`);
+    return response.data;
+  },
 };
