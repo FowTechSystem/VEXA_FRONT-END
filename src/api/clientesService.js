@@ -13,15 +13,26 @@ export const clientesService = {
     return response.data;
   },
 
-  // Método para upload de foto
+  /**
+   * Upload da foto do cliente (edição).
+   * Envia multipart com campo "file". Não definir Content-Type manualmente: o axios precisa
+   * incluir o boundary; o default "application/json" da instância é removido no transformRequest.
+   */
   uploadFoto: async (file) => {
     const formData = new FormData();
     formData.append("file", file);
 
     const response = await api.post("/clientes/upload-foto", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      transformRequest: [
+        (data, headers) => {
+          if (data instanceof FormData) {
+            delete headers["Content-Type"];
+          }
+          return data;
+        },
+      ],
     });
     return response.data;
   },

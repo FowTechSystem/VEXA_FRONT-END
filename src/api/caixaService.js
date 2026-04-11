@@ -17,4 +17,19 @@ export const caixaService = {
     const response = await api.get(url);
     return response.data;
   },
+
+  /**
+   * Registra lucro (entrada) ou despesa (saída) manual no caixa.
+   * Contrato detalhado: docs/HANDOFF-MOVIMENTACOES-CAIXA-BACKEND.md
+   */
+  criarMovimentacaoManual: async (payload) => {
+    const response = await api.post("/caixa/movimentacoes/manual", payload);
+    return response.data;
+  },
+
+  /** Remove movimentação manual (não vende/compra do sistema). */
+  excluirMovimentacaoManual: async (id) => {
+    const response = await api.delete(`/caixa/movimentacoes/${id}`);
+    return response.data;
+  },
 };

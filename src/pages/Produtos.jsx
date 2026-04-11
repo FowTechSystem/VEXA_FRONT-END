@@ -1179,14 +1179,14 @@ function Produtos() {
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Categoria *"
+                            required
+                            label="Categoria"
                             size="small"
                             placeholder="Selecione a categoria"
                             InputLabelProps={{
                               shrink: true,
                               sx: {
                                 fontSize: "1rem",
-                                fontWeight: 500,
                                 whiteSpace: "nowrap",
                                 overflow: "visible",
                               },
@@ -1198,7 +1198,6 @@ function Produtos() {
                                 overflow: "visible",
                               },
                               "& .MuiOutlinedInput-root": {
-                                bgcolor: "background.default",
                                 borderRadius: 1,
                                 minHeight: 52,
                                 "& .MuiAutocomplete-input": { py: 1.5 },

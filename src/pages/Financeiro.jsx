@@ -27,6 +27,10 @@ import {
   Tab,
 } from "@mui/material";
 import { showError } from "../utils/notifications";
+import {
+  resolverTipoMovimentacaoLinha,
+  valorMovimentacaoAssinado,
+} from "../utils/movimentacaoCaixa";
 import { caixaService } from "../api/caixaService";
 import {
   AttachMoney,
@@ -44,7 +48,6 @@ import {
   ChevronRight,
   Refresh,
 } from "@mui/icons-material";
-import { alpha } from "@mui/material/styles";
 
 function getMonthBounds(mesAno) {
   // mesAno = "YYYY-MM"
@@ -107,17 +110,35 @@ function Financeiro() {
         const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
         const list = Array.isArray(mov) ? mov : [];
         const normalizadas = list.map((m) => {
-          const tipoApi = (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase();
+          const tipoUi = resolverTipoMovimentacaoLinha(m);
           const valorNum = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
           const dataStr = m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "";
-          const tipo = tipoApi === "compra" ? "despesa" : "receita";
+          const tipo =
+            tipoUi === "compra" || tipoUi === "saida" ? "despesa" : "receita";
+          const categoria =
+            tipoUi === "compra"
+              ? "Compras"
+              : tipoUi === "venda"
+                ? "Vendas"
+                : tipoUi === "entrada"
+                  ? "Lucro manual"
+                  : "Despesa manual";
           return {
-            id: m.id ?? m.Id ?? `sistema-${tipoApi}-${Math.random()}`,
+            id: m.id ?? m.Id ?? `sistema-${tipoUi}-${Math.random()}`,
             tipo,
-            descricao: m.descricao ?? m.Descricao ?? (tipoApi === "compra" ? "Compra" : "Venda"),
-            categoria: tipoApi === "compra" ? "Compras" : "Vendas",
+            descricao:
+              m.descricao ??
+              m.Descricao ??
+              (tipoUi === "compra"
+                ? "Compra"
+                : tipoUi === "saida"
+                  ? "Saída"
+                  : tipoUi === "entrada"
+                    ? "Entrada"
+                    : "Venda"),
+            categoria,
             data: dataStr ? dataStr.toString().split("T")[0] : dataStr,
-            valor: tipoApi === "compra" ? -Math.abs(valorNum) : Math.abs(valorNum),
+            valor: valorMovimentacaoAssinado(tipoUi, valorNum),
             origem: "sistema",
           };
         });
@@ -167,15 +188,6 @@ function Financeiro() {
     });
   };
 
-  const requiredFieldSx = (theme) => ({
-    "& .MuiOutlinedInput-root": {
-      bgcolor: alpha(theme.palette.warning.main, 0.08),
-      "&.Mui-focused": { bgcolor: theme.palette.background.paper },
-      "&:hover:not(.Mui-focused)": {
-        bgcolor: alpha(theme.palette.warning.main, 0.12),
-      },
-    },
-  });
   const selectFieldSx = {
     "& .MuiOutlinedInput-root": {
       borderRadius: 1.5,
@@ -802,13 +814,13 @@ function Financeiro() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField fullWidth required label="Descrição" name="descricao" value={currentMovimentacao.descricao} onChange={handleChange} placeholder="Ex: Venda de produtos, Pagamento de fornecedor" size="small" sx={requiredFieldSx} />
+                  <TextField fullWidth required label="Descrição" name="descricao" value={currentMovimentacao.descricao} onChange={handleChange} placeholder="Ex: Venda de produtos, Pagamento de fornecedor" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth required label="Valor" name="valor" type="number" value={currentMovimentacao.valor} onChange={handleChange} InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }} inputProps={{ step: "0.01", min: "0" }} size="small" sx={requiredFieldSx} />
+                  <TextField fullWidth required label="Valor" name="valor" type="number" value={currentMovimentacao.valor} onChange={handleChange} InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }} inputProps={{ step: "0.01", min: "0" }} size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth required label="Data" name="data" type="date" value={currentMovimentacao.data} onChange={handleChange} InputLabelProps={{ shrink: true }} size="small" sx={requiredFieldSx} />
+                  <TextField fullWidth required label="Data" name="data" type="date" value={currentMovimentacao.data} onChange={handleChange} InputLabelProps={{ shrink: true }} size="small" />
                 </Grid>
                 <Grid item xs={12}>
                   <FormControl fullWidth required size="small" sx={selectFieldSx}>

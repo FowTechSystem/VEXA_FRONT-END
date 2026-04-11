@@ -35,6 +35,10 @@ import {
   ListItemText,
 } from "@mui/material";
 import { showSuccess, showError } from "../utils/notifications";
+import {
+  resolverTipoMovimentacaoLinha,
+  valorMovimentacaoAssinado,
+} from "../utils/movimentacaoCaixa";
 import { produtosService } from "../api/produtosService";
 import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
@@ -460,9 +464,16 @@ function Caixa() {
     setPaginaAtual(1);
   };
 
-  // ETAPA 1: Produtos
+  // ETAPA 1: Produtos (sem altura fixa + centralização vertical: evita o “card” subir/descer com o scroll)
   const renderEtapaProdutos = () => (
-    <Box sx={{ height: "calc(100vh - 320px)", display: "flex", gap: 3 }}>
+    <Box
+      sx={{
+        display: "flex",
+        gap: 3,
+        flexDirection: { xs: "column", md: "row" },
+        alignItems: "stretch",
+      }}
+    >
       {/* Área de Busca - 60% */}
       <Paper
         elevation={0}
@@ -667,8 +678,14 @@ function Caixa() {
           inputProps={{ sx: { cursor: "pointer" } }}
         />
 
-        {/* Lista de itens */}
-        <Box sx={{ flex: 1, overflowY: "auto", mb: 2 }}>
+        {/* Lista de itens (altura máxima: coluna sem 100vh fixo ainda precisa rolar itens) */}
+        <Box
+          sx={{
+            maxHeight: { xs: 320, md: "min(70vh, 560px)" },
+            overflowY: "auto",
+            mb: 2,
+          }}
+        >
           {carrinho.length === 0 ? (
             <Box
               sx={{
@@ -860,10 +877,10 @@ function Caixa() {
   const renderEtapaPagamento = () => (
     <Box
       sx={{
-        height: "calc(100vh - 320px)",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
+        alignItems: "flex-start",
+        py: 2,
       }}
     >
       <Paper
@@ -1053,10 +1070,10 @@ function Caixa() {
   const renderEtapaConfirmacao = () => (
     <Box
       sx={{
-        height: "calc(100vh - 320px)",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
+        alignItems: "flex-start",
+        py: 2,
       }}
     >
       <Paper
@@ -1174,19 +1191,25 @@ function Caixa() {
           </Box>
         </Paper>
 
-        {/* Informações de pagamento */}
+        {/* Informações de pagamento — borda verde + fundo neutro para contraste legível */}
         <Paper
+          elevation={0}
           sx={{
             p: 3,
-            bgcolor: "success.light",
-            border: "1px solid",
+            bgcolor: "action.hover",
+            border: "2px solid",
             borderColor: "success.main",
             borderRadius: 2,
           }}
         >
           <Typography
             variant="subtitle2"
-            sx={{ fontWeight: 600, mb: 2, color: "success.main" }}
+            sx={{
+              fontWeight: 700,
+              mb: 2,
+              color: "success.main",
+              letterSpacing: 0.6,
+            }}
           >
             PAGAMENTO
           </Typography>
@@ -1197,8 +1220,10 @@ function Caixa() {
                 justifyContent: "space-between",
               }}
             >
-              <Typography variant="body1">Forma de pagamento</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              <Typography variant="body1" sx={{ color: "text.primary" }}>
+                Forma de pagamento
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600, color: "text.primary" }}>
                 {FORMAS_PAGAMENTO.find((f) => f.id === formaPagamento)?.label}
               </Typography>
             </Box>
@@ -1317,7 +1342,22 @@ function Caixa() {
           />
           <Chip
             label={`Total: R$ ${vendasFiltradas.reduce((acc, v) => acc + v.total, 0).toFixed(2)}`}
-            sx={{ bgcolor: "success.light", color: "success.main", fontWeight: 500 }}
+            sx={(theme) => ({
+              fontWeight: 600,
+              ...(theme.palette.mode === "dark"
+                ? {
+                    bgcolor: "success.dark",
+                    color: "common.white",
+                    border: "1px solid",
+                    borderColor: "success.main",
+                  }
+                : {
+                    bgcolor: "success.light",
+                    color: "success.dark",
+                    border: "1px solid",
+                    borderColor: "success.main",
+                  }),
+            })}
           />
         </Box>
       </Paper>
@@ -1482,11 +1522,22 @@ function Caixa() {
                     <Chip
                       label="Finalizada"
                       size="small"
-                      sx={{
-                        bgcolor: "success.light",
-                        color: "success.main",
-                        fontWeight: 500,
-                      }}
+                      sx={(theme) => ({
+                        fontWeight: 600,
+                        ...(theme.palette.mode === "dark"
+                          ? {
+                              bgcolor: "success.dark",
+                              color: "common.white",
+                              border: "1px solid",
+                              borderColor: "success.main",
+                            }
+                          : {
+                              bgcolor: "success.light",
+                              color: "success.dark",
+                              border: "1px solid",
+                              borderColor: "success.main",
+                            }),
+                      })}
                     />
                   </TableCell>
                 </TableRow>
@@ -1634,13 +1685,21 @@ function Caixa() {
   );
 
   // RESUMO DO CAIXA (valores reais: entradas, saídas, saldo, grid vendas/compras)
-  const normalizarMovimentacao = (m) => ({
-    id: m.id ?? m.Id,
-    tipo: (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase(),
-    data: m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "",
-    valor: Number(m.valor ?? m.Valor ?? m.valorTotal ?? m.ValorTotal ?? 0) || 0,
-    descricao: m.descricao ?? m.Descricao ?? m.observacoes ?? (m.tipo === "compra" ? "Compra" : "Venda"),
-  });
+  const normalizarMovimentacao = (m) => {
+    const tipo = resolverTipoMovimentacaoLinha(m);
+    const valorBruto = Number(m.valor ?? m.Valor ?? m.valorTotal ?? m.ValorTotal ?? 0) || 0;
+    return {
+      id: m.id ?? m.Id,
+      tipo,
+      data: m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "",
+      valor: valorMovimentacaoAssinado(tipo, valorBruto),
+      descricao:
+        m.descricao ??
+        m.Descricao ??
+        m.observacoes ??
+        (tipo === "compra" ? "Compra" : tipo === "saida" ? "Saída" : tipo === "entrada" ? "Entrada" : "Venda"),
+    };
+  };
 
   const renderResumoCaixa = () => (
     <Box>
@@ -1758,23 +1817,38 @@ function Caixa() {
                   [...resumoCaixa.movimentacoes]
                     .map(normalizarMovimentacao)
                     .sort((a, b) => new Date(b.data) - new Date(a.data))
-                    .map((m) => (
-                      <TableRow key={`${m.tipo}-${m.id}`} sx={{ "&:hover": { bgcolor: "action.hover" } }}>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={m.tipo === "compra" ? "Compra" : "Venda"}
-                            color={m.tipo === "compra" ? "error" : "success"}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>{m.data ? new Date(m.data).toLocaleString("pt-BR") : "—"}</TableCell>
-                        <TableCell>{m.descricao || "—"}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: m.tipo === "compra" ? "error.main" : "success.main" }}>
-                          {m.tipo === "compra" ? "−" : "+"} R$ {m.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    .map((m) => {
+                      const isSaida = m.tipo === "compra" || m.tipo === "saida";
+                      const labelTipo =
+                        m.tipo === "compra"
+                          ? "Compra"
+                          : m.tipo === "saida"
+                            ? "Despesa"
+                            : m.tipo === "entrada"
+                              ? "Lucro"
+                              : "Venda";
+                      return (
+                        <TableRow key={`${m.tipo}-${m.id}`} sx={{ "&:hover": { bgcolor: "action.hover" } }}>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={labelTipo}
+                              color={isSaida ? "error" : "success"}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{m.data ? new Date(m.data).toLocaleString("pt-BR") : "—"}</TableCell>
+                          <TableCell>{m.descricao || "—"}</TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 600, color: isSaida ? "error.main" : "success.main" }}
+                          >
+                            {isSaida ? "−" : "+"} R${" "}
+                            {Math.abs(m.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>
@@ -1786,17 +1860,14 @@ function Caixa() {
 
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
-      {/* Header Fixo */}
+      {/* Título da página: fluxo normal (sem sticky) para não “competir” com o scroll do layout */}
       <Box
         sx={{
           bgcolor: "background.paper",
           borderBottom: "1px solid",
           borderColor: "divider",
-          px: 4,
+          px: { xs: 2, sm: 4 },
           py: 2,
-          position: "sticky",
-          top: 0,
-          zIndex: 1000,
         }}
       >
         <Typography variant="h4" sx={{ fontWeight: 700, color: "text.primary" }}>
@@ -1989,15 +2060,22 @@ function Caixa() {
                     ) : (
                       <Button
                         variant="contained"
-                        color="success"
                         onClick={finalizarVenda}
-                        startIcon={<CheckCircle />}
+                        startIcon={<CheckCircle sx={{ color: "inherit" }} />}
                         size="large"
                         sx={{
                           textTransform: "none",
-                          fontWeight: 600,
+                          fontWeight: 700,
                           px: 5,
                           fontSize: "1rem",
+                          color: "#fff",
+                          bgcolor: "success.dark",
+                          boxShadow: "none",
+                          "&:hover": {
+                            bgcolor: "success.main",
+                            color: "#fff",
+                            boxShadow: (t) => t.shadows[4],
+                          },
                         }}
                       >
                         Confirmar e Finalizar

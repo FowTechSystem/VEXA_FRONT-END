@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -48,9 +49,24 @@ import {
   FileDownload,
 } from "@mui/icons-material";
 import { caixaService } from "../api/caixaService";
+import { vendasService } from "../api/vendasService";
+import { comprasService } from "../api/comprasService";
+import { showSuccess, showError, showWarning } from "../utils/notifications";
+import {
+  resolverTipoMovimentacaoLinha,
+  valorMovimentacaoAssinado,
+} from "../utils/movimentacaoCaixa";
+
+function apiErrMessage(err) {
+  const d = err?.response?.data;
+  if (d && typeof d === "object" && d.message != null) return String(d.message);
+  if (typeof d === "string" && d.trim()) return d;
+  return err?.message || "Operação não concluída.";
+}
 
 function Movimentacoes() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const isDark = theme.palette.mode === "dark";
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,6 +74,9 @@ function Movimentacoes() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [movimentacaoSelecionada, setMovimentacaoSelecionada] = useState(null);
   const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false);
+  const [dialogExcluirOpen, setDialogExcluirOpen] = useState(false);
+  const [motivoCancelamento, setMotivoCancelamento] = useState("");
+  const [excluindo, setExcluindo] = useState(false);
 
   const [totalEntradas, setTotalEntradas] = useState(0);
   const [totalSaidas, setTotalSaidas] = useState(0);
@@ -86,19 +105,43 @@ function Movimentacoes() {
         const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
         const list = Array.isArray(mov) ? mov : [];
         const normalizadas = list.map((m) => {
-          const tipo = (m.tipo ?? m.Tipo ?? "venda").toString().toLowerCase();
-          const valorNum = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
+          const tipo = resolverTipoMovimentacaoLinha(m);
+          const valorBruto = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
           const dataStr = m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "";
           const d = dataStr ? new Date(dataStr) : null;
+          const vendaId = m.vendaId ?? m.VendaId;
+          const compraId = m.compraId ?? m.CompraId;
+          const genericId = m.id ?? m.Id;
+          const id =
+            tipo === "compra"
+              ? compraId ?? genericId ?? `${tipo}-${Math.random()}`
+              : tipo === "venda"
+                ? vendaId ?? genericId ?? `${tipo}-${Math.random()}`
+                : genericId ?? `${tipo}-${Math.random()}`;
+          const exclusaoTipo =
+            tipo === "venda" || tipo === "compra"
+              ? tipo
+              : tipo === "entrada" || tipo === "saida"
+                ? "movimentacao_manual"
+                : null;
+          const descPadrao =
+            tipo === "compra"
+              ? "Compra"
+              : tipo === "venda"
+                ? "Venda"
+                : tipo === "entrada"
+                  ? "Entrada"
+                  : "Saída";
           return {
-            id: m.id ?? m.Id ?? `${tipo}-${Math.random()}`,
-            tipo: tipo === "compra" ? "compra" : tipo === "venda" ? "venda" : tipo,
-            descricao: m.descricao ?? m.Descricao ?? (tipo === "compra" ? "Compra" : "Venda"),
+            id,
+            tipo,
+            exclusaoTipo,
+            descricao: m.descricao ?? m.Descricao ?? descPadrao,
             cliente: m.cliente ?? m.Cliente ?? m.clienteNome ?? "",
             fornecedor: m.fornecedor ?? m.Fornecedor ?? m.fornecedorNome ?? "",
             data: dataStr,
             hora: d ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
-            valor: tipo === "compra" ? -Math.abs(valorNum) : Math.abs(valorNum),
+            valor: valorMovimentacaoAssinado(tipo, valorBruto),
             formaPagamento: m.formaPagamento ?? m.FormaPagamento ?? "—",
             status: m.status ?? m.Status ?? "concluido",
           };
@@ -156,6 +199,53 @@ function Movimentacoes() {
     setMovimentacaoSelecionada(null);
   };
 
+  const handleAbrirExcluir = () => {
+    if (!movimentacaoSelecionada?.exclusaoTipo) {
+      showWarning("Este registro não pode ser excluído por aqui.");
+      handleMenuClose();
+      return;
+    }
+    setMotivoCancelamento("");
+    setDialogExcluirOpen(true);
+    handleMenuClose();
+  };
+
+  const handleFecharDialogExcluir = () => {
+    if (excluindo) return;
+    setDialogExcluirOpen(false);
+    setMovimentacaoSelecionada(null);
+  };
+
+  const handleConfirmarExclusao = async () => {
+    const mov = movimentacaoSelecionada;
+    if (!mov?.exclusaoTipo) return;
+    setExcluindo(true);
+    try {
+      if (mov.exclusaoTipo === "venda") {
+        await vendasService.cancelar(
+          mov.id,
+          motivoCancelamento.trim() || "Exclusão pela tela Movimentações",
+        );
+      } else if (mov.exclusaoTipo === "compra") {
+        await comprasService.delete(mov.id);
+      } else {
+        await caixaService.excluirMovimentacaoManual(mov.id);
+      }
+      showSuccess(
+        mov.exclusaoTipo === "venda"
+          ? "Venda cancelada."
+          : "Registro excluído.",
+      );
+      setDialogExcluirOpen(false);
+      setMovimentacaoSelecionada(null);
+      carregarMovimentacoes();
+    } catch (err) {
+      showError(apiErrMessage(err));
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
   const getTipoConfig = (tipo) => {
     const configs = {
       venda: {
@@ -171,19 +261,25 @@ function Movimentacoes() {
         icon: <Receipt />,
       },
       entrada: {
-        label: "Entrada",
+        label: "Lucro",
         color: isDark ? "#3b82f6" : "#2563eb",
         bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#dbeafe",
         icon: <TrendingUp />,
       },
       saida: {
-        label: "Saída",
+        label: "Despesa",
         color: isDark ? "#f59e0b" : "#ea580c",
         bgcolor: isDark ? "rgba(245, 158, 11, 0.15)" : "#fef3c7",
         icon: <TrendingDown />,
       },
+      outro: {
+        label: "Movimentação",
+        color: isDark ? "#94a3b8" : "#64748b",
+        bgcolor: isDark ? "rgba(148, 163, 184, 0.12)" : "#f1f5f9",
+        icon: <Receipt />,
+      },
     };
-    return configs[tipo] || configs.venda;
+    return configs[tipo] || configs.outro;
   };
 
   return (
@@ -230,6 +326,7 @@ function Movimentacoes() {
           <Button
             variant="contained"
             startIcon={<AttachMoney />}
+            onClick={() => navigate("/vendas/nova-movimentacao")}
             sx={{
               bgcolor: isDark ? "#3b82f6" : "#2563eb",
               color: "primary.contrastText",
@@ -845,13 +942,22 @@ function Movimentacoes() {
                           <Chip
                             label="Concluído"
                             size="small"
-                            sx={{
-                              bgcolor: isDark
-                                ? "rgba(34, 197, 94, 0.15)"
-                                : "#dcfce7",
-                              color: isDark ? "#22c55e" : "#16a34a",
+                            sx={(t) => ({
                               fontWeight: 600,
-                            }}
+                              ...(t.palette.mode === "dark"
+                                ? {
+                                    bgcolor: "success.dark",
+                                    color: "common.white",
+                                    border: "1px solid",
+                                    borderColor: "success.main",
+                                  }
+                                : {
+                                    bgcolor: "success.light",
+                                    color: "success.dark",
+                                    border: "1px solid",
+                                    borderColor: "success.main",
+                                  }),
+                            })}
                           />
                         </TableCell>
                         <TableCell
@@ -940,7 +1046,8 @@ function Movimentacoes() {
           </MenuItem>
           <Divider sx={{ borderColor: theme.palette.divider }} />
           <MenuItem
-            onClick={handleMenuClose}
+            onClick={handleAbrirExcluir}
+            disabled={!movimentacaoSelecionada?.exclusaoTipo}
             sx={{
               py: 1.5,
               "&:hover": {
@@ -960,6 +1067,62 @@ function Movimentacoes() {
             </Typography>
           </MenuItem>
         </Menu>
+
+        <Dialog
+          open={dialogExcluirOpen}
+          onClose={handleFecharDialogExcluir}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              bgcolor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 600, color: "text.primary" }}>
+            {movimentacaoSelecionada?.exclusaoTipo === "venda"
+              ? "Cancelar esta venda?"
+              : movimentacaoSelecionada?.exclusaoTipo === "compra"
+                ? "Excluir esta compra?"
+                : "Excluir esta movimentação?"}
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {movimentacaoSelecionada?.exclusaoTipo === "venda"
+                ? "A venda será cancelada no sistema (estorno de estoque e totais dependem do backend)."
+                : movimentacaoSelecionada?.exclusaoTipo === "compra"
+                  ? "A compra será removida permanentemente, se o servidor permitir."
+                  : "A movimentação manual será removida do caixa."}
+            </Typography>
+            {movimentacaoSelecionada?.exclusaoTipo === "venda" && (
+              <TextField
+                fullWidth
+                size="small"
+                label="Motivo (opcional)"
+                value={motivoCancelamento}
+                onChange={(e) => setMotivoCancelamento(e.target.value)}
+                placeholder="Ex.: erro no lançamento"
+                sx={{ mt: 1 }}
+              />
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+            <Button onClick={handleFecharDialogExcluir} disabled={excluindo} sx={{ textTransform: "none" }}>
+              Voltar
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmarExclusao}
+              disabled={excluindo}
+              sx={{ textTransform: "none" }}
+            >
+              {excluindo ? "Processando…" : "Confirmar"}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Modal de Detalhes */}
         <Dialog
