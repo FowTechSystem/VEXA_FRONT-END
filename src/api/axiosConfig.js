@@ -50,7 +50,10 @@ api.interceptors.request.use(
     }
     // Dev entrando em empresa: envia X-Empresa-Id para o backend usar esse contexto
     const empresaId = getEmpresaAtivaId();
-    if (empresaId != null && !/auth\/login/i.test(config.url || "")) {
+    if (
+      empresaId != null &&
+      !/auth\/(login|forgot-password|reset-password)/i.test(config.url || "")
+    ) {
       config.headers["X-Empresa-Id"] = String(empresaId);
     }
     return config;
@@ -62,8 +65,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isLoginRequest = /auth\/login$/i.test(error.config?.url || "");
-      if (!isLoginRequest) {
+      const url = error.config?.url || "";
+      const isPublicAuth =
+        /auth\/(login|forgot-password|reset-password)/i.test(url);
+      if (!isPublicAuth) {
         clearAuth();
         window.location.href = "/login";
       }

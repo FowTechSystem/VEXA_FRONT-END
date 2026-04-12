@@ -89,3 +89,73 @@ export function valorMovimentacaoAssinado(tipo, valorBruto) {
   if (tipo === "compra" || tipo === "saida") return -Math.abs(n);
   return Math.abs(n);
 }
+
+/**
+ * Chave estável para deduplicar notificações de caixa (evita reaviso ao recarregar a mesma linha).
+ * @param {{ id?: unknown, tipo?: string, data?: string, valor?: number, descricao?: string }} m
+ */
+export function chaveEstavelMovimentacaoCaixa(m) {
+  const rawId = m?.id ?? m?.Id;
+  if (rawId != null && String(rawId).trim() !== "") {
+    return `id:${String(rawId)}`;
+  }
+  const tipo = m.tipo || "";
+  const data = m.data || "";
+  const valor = Number(m.valor) || 0;
+  const desc = String(m.descricao || "").trim().slice(0, 200);
+  return `h:${tipo}|${data}|${valor}|${desc}`;
+}
+
+function rotuloTipoMovimentacao(tipo) {
+  switch (tipo) {
+    case "venda":
+      return "Venda";
+    case "compra":
+      return "Compra";
+    case "entrada":
+      return "Entrada no caixa";
+    case "saida":
+      return "Saída no caixa";
+    default:
+      return "Movimentação";
+  }
+}
+
+/**
+ * Monta texto e chave a partir de um item bruto da API (GET /caixa/resumo).
+ * @param {object} m - linha bruta
+ * @returns {{ chave: string, texto: string, dataISO: string }}
+ */
+export function montarDadosNotificacaoMovimentacaoApi(m) {
+  const tipo = resolverTipoMovimentacaoLinha(m);
+  const valorBruto = Number(m.valor ?? m.Valor ?? m.valorTotal ?? 0) || 0;
+  const valor = valorMovimentacaoAssinado(tipo, valorBruto);
+  const dataStr = String(
+    m.data ?? m.Data ?? m.dataVenda ?? m.dataPedido ?? m.createdAt ?? "",
+  ).trim();
+  const descricao =
+    String(m.descricao ?? m.Descricao ?? "").trim() || "Sem descrição";
+
+  const vendaId = m.vendaId ?? m.VendaId;
+  const compraId = m.compraId ?? m.CompraId;
+  const genericId = m.id ?? m.Id;
+  const id =
+    tipo === "compra"
+      ? compraId ?? genericId
+      : tipo === "venda"
+        ? vendaId ?? genericId
+        : genericId;
+
+  const chave = chaveEstavelMovimentacaoCaixa({
+    id,
+    tipo,
+    data: dataStr,
+    valor,
+    descricao,
+  });
+
+  const sinal = valor >= 0 ? "+" : "-";
+  const texto = `${rotuloTipoMovimentacao(tipo)}: ${descricao} — ${sinal} R$ ${Math.abs(valor).toFixed(2)}`;
+
+  return { chave, texto, dataISO: dataStr };
+}

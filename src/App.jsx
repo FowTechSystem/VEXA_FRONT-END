@@ -9,6 +9,8 @@ import {
 import CriticalErrorDialog from "./components/CriticalErrorDialog";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
+import RecuperarSenha from "./pages/RecuperarSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Dashboard from "./pages/Dashboard";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
@@ -23,7 +25,6 @@ import Fiscal from "./pages/Fiscal";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
-import Planos from "./pages/Planos";
 import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
 import Categorias from "./pages/Categorias";
@@ -32,6 +33,7 @@ import CatalogoDigital from "./pages/CatalogoDigital";
 import CatalogoPublico from "./pages/CatalogoPublico";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
+import { vexaColors, vexaSurfaces } from "./theme";
 
 function AppContent() {
   const { mode } = useContext(ThemeContext);
@@ -51,15 +53,19 @@ function AppContent() {
             padding: "16px",
             fontSize: "14px",
             maxWidth: "500px",
-            background: mode === "dark" ? "#1e293b" : "#ffffff",
-            color: mode === "dark" ? "#f1f5f9" : "#1e293b",
+            background:
+              mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
+            color: mode === "dark" ? "#E8EAEF" : vexaColors.azulEscuro,
             border:
-              mode === "dark" ? "1px solid rgba(148, 163, 184, 0.1)" : "none",
+              mode === "dark"
+                ? `1px solid rgba(141, 153, 174, 0.22)`
+                : `1px solid rgba(43, 45, 66, 0.08)`,
           },
           success: {
             duration: 2500,
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
             iconTheme: {
               primary: "#10b981",
@@ -69,7 +75,8 @@ function AppContent() {
           error: {
             duration: 3500,
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
             iconTheme: {
               primary: "#ef4444",
@@ -78,7 +85,8 @@ function AppContent() {
           },
           loading: {
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
           },
         }}
@@ -87,6 +95,8 @@ function AppContent() {
       <Routes>
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/catalogo-publico/:id" element={<CatalogoPublico />} />
 
         {/* Rotas Protegidas (com sidebar) */}
@@ -113,7 +123,6 @@ function AppContent() {
           <Route path="marcas" element={<Marcas />} />
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
-          <Route path="planos" element={<Planos />} />
           <Route path="condicional" element={<Condicional />} />
           <Route path="empresas" element={<Empresas />} />
           <Route path="configuracoes" element={<Configuracoes />} />

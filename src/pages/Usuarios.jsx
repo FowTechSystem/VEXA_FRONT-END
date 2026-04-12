@@ -106,6 +106,7 @@ function Usuarios() {
   const [cpfError, setCpfError] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
   const [fotoPreview, setFotoPreview] = useState(null);
+  const [fotoFile, setFotoFile] = useState(null);
 
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -222,8 +223,9 @@ function Usuarios() {
     setPaginaAtual(1);
   };
 
-  const handlePhotoReady = ({ dataUrl }) => {
+  const handlePhotoReady = ({ dataUrl, file }) => {
     setFotoPreview(dataUrl);
+    if (file) setFotoFile(file);
   };
 
   const handleOpenDialog = async (usuario = null) => {
@@ -240,6 +242,12 @@ function Usuarios() {
       const dataNasc = usuario.dataNascimento ? String(usuario.dataNascimento).split("T")[0] : "";
       setCurrentUsuario({
         ...usuario,
+        fotoUrl:
+          usuario.fotoUrl ||
+          usuario.avatarUrl ||
+          usuario.urlFoto ||
+          usuario.foto ||
+          "",
         login: usuario.login || usuario.email || "",
         whatsApp: usuario.whatsApp || usuario.telefone || "",
         rg: usuario.rg || "",
@@ -264,6 +272,7 @@ function Usuarios() {
           usuario.foto ||
           null,
       );
+      setFotoFile(null);
       setEditMode(true);
     } else {
       setCurrentUsuario({
@@ -293,6 +302,7 @@ function Usuarios() {
         permissaoIds: [],
       });
       setFotoPreview(null);
+      setFotoFile(null);
       setEditMode(false);
     }
     setCpfError("");
@@ -341,9 +351,12 @@ function Usuarios() {
     };
     if (isCreate) {
       base.senhaHash = u.senha || "";
+      base.fotoBase64 = u.fotoBase64 ?? null;
     } else {
       base.id = u.id;
       base.novaSenha = u.senha?.trim() ? u.senha : null;
+      base.fotoUrl = u.fotoUrl ?? null;
+      base.fotoBase64 = null;
     }
     return base;
   };
@@ -362,6 +375,7 @@ function Usuarios() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setFotoPreview(null);
+    setFotoFile(null);
   };
 
   const handleChange = (e) => {
@@ -460,7 +474,44 @@ function Usuarios() {
     }
 
     try {
-      const payload = toApiPayload(currentUsuario, !editMode);
+      let fotoBase64 = null;
+      let fotoUrl = currentUsuario.fotoUrl || null;
+
+      if (fotoFile) {
+        if (editMode) {
+          const uploadResult = await usuariosService.uploadFoto(fotoFile);
+          const novaUrl =
+            uploadResult?.url ??
+            uploadResult?.fotoUrl ??
+            uploadResult?.path ??
+            uploadResult?.location ??
+            (typeof uploadResult === "string" ? uploadResult : null);
+          if (novaUrl) {
+            fotoUrl = novaUrl;
+          } else {
+            console.warn(
+              "[Usuarios] POST /usuarios/upload-foto: resposta sem URL conhecida",
+              uploadResult,
+            );
+            showError(
+              "A foto foi enviada, mas a API não retornou a URL no formato esperado (url, fotoUrl ou path). Verifique o backend.",
+            );
+            return;
+          }
+        } else {
+          fotoBase64 = fotoPreview?.includes(",") ? fotoPreview.split(",")[1] : null;
+        }
+      }
+
+      const payload = toApiPayload(
+        {
+          ...currentUsuario,
+          fotoBase64: editMode ? null : fotoBase64,
+          fotoUrl: editMode ? fotoUrl : undefined,
+        },
+        !editMode,
+      );
+
       if (editMode) {
         await usuariosService.update(currentUsuario.id, payload);
         showSuccess(successMessages.update(entityNames.usuario));
@@ -535,7 +586,7 @@ function Usuarios() {
       "#ef4444",
       "#f59e0b",
       "#10b981",
-      "#3b82f6",
+      "#F8F32B",
       "#8b5cf6",
       "#ec4899",
       "#06b6d4",

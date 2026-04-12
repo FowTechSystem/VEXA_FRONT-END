@@ -28,7 +28,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
   Add,
   Remove,
@@ -47,6 +49,8 @@ import { clientesService } from "../api/clientesService";
 import { condicionalService } from "../api/condicionalService";
 
 function Condicional() {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === "light";
   const [tabAtual, setTabAtual] = useState(0);
   const [carrinho, setCarrinho] = useState([]);
   const [searchProduto, setSearchProduto] = useState("");
@@ -308,6 +312,10 @@ function Condicional() {
           sx={{
             mb: 3,
             "& .MuiTab-root": { textTransform: "none", fontWeight: 600 },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "primary.main",
+              height: 3,
+            },
           }}
         >
           <Tab icon={<ShoppingCart />} iconPosition="start" label="Novo Condicional" />
@@ -369,7 +377,10 @@ function Condicional() {
                             border: "1px solid",
                             borderColor: "divider",
                             borderRadius: 1,
-                            "&:hover": { bgcolor: "action.hover", borderColor: "primary.main" },
+                            "&:hover": {
+                              bgcolor: "action.hover",
+                              borderColor: isLight ? alpha(theme.palette.primary.main, 0.55) : "primary.main",
+                            },
                           }}
                           onClick={() => handleAdicionarAoCarrinho(produto)}
                         >
@@ -383,10 +394,16 @@ function Condicional() {
                               </Typography>
                             </Box>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.main" }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: 700,
+                                  color: isLight ? "text.primary" : "primary.main",
+                                }}
+                              >
                                 R$ {preco.toFixed(2)}
                               </Typography>
-                              <Add sx={{ color: "primary.main" }} />
+                              <Add sx={{ color: isLight ? "primary.dark" : "primary.main" }} />
                             </Box>
                           </Box>
                         </Paper>
@@ -404,8 +421,13 @@ function Condicional() {
                 flex: "1 1 40%",
                 p: 3,
                 borderRadius: 2,
-                border: "2px solid",
-                borderColor: "primary.main",
+                border: "1px solid",
+                borderColor: "divider",
+                boxShadow: isLight
+                  ? `inset 0 0 0 2px ${alpha(theme.palette.primary.main, 0.35)}`
+                  : undefined,
+                outline: isLight ? "none" : undefined,
+                ...(!isLight && { border: "2px solid", borderColor: "primary.main" }),
                 bgcolor: "background.paper",
                 display: "flex",
                 flexDirection: "column",
@@ -424,7 +446,18 @@ function Condicional() {
                 value={clienteSelecionado ? clienteSelecionado.nome : ""}
                 onClick={() => setOpenDialogCliente(true)}
                 readOnly
-                sx={{ mb: 2 }}
+                sx={{
+                  mb: 2,
+                  ...(isLight && {
+                    "& .MuiInputLabel-root": { color: "text.secondary" },
+                    "& .MuiInputLabel-root.Mui-focused": { color: "primary.dark" },
+                    "& .MuiInputLabel-root.MuiInputLabel-shrink": { color: "text.primary" },
+                    "& .MuiInputLabel-asterisk": { color: "error.main" },
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "background.paper",
+                    },
+                  }),
+                }}
                 error={!clienteSelecionado && carrinho.length > 0}
                 helperText={!clienteSelecionado && carrinho.length > 0 ? "Selecione um cliente" : ""}
                 InputProps={{
@@ -502,7 +535,13 @@ function Condicional() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Total
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: "primary.main" }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: isLight ? "text.primary" : "primary.main",
+                    }}
+                  >
                     R$ {calcularTotal().toFixed(2)}
                   </Typography>
                 </Box>
@@ -512,7 +551,16 @@ function Condicional() {
                   disabled={!podeSalvar() || salvando}
                   onClick={salvarCondicional}
                   startIcon={<CheckCircle />}
-                  sx={{ textTransform: "none", fontWeight: 600 }}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 600,
+                    ...(isLight && {
+                      "&.Mui-disabled": {
+                        bgcolor: "action.disabledBackground",
+                        color: "text.secondary",
+                      },
+                    }),
+                  }}
                 >
                   {salvando ? "Registrando..." : "Registrar Condicional"}
                 </Button>

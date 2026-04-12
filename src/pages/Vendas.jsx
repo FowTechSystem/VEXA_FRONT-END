@@ -30,6 +30,8 @@ import {
   DialogActions,
   useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import { vexaColors } from "../theme";
 import {
   Search,
   Refresh,
@@ -56,6 +58,7 @@ import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
 } from "../utils/movimentacaoCaixa";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 
 function apiErrMessage(err) {
   const d = err?.response?.data;
@@ -68,6 +71,7 @@ function Movimentacoes() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isDark = theme.palette.mode === "dark";
+  const { sincronizarMovimentacoesDoCaixa } = useInAppNotifications();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -150,6 +154,7 @@ function Movimentacoes() {
         setTotalSaidas(saidas);
         setSaldoAtual(saldo);
         setMovimentacoes(normalizadas);
+        sincronizarMovimentacoesDoCaixa(list);
       })
       .catch((err) => {
         console.error("Erro ao carregar movimentações:", err);
@@ -262,8 +267,10 @@ function Movimentacoes() {
       },
       entrada: {
         label: "Lucro",
-        color: isDark ? "#3b82f6" : "#2563eb",
-        bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#dbeafe",
+        color: isDark ? vexaColors.preto : vexaColors.azulEscuro,
+        bgcolor: isDark
+          ? alpha(vexaColors.amareloNeon, 0.42)
+          : alpha(vexaColors.amareloNeon, 0.22),
         icon: <TrendingUp />,
       },
       saida: {
@@ -274,8 +281,10 @@ function Movimentacoes() {
       },
       outro: {
         label: "Movimentação",
-        color: isDark ? "#94a3b8" : "#64748b",
-        bgcolor: isDark ? "rgba(148, 163, 184, 0.12)" : "#f1f5f9",
+        color: isDark ? vexaColors.cinzaAzulado : vexaColors.azulEscuro,
+        bgcolor: isDark
+          ? alpha(vexaColors.cinzaAzulado, 0.18)
+          : alpha(vexaColors.cinzaAzulado, 0.14),
         icon: <Receipt />,
       },
     };
@@ -328,7 +337,7 @@ function Movimentacoes() {
             startIcon={<AttachMoney />}
             onClick={() => navigate("/vendas/nova-movimentacao")}
             sx={{
-              bgcolor: isDark ? "#3b82f6" : "#2563eb",
+              bgcolor: "primary.main",
               color: "primary.contrastText",
               textTransform: "none",
               fontWeight: 600,
@@ -336,7 +345,7 @@ function Movimentacoes() {
               py: 1.5,
               borderRadius: 2,
               "&:hover": {
-                bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                bgcolor: "primary.dark",
               },
             }}
           >
@@ -427,11 +436,11 @@ function Movimentacoes() {
                   <Avatar
                     sx={{
                       bgcolor: isDark ? "#22c55e" : "#16a34a",
-                      width: 56,
-                      height: 56,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <TrendingUp sx={{ fontSize: 32 }} />
+                    <TrendingUp sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -480,11 +489,11 @@ function Movimentacoes() {
                   <Avatar
                     sx={{
                       bgcolor: isDark ? "#ef4444" : "#dc2626",
-                      width: 56,
-                      height: 56,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <TrendingDown sx={{ fontSize: 32 }} />
+                    <TrendingDown sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -496,9 +505,9 @@ function Movimentacoes() {
             <Card
               elevation={0}
               sx={{
-                border: `2px solid ${isDark ? "rgba(59, 130, 246, 0.3)" : "#dbeafe"}`,
+                border: `2px solid ${alpha(theme.palette.primary.main, isDark ? 0.45 : 0.4)}`,
                 borderRadius: 2,
-                bgcolor: isDark ? "rgba(59, 130, 246, 0.08)" : "#eff6ff",
+                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.12 : 0.08),
               }}
             >
               <CardContent sx={{ p: 3 }}>
@@ -513,7 +522,7 @@ function Movimentacoes() {
                     <Typography
                       variant="body2"
                       sx={{
-                        color: isDark ? "#3b82f6" : "#2563eb",
+                        color: "primary.main",
                         fontWeight: 600,
                         mb: 1,
                       }}
@@ -524,7 +533,7 @@ function Movimentacoes() {
                       variant="h4"
                       sx={{
                         fontWeight: 700,
-                        color: isDark ? "#3b82f6" : "#2563eb",
+                        color: "primary.main",
                       }}
                     >
                       {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -532,12 +541,13 @@ function Movimentacoes() {
                   </Box>
                   <Avatar
                     sx={{
-                      bgcolor: isDark ? "#3b82f6" : "#2563eb",
-                      width: 56,
-                      height: 56,
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <AttachMoney sx={{ fontSize: 32 }} />
+                    <AttachMoney sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -593,10 +603,10 @@ function Movimentacoes() {
                     textTransform: "none",
                     fontWeight: 600,
                     ...(filtroTipo === "todos" && {
-                      bgcolor: isDark ? "#3b82f6" : "#2563eb",
+                      bgcolor: "primary.main",
                       color: "primary.contrastText",
                       "&:hover": {
-                        bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                        bgcolor: "primary.dark",
                       },
                     }),
                     ...(filtroTipo !== "todos" && {
@@ -739,15 +749,6 @@ function Movimentacoes() {
                       borderBottom: `1px solid ${theme.palette.divider}`,
                     }}
                   >
-                    Cliente/Fornecedor
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
                     Data
                   </TableCell>
                   <TableCell
@@ -793,7 +794,7 @@ function Movimentacoes() {
               <TableBody>
                 {carregandoMovimentacoes ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                       <Typography variant="body2" color="text.secondary">
                         Carregando movimentações...
                       </Typography>
@@ -801,7 +802,7 @@ function Movimentacoes() {
                   </TableRow>
                 ) : movimentacoesFiltradas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                       <Box sx={{ color: theme.palette.text.secondary }}>
                         <Receipt sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
                         <Typography variant="h6" sx={{ fontWeight: 500 }}>
@@ -865,33 +866,13 @@ function Movimentacoes() {
                         >
                           <Typography
                             variant="body2"
-                            sx={{ color: theme.palette.text.secondary }}
+                            sx={{
+                              fontWeight: 500,
+                              color: theme.palette.text.primary,
+                            }}
                           >
-                            {mov.cliente || mov.fornecedor || "—"}
+                            {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
                           </Typography>
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Box>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 500,
-                                color: theme.palette.text.primary,
-                              }}
-                            >
-                              {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: theme.palette.text.secondary }}
-                            >
-                              {mov.hora || "—"}
-                            </Typography>
-                          </Box>
                         </TableCell>
                         <TableCell
                           align="right"
@@ -1012,7 +993,7 @@ function Movimentacoes() {
             }}
           >
             <Visibility
-              sx={{ mr: 1.5, color: isDark ? "#3b82f6" : "#2563eb" }}
+              sx={{ mr: 1.5, color: "primary.main" }}
             />
             <Typography
               variant="body2"
@@ -1526,12 +1507,12 @@ function Movimentacoes() {
               variant="contained"
               startIcon={<Edit />}
               sx={{
-                bgcolor: isDark ? "#3b82f6" : "#2563eb",
+                bgcolor: "primary.main",
                 color: "primary.contrastText",
                 textTransform: "none",
                 fontWeight: 600,
                 "&:hover": {
-                  bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                  bgcolor: "primary.dark",
                 },
               }}
             >

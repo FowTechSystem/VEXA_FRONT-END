@@ -15,7 +15,9 @@ import {
   InputAdornment,
   Collapse,
   IconButton,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
   Dashboard,
   People,
@@ -32,7 +34,6 @@ import {
   LocalShipping,
   AssignmentReturn,
   PointOfSale,
-  CardMembership,
   Search,
   Business,
   Category,
@@ -101,10 +102,7 @@ const menuSectionsBase = [
   },
   {
     title: "Sistema",
-    items: [
-      { text: "Planos", icon: <CardMembership />, path: "planos" },
-      { text: "Configurações", icon: <Settings />, path: "configuracoes" },
-    ],
+    items: [{ text: "Configurações", icon: <Settings />, path: "configuracoes" }],
   },
 ];
 
@@ -143,6 +141,8 @@ function filterMenuSections(sections, termo) {
 }
 
 function Sidebar({ mobileOpen, onDrawerToggle }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const navigate = useNavigate();
   const location = useLocation();
   const [pesquisa, setPesquisa] = useState("");
@@ -203,8 +203,17 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
     >
       <Toolbar
         sx={{
-          bgcolor: "primary.main",
-          color: "white",
+          ...(isDark
+            ? {
+                bgcolor: "background.default",
+                color: "primary.main",
+                borderBottom: "2px solid",
+                borderColor: "primary.main",
+              }
+            : {
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+              }),
           justifyContent: "center",
         }}
       >
@@ -307,11 +316,23 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                           sx={{
                             borderRadius: 2,
                             pr: 5,
-                            bgcolor: parentActive ? "primary.main" : "transparent",
-                            color: parentActive ? "white" : "text.primary",
+                            borderLeft: parentActive && isDark ? "3px solid" : "3px solid transparent",
+                            borderColor: parentActive && isDark ? "primary.main" : "transparent",
+                            bgcolor: parentActive
+                              ? isDark
+                                ? alpha(theme.palette.primary.main, 0.1)
+                                : "primary.main"
+                              : "transparent",
+                            color: parentActive
+                              ? isDark
+                                ? "text.primary"
+                                : "primary.contrastText"
+                              : "text.primary",
                             "&:hover": {
                               bgcolor: parentActive
-                                ? "primary.dark"
+                                ? isDark
+                                  ? alpha(theme.palette.primary.main, 0.16)
+                                  : "primary.dark"
                                 : "action.hover",
                             },
                           }}
@@ -319,7 +340,11 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                           <ListItemIcon
                             sx={{
                               minWidth: 40,
-                              color: parentActive ? "white" : "text.secondary",
+                              color: parentActive
+                                ? isDark
+                                  ? "primary.main"
+                                  : "primary.contrastText"
+                                : "text.secondary",
                             }}
                           >
                             {item.icon}
@@ -348,11 +373,19 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                                     borderRadius: 2,
                                     pl: 2,
                                     py: 0.75,
-                                    bgcolor: subActive ? "action.selected" : "transparent",
+                                    borderLeft: subActive && isDark ? "2px solid" : "2px solid transparent",
+                                    borderColor: subActive && isDark ? "primary.main" : "transparent",
+                                    bgcolor: subActive
+                                      ? isDark
+                                        ? alpha(theme.palette.primary.main, 0.08)
+                                        : "action.selected"
+                                      : "transparent",
                                     color: "text.primary",
                                     "&:hover": {
                                       bgcolor: subActive
-                                        ? "action.selected"
+                                        ? isDark
+                                          ? alpha(theme.palette.primary.main, 0.12)
+                                          : "action.selected"
                                         : "action.hover",
                                     },
                                   }}
@@ -392,13 +425,23 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                       }}
                       sx={{
                         borderRadius: 2,
+                        borderLeft: isActive(item.path) && isDark ? "3px solid" : "3px solid transparent",
+                        borderColor: isActive(item.path) && isDark ? "primary.main" : "transparent",
                         bgcolor: isActive(item.path)
-                          ? "primary.main"
+                          ? isDark
+                            ? alpha(theme.palette.primary.main, 0.1)
+                            : "primary.main"
                           : "transparent",
-                        color: isActive(item.path) ? "white" : "text.primary",
+                        color: isActive(item.path)
+                          ? isDark
+                            ? "text.primary"
+                            : "primary.contrastText"
+                          : "text.primary",
                         "&:hover": {
                           bgcolor: isActive(item.path)
-                            ? "primary.dark"
+                            ? isDark
+                              ? alpha(theme.palette.primary.main, 0.16)
+                              : "primary.dark"
                             : "action.hover",
                         },
                       }}
@@ -406,7 +449,11 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                       <ListItemIcon
                         sx={{
                           minWidth: 40,
-                          color: isActive(item.path) ? "white" : "text.secondary",
+                          color: isActive(item.path)
+                            ? isDark
+                              ? "primary.main"
+                              : "primary.contrastText"
+                            : "text.secondary",
                         }}
                       >
                         {item.icon}

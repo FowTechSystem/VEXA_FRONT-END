@@ -49,7 +49,7 @@ import { produtosService } from "../api/produtosService";
 const STATUS_COMPRA = {
   pendente: { label: "Pendente", color: "#d97706", bgcolor: "#fef3c7" },
   aprovada: { label: "Aprovada", color: "#16a34a", bgcolor: "#dcfce7" },
-  recebida: { label: "Recebida", color: "#2563eb", bgcolor: "#eff6ff" },
+  recebida: { label: "Recebida", color: "#2B2D42", bgcolor: "rgba(248, 243, 43, 0.15)" },
   cancelada: { label: "Cancelada", color: "#dc2626", bgcolor: "#fee2e2" },
 };
 

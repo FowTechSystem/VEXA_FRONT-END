@@ -1,4 +1,11 @@
-/* src/index.css */
+/* src/index.css — variáveis da paleta VEXA (uso em CSS puro / libs externas) */
+:root {
+  --vexa-azul-escuro: #2b2d42;
+  --vexa-cinza-azulado: #8d99ae;
+  --vexa-preto: #000000;
+  --vexa-amarelo-neon: #f8f32b;
+}
+
 * {
   margin: 0;
   padding: 0;

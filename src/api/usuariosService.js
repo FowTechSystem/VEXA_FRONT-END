@@ -10,6 +10,29 @@ import api from "./axiosConfig";
  */
 export const usuariosService = {
   /**
+   * Upload da foto do usuário (edição), espelhando o fluxo de clientes.
+   * Multipart campo "file"; não definir Content-Type manualmente (boundary do axios).
+   */
+  uploadFoto: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post("/usuarios/upload-foto", formData, {
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      transformRequest: [
+        (data, headers) => {
+          if (data instanceof FormData) {
+            delete headers["Content-Type"];
+          }
+          return data;
+        },
+      ],
+    });
+    return response.data;
+  },
+
+  /**
    * Listar usuários com paginação e busca.
    * Retorna o objeto completo da API: { usuarios, totalRegistros, totalPaginas, paginaAtual, tamanhoPagina }
    * para o front exibir "Mostrando 1 a 10 de 50" e habilitar os botões de página.

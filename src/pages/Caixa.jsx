@@ -43,6 +43,7 @@ import { produtosService } from "../api/produtosService";
 import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
 import { caixaService } from "../api/caixaService";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 import {
   ShoppingCart,
   Search,
@@ -89,6 +90,7 @@ const normalizeFormaPagamento = (fp) => {
 };
 
 function Caixa() {
+  const { sincronizarMovimentacoesDoCaixa, emitirSeNovaMovimentacao } = useInAppNotifications();
   const [tabAtual, setTabAtual] = useState(0);
   const [etapaAtual, setEtapaAtual] = useState(0);
   const [carrinho, setCarrinho] = useState([]);
@@ -313,6 +315,7 @@ function Caixa() {
   const finalizarVenda = async () => {
     const total = calcularTotal();
     const descontoVal = Math.max(0, Number(String(desconto).replace(",", ".")) || 0);
+    const nomeClienteVenda = clienteSelecionado?.nome;
     const payload = {
       itens: carrinho.map((item) => ({
         produtoId: Number(item.id),
@@ -336,6 +339,15 @@ function Caixa() {
         status: "finalizada",
       };
       setVendas((prev) => [vendaNorm, ...prev]);
+      const vid = criada?.id ?? criada?.Id;
+      emitirSeNovaMovimentacao({
+        tipo: "venda",
+        vendaId: vid,
+        id: vid,
+        valor: total,
+        descricao: nomeClienteVenda ? `Venda — ${nomeClienteVenda}` : "Venda no caixa",
+        data: new Date().toISOString(),
+      });
     } catch (err) {
       const data = err?.response?.data;
       const msg = data?.mensagem
@@ -397,13 +409,15 @@ function Caixa() {
         const saldo = Number(data?.saldoAtual ?? data?.SaldoAtual ?? 0) || 0;
         const entradasMenosSaldo = Number(data?.totalEntradasMenosSaldo ?? data?.TotalEntradasMenosSaldo ?? entradas - saldo) ?? (entradas - saldo);
         const mov = data?.movimentacoes ?? data?.Movimentacoes ?? [];
+        const arrMov = Array.isArray(mov) ? mov : [];
         setResumoCaixa({
           totalEntradas: entradas,
           totalSaidas: saidas,
           saldoAtual: saldo,
           totalEntradasMenosSaldo: entradasMenosSaldo,
-          movimentacoes: Array.isArray(mov) ? mov : [],
+          movimentacoes: arrMov,
         });
+        sincronizarMovimentacoesDoCaixa(arrMov);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -1335,28 +1349,27 @@ function Caixa() {
           </Grid>
         </Grid>
 
-        <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
+        <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
           <Chip
+            variant="outlined"
             label={`${vendasFiltradas.length} ${vendasFiltradas.length === 1 ? "venda" : "vendas"} encontrada(s)`}
-            sx={{ bgcolor: "action.hover", color: "primary.main", fontWeight: 500 }}
+            sx={(theme) => ({
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              borderColor: theme.palette.divider,
+              bgcolor:
+                theme.palette.mode === "dark"
+                  ? "rgba(255, 255, 255, 0.06)"
+                  : "rgba(43, 45, 66, 0.06)",
+            })}
           />
           <Chip
             label={`Total: R$ ${vendasFiltradas.reduce((acc, v) => acc + v.total, 0).toFixed(2)}`}
             sx={(theme) => ({
-              fontWeight: 600,
-              ...(theme.palette.mode === "dark"
-                ? {
-                    bgcolor: "success.dark",
-                    color: "common.white",
-                    border: "1px solid",
-                    borderColor: "success.main",
-                  }
-                : {
-                    bgcolor: "success.light",
-                    color: "success.dark",
-                    border: "1px solid",
-                    borderColor: "success.main",
-                  }),
+              fontWeight: 700,
+              border: "none",
+              bgcolor: theme.palette.success.main,
+              color: theme.palette.getContrastText(theme.palette.success.main),
             })}
           />
         </Box>

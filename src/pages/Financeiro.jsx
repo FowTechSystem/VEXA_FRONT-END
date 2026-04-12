@@ -25,12 +25,14 @@ import {
   InputAdornment,
   Tabs,
   Tab,
+  useTheme,
 } from "@mui/material";
 import { showError } from "../utils/notifications";
 import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
 } from "../utils/movimentacaoCaixa";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 import { caixaService } from "../api/caixaService";
 import {
   AttachMoney,
@@ -61,8 +63,8 @@ function getMonthBounds(mesAno) {
 }
 
 const TIPOS_MOVIMENTACAO = {
-  receita: { label: "Receita", color: "success.main", bgcolor: "success.light" },
-  despesa: { label: "Despesa", color: "error.main", bgcolor: "error.light" },
+  receita: { label: "Receita", chipColor: "success" },
+  despesa: { label: "Despesa", chipColor: "error" },
 };
 
 const CATEGORIAS_RECEITA = [
@@ -84,6 +86,9 @@ const CATEGORIAS_DESPESA = [
 ];
 
 function Financeiro() {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === "light";
+  const { sincronizarMovimentacoesDoCaixa } = useInAppNotifications();
   const [tabAtual, setTabAtual] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
@@ -143,6 +148,7 @@ function Financeiro() {
           };
         });
         setMovimentacoesSistema(normalizadas);
+        sincronizarMovimentacoesDoCaixa(list);
       })
       .catch((err) => {
         console.error("Erro ao carregar movimentações do sistema:", err);
@@ -446,7 +452,12 @@ function Financeiro() {
                 variant="h4"
                 sx={{
                   fontWeight: 600,
-                  color: totais.saldo >= 0 ? "primary.main" : "warning.main",
+                  color:
+                    totais.saldo >= 0
+                      ? isLight
+                        ? "text.primary"
+                        : "primary.main"
+                      : "warning.main",
                 }}
               >
                 {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toFixed(2)}`}
@@ -479,11 +490,9 @@ function Financeiro() {
                 fontSize: "14px",
                 color: "text.secondary",
               },
-              "& .Mui-selected": {
-                color: "primary.main",
-              },
               "& .MuiTabs-indicator": {
                 backgroundColor: "primary.main",
+                height: 3,
               },
             }}
           >
@@ -587,12 +596,9 @@ function Financeiro() {
                         <Chip
                           label={tipo.label}
                           size="small"
-                          sx={{
-                            bgcolor: tipo.bgcolor,
-                            color: tipo.color,
-                            fontWeight: 500,
-                            fontSize: "12px",
-                          }}
+                          color={tipo.chipColor}
+                          variant="filled"
+                          sx={{ fontWeight: 600, fontSize: "12px" }}
                         />
                       </TableCell>
                       <TableCell
@@ -612,11 +618,11 @@ function Financeiro() {
                         sx={{
                           fontWeight: 600,
                           fontSize: "14px",
-                          color: mov.tipo === "receita" ? "#16a34a" : "#dc2626",
+                          color: mov.tipo === "receita" ? "success.dark" : "error.dark",
                         }}
                       >
                         {mov.tipo === "receita" ? "+" : "-"} R${" "}
-                        {mov.valor.toFixed(2)}
+                        {Math.abs(Number(mov.valor) || 0).toFixed(2)}
                       </TableCell>
                       <TableCell align="right">
                         {mov.origem !== "sistema" && (

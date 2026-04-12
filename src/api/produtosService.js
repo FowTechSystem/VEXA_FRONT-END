@@ -2,6 +2,29 @@
 import api from "./axiosConfig";
 
 export const produtosService = {
+  /**
+   * Upload da imagem do produto (edição), mesmo padrão de clientes/usuários.
+   * Multipart com campo "file"; não definir Content-Type manualmente.
+   */
+  uploadFoto: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post("/produtos/upload-foto", formData, {
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      transformRequest: [
+        (data, headers) => {
+          if (data instanceof FormData) {
+            delete headers["Content-Type"];
+          }
+          return data;
+        },
+      ],
+    });
+    return response.data;
+  },
+
   getAll: async (params = {}) => {
     const queryParams = new URLSearchParams();
     if (params.pagina != null) queryParams.append("pagina", params.pagina);
