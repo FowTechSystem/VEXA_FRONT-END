@@ -1,5 +1,5 @@
 // src/pages/Produtos.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -50,6 +50,7 @@ import {
   ChevronRight,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
+import { ProdutoImagemAjuste } from "../components/ProdutoImagemAjuste";
 import { produtosService } from "../api/produtosService";
 import { FornecedorService } from "../api/fornecedorService";
 import { CategoriaService } from "../api/categoriaService";
@@ -97,6 +98,12 @@ const CORES = [
 
 const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
 
+const MAX_IMAGEM_PRODUTO_BYTES = 5 * 1024 * 1024;
+
+function isHttpImageUrl(s) {
+  return typeof s === "string" && /^https?:\/\//i.test(s.trim());
+}
+
 // Extrai nome de string ou objeto { id, nome } retornado pela API
 const nomeDe = (v) =>
   v == null ? null : typeof v === "string" ? v : (v.nome ?? v.razaoSocial ?? null);
@@ -118,6 +125,7 @@ const MATERIAIS = [
 
 function Produtos() {
   const theme = useTheme();
+  const produtoImagemFileRef = useRef(null);
   const isDark = theme.palette.mode === "dark";
   const navigate = useNavigate();
   const location = useLocation();
@@ -132,10 +140,12 @@ function Produtos() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const produtosPorPagina = 10;
   const [carregando, setCarregando] = useState(false);
+  const [salvandoProduto, setSalvandoProduto] = useState(false);
+  /** Arquivo escolhido na galeria — usado para upload na edição e base64 na criação (como clientes/usuários). */
+  const [imagemProdutoFile, setImagemProdutoFile] = useState(null);
 
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
-    descricao: "",
     categoria: "",
     categoriaId: null,
     genero: "",
@@ -153,10 +163,6 @@ function Produtos() {
     codigoBarras: "",
     estoqueTotal: "",
     estoqueMinimo: "",
-    peso: "",
-    largura: "",
-    altura: "",
-    comprimento: "",
     imagemPrincipal: "",
     imagensAdicionais: [],
     fornecedor: "",
@@ -217,7 +223,6 @@ function Produtos() {
       setEditMode(false);
       setCurrentProduto({
         nome: "",
-        descricao: "",
         categoria: "",
         categoriaId: null,
         genero: "",
@@ -235,10 +240,6 @@ function Produtos() {
         codigoBarras: "",
         estoqueTotal: "",
         estoqueMinimo: "",
-        peso: "",
-        largura: "",
-        altura: "",
-        comprimento: "",
         imagemPrincipal: "",
         imagensAdicionais: [],
         fornecedor: "",
@@ -252,6 +253,9 @@ function Produtos() {
   /**
    * Converte o formulário para o payload da API conforme contrato.
    * Obrigatórios: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo.
+   * Variações: cores e tamanhos como arrays de strings; material string opcional; tipoTamanho contexto da grade.
+   * Promoção: precoPromocional (number | null) e emPromocao (boolean) quando há preço promocional > 0.
+   * observacoes: string | null (observações internas).
    * Todos numéricos devem ser number (não string).
    */
   const toApiPayload = (p, isCreate) => {
@@ -284,15 +288,46 @@ function Produtos() {
     if (isCreate) payload.quantidadeEstoque = int(p.estoqueTotal);
     const optCodigo = str(p.codigoBarras);
     if (optCodigo) payload.codigoBarras = optCodigo;
-    const optDesc = str(p.descricao);
-    if (optDesc) payload.descricaoCurta = optDesc;
-    const optPeso = num(p.peso);
-    if (optPeso != null) payload.peso = optPeso;
-    const optFoto = str(p.imagemPrincipal);
-    if (optFoto) payload.foto1 = optFoto;
+
+    // Imagem: alinhado a clientes/usuários — POST com fotoBase64 (arquivo novo); URL http com foto1; PUT com foto1 (URL após upload ou existente).
+    if (isCreate) {
+      if (p.fotoBase64 != null && String(p.fotoBase64).trim() !== "") {
+        payload.fotoBase64 = String(p.fotoBase64).trim();
+      } else if (isHttpImageUrl(p.imagemPrincipal)) {
+        payload.foto1 = p.imagemPrincipal.trim();
+      }
+    } else {
+      const urlNova =
+        p.foto1Url != null && String(p.foto1Url).trim() !== ""
+          ? String(p.foto1Url).trim()
+          : null;
+      if (urlNova) {
+        payload.foto1 = urlNova;
+      } else if (isHttpImageUrl(p.imagemPrincipal)) {
+        payload.foto1 = p.imagemPrincipal.trim();
+      }
+    }
+
     if (p.fornecedorId != null && p.fornecedorId !== "") payload.fornecedorId = Number(p.fornecedorId);
     if (marcaId != null) payload.marcaId = marcaId;
     if (!isCreate && p.id != null) payload.id = p.id;
+
+    const coresArr = Array.isArray(p.cores) ? p.cores.filter((c) => c != null && String(c).trim() !== "") : [];
+    const tamanhosArr = Array.isArray(p.tamanhos) ? p.tamanhos.filter((t) => t != null && String(t).trim() !== "") : [];
+    payload.cores = coresArr;
+    payload.tamanhos = tamanhosArr;
+    if (p.tipoTamanho && ["roupas", "calcados", "acessorios"].includes(p.tipoTamanho)) {
+      payload.tipoTamanho = p.tipoTamanho;
+    }
+    payload.material = str(p.material);
+
+    const promoNum = num(p.precoPromocional);
+    const temPromo = promoNum != null && promoNum > 0;
+    payload.emPromocao = temPromo;
+    payload.precoPromocional = temPromo ? promoNum : null;
+
+    payload.observacoes = str(p.observacoes);
+
     return payload;
   };
 
@@ -347,7 +382,6 @@ function Produtos() {
         (produto) =>
           produto.nome?.toLowerCase().includes(termo) ||
           nomeDe(produto.categoria)?.toLowerCase().includes(termo) ||
-          produto.descricao?.toLowerCase().includes(termo) ||
           produto.sku?.toLowerCase().includes(termo) ||
           nomeDe(produto.marca)?.toLowerCase().includes(termo),
       );
@@ -359,6 +393,12 @@ function Produtos() {
   const handleOpenDialog = (produto = null) => {
     if (produto) {
       const p = { ...produto };
+      delete p.descricao;
+      delete p.descricaoCurta;
+      delete p.peso;
+      delete p.largura;
+      delete p.altura;
+      delete p.comprimento;
       if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
         const found = listaFornecedores.find(
           (f) =>
@@ -375,13 +415,21 @@ function Produtos() {
         const found = listaMarcas.find((m) => (m.nome || "").trim() === (nomeDe(p.marca) || "").trim());
         if (found) p.marcaId = found.id;
       }
+      p.cores = Array.isArray(p.cores) ? p.cores : [];
+      p.tamanhos = Array.isArray(p.tamanhos) ? p.tamanhos : [];
       p.tipoTamanho = p.tipoTamanho || inferirTipoTamanho(p.tamanhos);
+      p.imagemPrincipal =
+        p.foto1 ||
+        p.imagemPrincipal ||
+        p.urlImagem ||
+        p.imagemUrl ||
+        "";
+      setImagemProdutoFile(null);
       setCurrentProduto(p);
       setEditMode(true);
     } else {
       setCurrentProduto({
         nome: "",
-        descricao: "",
         categoria: "",
         categoriaId: null,
         genero: "",
@@ -399,10 +447,6 @@ function Produtos() {
         codigoBarras: "",
         estoqueTotal: "",
         estoqueMinimo: "",
-        peso: "",
-        largura: "",
-        altura: "",
-        comprimento: "",
         imagemPrincipal: "",
         imagensAdicionais: [],
         fornecedor: "",
@@ -411,15 +455,19 @@ function Produtos() {
         ativo: true,
       });
       setEditMode(false);
+      setImagemProdutoFile(null);
     }
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setImagemProdutoFile(null);
   };
 
   const handleSave = async () => {
+    if (salvandoProduto) return;
+
     // Validações (API exige: sku, nome, categoriaId, generoId, precoCusto, precoVenda, quantidadeEstoque, estoqueMinimo)
     const skuValidation = validateRequired(currentProduto.sku, "SKU");
     if (!skuValidation.valid) {
@@ -441,26 +489,103 @@ function Produtos() {
       return;
     }
 
-    if (currentProduto.cores.length === 0) {
+    const coresSel = Array.isArray(currentProduto.cores) ? currentProduto.cores : [];
+    const tamanhosSel = Array.isArray(currentProduto.tamanhos) ? currentProduto.tamanhos : [];
+
+    if (coresSel.length === 0) {
       showError("Selecione pelo menos uma cor");
       return;
     }
 
-    if (currentProduto.tamanhos.length === 0) {
+    if (tamanhosSel.length === 0) {
       showError("Selecione pelo menos um tamanho");
+      return;
+    }
+
+    const precoCustoNum = parseFloat(String(currentProduto.precoCusto ?? "").replace(",", "."));
+    if (
+      currentProduto.precoCusto === "" ||
+      currentProduto.precoCusto == null ||
+      Number.isNaN(precoCustoNum) ||
+      precoCustoNum <= 0
+    ) {
+      showError("Preço de custo deve ser maior que zero");
       return;
     }
 
     if (
       !currentProduto.precoVenda ||
-      parseFloat(currentProduto.precoVenda) <= 0
+      parseFloat(String(currentProduto.precoVenda).replace(",", ".")) <= 0
     ) {
       showError("Preço de venda deve ser maior que zero");
       return;
     }
 
+    if (!editMode) {
+      const rawEst = currentProduto.estoqueTotal;
+      if (rawEst !== "" && rawEst != null) {
+        const q = parseInt(String(rawEst), 10);
+        if (Number.isNaN(q) || q < 0) {
+          showError("Quantidade em estoque deve ser um número inteiro maior ou igual a zero.");
+          return;
+        }
+      }
+    }
+
+    if (currentProduto.estoqueMinimo !== "" && currentProduto.estoqueMinimo != null) {
+      const estMin = parseInt(String(currentProduto.estoqueMinimo), 10);
+      if (Number.isNaN(estMin) || estMin < 0) {
+        showError("Estoque mínimo deve ser um número inteiro maior ou igual a zero.");
+        return;
+      }
+    }
+
+    if (editMode && (currentProduto.id == null || currentProduto.id === "")) {
+      showError("Produto sem identificador. Feche o cadastro e abra novamente para editar.");
+      return;
+    }
+
+    setSalvandoProduto(true);
     try {
-      const produtoParaSalvar = toApiPayload(currentProduto, !editMode);
+      let fotoBase64 = null;
+      let foto1Url = undefined;
+
+      if (imagemProdutoFile) {
+        if (editMode) {
+          const uploadResult = await produtosService.uploadFoto(imagemProdutoFile);
+          const novaUrl =
+            uploadResult?.url ??
+            uploadResult?.fotoUrl ??
+            uploadResult?.path ??
+            uploadResult?.location ??
+            (typeof uploadResult === "string" ? uploadResult : null);
+          if (novaUrl) {
+            foto1Url = novaUrl;
+          } else {
+            console.warn(
+              "[Produtos] POST /produtos/upload-foto: resposta sem URL conhecida",
+              uploadResult,
+            );
+            showError(
+              "A imagem foi enviada, mas a API não retornou a URL no formato esperado (url, fotoUrl ou path). Verifique o backend.",
+            );
+            return;
+          }
+        } else {
+          fotoBase64 = currentProduto.imagemPrincipal?.includes(",")
+            ? currentProduto.imagemPrincipal.split(",")[1]
+            : null;
+        }
+      }
+
+      const produtoParaSalvar = toApiPayload(
+        {
+          ...currentProduto,
+          fotoBase64: editMode ? null : fotoBase64,
+          foto1Url: editMode ? foto1Url : undefined,
+        },
+        !editMode,
+      );
 
       if (editMode) {
         await produtosService.update(currentProduto.id, produtoParaSalvar);
@@ -482,7 +607,10 @@ function Produtos() {
       if (error.response) {
         const errorData = error.response.data;
         const msg =
+          (typeof errorData === "string" && errorData.trim() ? errorData : null) ||
           errorData?.message ||
+          errorData?.mensagem ||
+          errorData?.detail ||
           (errorData?.errors && typeof errorData.errors === "object"
             ? (Object.values(errorData.errors).flat().find(Boolean) || errorMessages.create(entityNames.produto))
             : null) ||
@@ -496,6 +624,8 @@ function Produtos() {
             : errorMessages.create(entityNames.produto),
         );
       }
+    } finally {
+      setSalvandoProduto(false);
     }
   };
 
@@ -514,17 +644,52 @@ function Produtos() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCurrentProduto({
-      ...currentProduto,
+    if (name === "imagemPrincipal") {
+      setImagemProdutoFile(null);
+    }
+    setCurrentProduto((prev) => ({
+      ...prev,
       [name]: value,
-    });
+    }));
+  };
+
+  const abrirSeletorImagemProduto = () => {
+    produtoImagemFileRef.current?.click();
+  };
+
+  const handleProdutoImagemFileChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showError("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+      showError("Imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") return;
+      setImagemProdutoFile(file);
+      setCurrentProduto((prev) => ({ ...prev, imagemPrincipal: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProdutoImagemAjustado = ({ dataUrl, file }) => {
+    setImagemProdutoFile(file);
+    setCurrentProduto((prev) => ({ ...prev, imagemPrincipal: dataUrl }));
+    showSuccess("Recorte aplicado. Salve o produto para enviar a imagem ajustada.");
   };
 
   const handleMultipleChange = (name, value) => {
-    setCurrentProduto({
-      ...currentProduto,
+    setCurrentProduto((prev) => ({
+      ...prev,
       [name]: value,
-    });
+    }));
   };
 
   const calcularMargemLucro = () => {
@@ -599,7 +764,7 @@ function Produtos() {
 
         <TextField
           fullWidth
-          placeholder="Buscar por nome, categoria, marca, SKU ou descrição..."
+          placeholder="Buscar por nome, categoria, marca ou SKU..."
           value={searchTerm}
           onChange={handleSearch}
           InputProps={{
@@ -714,7 +879,7 @@ function Produtos() {
                       sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                     >
                       <Avatar
-                        src={produto.imagemPrincipal}
+                        src={produto.foto1 || produto.imagemPrincipal || undefined}
                         sx={{
                           bgcolor: (t) =>
                             alpha(t.palette.primary.main, isDark ? 0.2 : 0.12),
@@ -1044,8 +1209,10 @@ function Produtos() {
               {editMode ? "Editar Produto" : "Novo Produto"}
             </Typography>
             <Button
-              onClick={handleSave}
+              type="button"
+              onClick={() => void handleSave()}
               variant="contained"
+              disabled={salvandoProduto}
               sx={{
                 textTransform: "none",
                 bgcolor: "primary.main",
@@ -1054,7 +1221,7 @@ function Produtos() {
                 fontWeight: 600,
               }}
             >
-              Salvar Produto
+              {salvandoProduto ? "Salvando…" : "Salvar Produto"}
             </Button>
           </Toolbar>
         </AppBar>
@@ -1075,30 +1242,56 @@ function Produtos() {
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>
                 Imagem do Produto
               </Typography>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 280,
-                  height: 280,
-                  overflow: "hidden",
-                }}
-              >
-                {currentProduto.imagemPrincipal ? (
-                  <img
-                    src={currentProduto.imagemPrincipal}
-                    alt="Preview"
-                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                  />
-                ) : (
+              {currentProduto.imagemPrincipal ? (
+                <ProdutoImagemAjuste
+                  src={currentProduto.imagemPrincipal}
+                  onAdjusted={handleProdutoImagemAjustado}
+                  onError={showError}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 280,
+                    height: 280,
+                    overflow: "hidden",
+                  }}
+                >
                   <Box sx={{ textAlign: "center", color: theme.palette.text.secondary }}>
                     <ImageIcon sx={{ fontSize: 64, mb: 1, color: theme.palette.text.secondary }} />
                     <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>Sem imagem</Typography>
-                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, display: "block", mt: 0.5 }}>Cole a URL ou faça upload</Typography>
+                    <Typography variant="caption" component="span" sx={{ color: theme.palette.text.secondary, display: "block", mt: 0.5 }}>
+                      Cole a URL ou{" "}
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={abrirSeletorImagemProduto}
+                        sx={{
+                          border: "none",
+                          background: "none",
+                          p: 0,
+                          cursor: "pointer",
+                          color: "primary.main",
+                          textDecoration: "underline",
+                          font: "inherit",
+                          fontSize: "inherit",
+                        }}
+                      >
+                        faça upload
+                      </Box>
+                    </Typography>
                   </Box>
-                )}
-              </Box>
+                </Box>
+              )}
+              <input
+                ref={produtoImagemFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleProdutoImagemFileChange}
+              />
               <Box sx={{ display: "flex", gap: 2, alignItems: "center", mt: 2, width: "100%", maxWidth: 420, flexWrap: "wrap", justifyContent: "center" }}>
                 <TextField
                   label="URL da Imagem"
@@ -1117,8 +1310,10 @@ function Produtos() {
                   sx={{ flex: 1, minWidth: 200 }}
                 />
                 <Button
+                  type="button"
                   variant="outlined"
                   startIcon={<CloudUpload />}
+                  onClick={abrirSeletorImagemProduto}
                   sx={{
                     textTransform: "none",
                     py: 1.25,
@@ -1278,10 +1473,12 @@ function Produtos() {
                     <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
+                        required
                         label="SKU"
                         name="sku"
                         value={currentProduto.sku}
                         onChange={handleChange}
+                        placeholder="Ex: CAM-BRA-001"
                         size="small"
                       />
                     </Grid>
@@ -1344,27 +1541,6 @@ function Produtos() {
                         ListboxProps={{ sx: { maxHeight: 280 } }}
                       />
                     </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Descrição"
-                        name="descricao"
-                        multiline
-                        rows={2}
-                        value={currentProduto.descricao}
-                        onChange={handleChange}
-                        size="small"
-                        InputLabelProps={{ shrink: true }}
-                        sx={{
-                          "& .MuiInputLabel-root": {
-                            maxWidth: "calc(100% - 20px)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          },
-                        }}
-                      />
-                    </Grid>
                   </Grid>
                 </Paper>
 
@@ -1390,7 +1566,7 @@ function Produtos() {
                       <Autocomplete
                         multiple
                         options={CORES}
-                        value={currentProduto.cores}
+                        value={currentProduto.cores ?? []}
                         onChange={(event, newValue) =>
                           handleMultipleChange("cores", newValue)
                         }
@@ -1398,12 +1574,31 @@ function Produtos() {
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Cores *"
+                            required
+                            label="Cores"
                             size="small"
+                            placeholder="Selecione as cores"
+                            InputLabelProps={{
+                              ...params.InputLabelProps,
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
                             sx={{
                               minWidth: 220,
-                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
-                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                borderRadius: 1,
+                                minHeight: 52,
+                                paddingLeft: 1,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
                             }}
                           />
                         )}
@@ -1421,7 +1616,7 @@ function Produtos() {
                     <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
                         <Typography variant="subtitle2" sx={{ color: "text.secondary", fontSize: "0.875rem", lineHeight: 1.5 }}>
-                          Tamanhos *
+                          Tamanhos
                         </Typography>
                         <ToggleButtonGroup
                           value={currentProduto.tipoTamanho || "roupas"}
@@ -1438,7 +1633,7 @@ function Produtos() {
                       <Autocomplete
                         multiple
                         options={getTamanhosDisponiveis()}
-                        value={currentProduto.tamanhos}
+                        value={currentProduto.tamanhos ?? []}
                         onChange={(event, newValue) =>
                           handleMultipleChange("tamanhos", newValue)
                         }
@@ -1446,7 +1641,8 @@ function Produtos() {
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Selecione os tamanhos"
+                            required
+                            label="Tamanhos"
                             size="small"
                             placeholder={
                               (currentProduto.tipoTamanho || "roupas") === "roupas"
@@ -1455,10 +1651,27 @@ function Produtos() {
                                   ? "33, 34, 35..."
                                   : "Único, P, M..."
                             }
+                            InputLabelProps={{
+                              ...params.InputLabelProps,
+                              shrink: true,
+                              sx: {
+                                fontSize: "1rem",
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                            }}
                             sx={{
                               minWidth: 220,
-                              "& .MuiInputLabel-root": { whiteSpace: "nowrap", overflow: "visible" },
-                              "& .MuiOutlinedInput-root": { paddingLeft: 1 },
+                              "& .MuiInputLabel-root": {
+                                whiteSpace: "nowrap",
+                                overflow: "visible",
+                              },
+                              "& .MuiOutlinedInput-root": {
+                                borderRadius: 1,
+                                minHeight: 52,
+                                paddingLeft: 1,
+                                "& .MuiAutocomplete-input": { py: 1.5 },
+                              },
                             }}
                           />
                         )}
@@ -1515,11 +1728,13 @@ function Produtos() {
                     <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
+                        required
                         label="Preço de Custo"
                         name="precoCusto"
                         type="number"
                         value={currentProduto.precoCusto}
                         onChange={handleChange}
+                        placeholder="0,00"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">R$</InputAdornment>
@@ -1620,75 +1835,6 @@ function Produtos() {
                         name="estoqueMinimo"
                         type="number"
                         value={currentProduto.estoqueMinimo}
-                        onChange={handleChange}
-                        inputProps={{ min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
-
-                {/* Dimensões */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
-                  >
-                    Dimensões e Peso
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Peso (kg)"
-                        name="peso"
-                        type="number"
-                        value={currentProduto.peso}
-                        onChange={handleChange}
-                        inputProps={{ step: "0.01", min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={6} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Largura (cm)"
-                        name="largura"
-                        type="number"
-                        value={currentProduto.largura}
-                        onChange={handleChange}
-                        inputProps={{ min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={6} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Altura (cm)"
-                        name="altura"
-                        type="number"
-                        value={currentProduto.altura}
-                        onChange={handleChange}
-                        inputProps={{ min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={6} md={3}>
-                      <TextField
-                        fullWidth
-                        label="Comprimento (cm)"
-                        name="comprimento"
-                        type="number"
-                        value={currentProduto.comprimento}
                         onChange={handleChange}
                         inputProps={{ min: "0" }}
                         size="small"
