@@ -121,7 +121,7 @@ const getTheme = (mode) => {
       },
       MuiButton: {
         styleOverrides: {
-          root: {
+          root: ({ theme: t }) => ({
             borderRadius: 8,
             textTransform: "none",
             fontWeight: 600,
@@ -129,7 +129,52 @@ const getTheme = (mode) => {
             "&:hover": {
               boxShadow: "none",
             },
-          },
+            ...(t.palette.mode === "light"
+              ? {
+                  "&.MuiButton-outlinedPrimary": {
+                    color: t.palette.text.primary,
+                    borderColor: alpha(t.palette.primary.main, 0.75),
+                    "&:hover": {
+                      borderColor: t.palette.primary.dark,
+                      backgroundColor: alpha(t.palette.primary.main, 0.1),
+                      color: t.palette.text.primary,
+                    },
+                  },
+                }
+              : {}),
+          }),
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: ({ theme: t }) =>
+            t.palette.mode === "light"
+              ? {
+                  "&.Mui-selected": {
+                    color: `${t.palette.text.primary} !important`,
+                    fontWeight: 700,
+                  },
+                }
+              : {},
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: ({ theme: t }) =>
+            t.palette.mode === "light"
+              ? {
+                  "&.MuiChip-filled.MuiChip-colorSuccess": {
+                    backgroundColor: t.palette.success.dark,
+                    color: "#ffffff",
+                    fontWeight: 600,
+                  },
+                  "&.MuiChip-filled.MuiChip-colorError": {
+                    backgroundColor: t.palette.error.dark,
+                    color: "#ffffff",
+                    fontWeight: 600,
+                  },
+                }
+              : {},
         },
       },
       MuiCard: {
