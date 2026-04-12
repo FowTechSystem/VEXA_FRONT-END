@@ -436,11 +436,11 @@ function Movimentacoes() {
                   <Avatar
                     sx={{
                       bgcolor: isDark ? "#22c55e" : "#16a34a",
-                      width: 56,
-                      height: 56,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <TrendingUp sx={{ fontSize: 32 }} />
+                    <TrendingUp sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -489,11 +489,11 @@ function Movimentacoes() {
                   <Avatar
                     sx={{
                       bgcolor: isDark ? "#ef4444" : "#dc2626",
-                      width: 56,
-                      height: 56,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <TrendingDown sx={{ fontSize: 32 }} />
+                    <TrendingDown sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -543,11 +543,11 @@ function Movimentacoes() {
                     sx={{
                       bgcolor: "primary.main",
                       color: "primary.contrastText",
-                      width: 56,
-                      height: 56,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <AttachMoney sx={{ fontSize: 32 }} />
+                    <AttachMoney sx={{ fontSize: 22 }} />
                   </Avatar>
                 </Box>
               </CardContent>
