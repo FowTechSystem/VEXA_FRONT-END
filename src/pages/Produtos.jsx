@@ -34,6 +34,7 @@ import {
   Container,
   useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
   Add,
   Edit,
@@ -715,14 +716,15 @@ function Produtos() {
                       <Avatar
                         src={produto.imagemPrincipal}
                         sx={{
-                          bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#eff6ff",
+                          bgcolor: (t) =>
+                            alpha(t.palette.primary.main, isDark ? 0.2 : 0.12),
                           width: 48,
                           height: 48,
                           border: "2px solid",
                         borderColor: "divider",
                         }}
                       >
-                        <Inventory sx={{ color: "primary.main", fontSize: 24 }} />
+                        <Inventory sx={{ color: "primary.contrastText", fontSize: 24 }} />
                       </Avatar>
                       <Box>
                         <Typography
@@ -742,8 +744,9 @@ function Produtos() {
                       label={nomeDe(produto.categoria) || "Sem categoria"}
                       size="small"
                       sx={{
-                        bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#eff6ff",
-                        color: "primary.main",
+                        bgcolor: (t) =>
+                          alpha(t.palette.primary.main, isDark ? 0.2 : 0.12),
+                        color: "primary.contrastText",
                         fontWeight: 500,
                         fontSize: "12px",
                       }}

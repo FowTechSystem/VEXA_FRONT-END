@@ -98,12 +98,12 @@ function Login() {
       <Box
         sx={{
           flex: 1,
-          background: "linear-gradient(135deg, #1E40AF 0%, #2563EB 100%)",
+          background: "linear-gradient(135deg, #2B2D42 0%, #000000 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          color: "white",
+          color: "#E8EAEF",
           p: 4,
         }}
       >
@@ -187,6 +187,7 @@ function Login() {
             <Button
               fullWidth
               variant="contained"
+              color="primary"
               type="submit"
               size="large"
               disabled={loading}
@@ -195,9 +196,7 @@ function Login() {
                 fontSize: "1rem",
                 fontWeight: 600,
                 textTransform: "uppercase",
-                bgcolor: "#2563EB",
-                "&:hover": { bgcolor: "#1D4ED8" },
-                boxShadow: "0 3px 5px 2px rgba(37, 99, 235, .3)",
+                boxShadow: "0 3px 5px 2px rgba(248, 243, 43, 0.35)",
               }}
             >
               {loading ? "Entrando..." : "Entrar"}
@@ -211,7 +210,7 @@ function Login() {
                 href="#"
                 onClick={(e) => e.preventDefault()}
                 style={{
-                  color: mode === "dark" ? "#60A5FA" : "#2563EB",
+                  color: "#F8F32B",
                   textDecoration: "none",
                   fontWeight: 600,
                 }}

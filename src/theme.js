@@ -1,86 +1,88 @@
-// src/theme.js
+// src/theme.js — paleta institucional VEXA
 import { createTheme, alpha } from "@mui/material/styles";
+
+/** Cores oficiais (tabela VEXA) */
+export const vexaColors = {
+  azulEscuro: "#2B2D42",
+  cinzaAzulado: "#8D99AE",
+  preto: "#000000",
+  amareloNeon: "#F8F32B",
+};
+
+/** Superfície elevada no tema escuro (derivada do azul escuro) */
+export const vexaSurfaces = {
+  /** Cartões / sidebar — levemente mais claro que o fundo para contraste suave */
+  darkPaper: "#3A3D56",
+};
 
 const getTheme = (mode) => {
   const isDark = mode === "dark";
+  const v = vexaColors;
+  const paperDark = vexaSurfaces.darkPaper;
 
   return createTheme({
     palette: {
       mode,
       primary: {
-        main: isDark ? "#3B82F6" : "#2563EB",
-        light: isDark ? "#60A5FA" : "#3B82F6",
-        dark: isDark ? "#1D4ED8" : "#1E40AF",
-        contrastText: "#FFFFFF",
+        main: v.amareloNeon,
+        light: "#FAF45A",
+        dark: "#C9C425",
+        contrastText: v.preto,
       },
       secondary: {
-        main: isDark ? "#FB923C" : "#F97316",
-        light: isDark ? "#FDBA74" : "#FB923C",
-        dark: isDark ? "#EA580C" : "#C2410C",
-        contrastText: "#FFFFFF",
+        main: v.cinzaAzulado,
+        light: "#A8B2C3",
+        dark: "#6F7A8C",
+        contrastText: isDark ? "#FFFFFF" : v.preto,
       },
       background: {
-        default: isDark ? "#0F172A" : "#F9FAFB",
-        paper: isDark ? "#1E293B" : "#FFFFFF",
+        default: isDark ? v.azulEscuro : "#F0F1F5",
+        paper: isDark ? paperDark : "#FFFFFF",
       },
       text: {
-        primary: isDark ? "#F1F5F9" : "#1E293B",
-        secondary: isDark ? "#94A3B8" : "#64748B",
-        disabled: isDark ? "#475569" : "#CBD5E1",
+        primary: isDark ? "#E8EAEF" : v.azulEscuro,
+        secondary: isDark ? v.cinzaAzulado : alpha(v.azulEscuro, 0.72),
+        disabled: isDark ? alpha(v.cinzaAzulado, 0.5) : alpha(v.azulEscuro, 0.38),
       },
-      divider: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(0, 0, 0, 0.12)",
+      divider: isDark ? alpha(v.cinzaAzulado, 0.28) : alpha(v.preto, 0.1),
       action: {
-        active: isDark ? "#94A3B8" : "#64748B",
-        hover: isDark ? "rgba(148, 163, 184, 0.08)" : "rgba(0, 0, 0, 0.04)",
-        selected: isDark
-          ? "rgba(59, 130, 246, 0.16)"
-          : "rgba(37, 99, 235, 0.08)",
-        disabled: isDark ? "rgba(148, 163, 184, 0.3)" : "rgba(0, 0, 0, 0.26)",
+        active: isDark ? v.cinzaAzulado : alpha(v.azulEscuro, 0.65),
+        hover: isDark ? alpha(v.cinzaAzulado, 0.14) : alpha(v.preto, 0.05),
+        selected: isDark ? alpha(v.amareloNeon, 0.14) : alpha(v.amareloNeon, 0.24),
+        disabled: isDark ? alpha(v.cinzaAzulado, 0.35) : alpha(v.preto, 0.26),
         disabledBackground: isDark
-          ? "rgba(148, 163, 184, 0.12)"
-          : "rgba(0, 0, 0, 0.12)",
+          ? alpha(v.cinzaAzulado, 0.12)
+          : alpha(v.preto, 0.08),
       },
       success: {
-        main: isDark ? "#10B981" : "#059669",
-        light: isDark ? "#34D399" : "#10B981",
-        dark: isDark ? "#047857" : "#047857",
+        main: isDark ? "#34D399" : "#059669",
+        light: isDark ? "#6EE7B7" : "#10B981",
+        dark: isDark ? "#059669" : "#047857",
       },
       error: {
-        main: isDark ? "#EF4444" : "#DC2626",
-        light: isDark ? "#F87171" : "#EF4444",
+        main: isDark ? "#F87171" : "#DC2626",
+        light: isDark ? "#FCA5A5" : "#EF4444",
         dark: isDark ? "#B91C1C" : "#991B1B",
       },
       warning: {
-        main: isDark ? "#F59E0B" : "#D97706",
-        light: isDark ? "#FBBF24" : "#F59E0B",
+        main: isDark ? "#FBBF24" : "#D97706",
+        light: isDark ? "#FCD34D" : "#F59E0B",
         dark: isDark ? "#B45309" : "#92400E",
       },
       info: {
-        main: isDark ? "#3B82F6" : "#2563EB",
-        light: isDark ? "#60A5FA" : "#3B82F6",
-        dark: isDark ? "#1D4ED8" : "#1E40AF",
+        main: isDark ? v.cinzaAzulado : v.azulEscuro,
+        light: isDark ? "#A8B2C3" : v.cinzaAzulado,
+        dark: isDark ? "#6F7A8C" : v.preto,
       },
     },
     typography: {
       fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-      h1: {
-        fontWeight: 700,
-      },
-      h2: {
-        fontWeight: 700,
-      },
-      h3: {
-        fontWeight: 600,
-      },
-      h4: {
-        fontWeight: 600,
-      },
-      h5: {
-        fontWeight: 600,
-      },
-      h6: {
-        fontWeight: 600,
-      },
+      h1: { fontWeight: 700 },
+      h2: { fontWeight: 700 },
+      h3: { fontWeight: 600 },
+      h4: { fontWeight: 600 },
+      h5: { fontWeight: 600 },
+      h6: { fontWeight: 600 },
     },
     shape: {
       borderRadius: 8,
@@ -89,24 +91,30 @@ const getTheme = (mode) => {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            backgroundColor: isDark ? "#0F172A" : "#F9FAFB",
-            color: isDark ? "#F1F5F9" : "#1E293B",
-            scrollbarColor: isDark ? "#475569 #1E293B" : "#CBD5E1 #F1F5F9",
+            backgroundColor: isDark ? v.azulEscuro : "#F0F1F5",
+            color: isDark ? "#E8EAEF" : v.azulEscuro,
+            scrollbarColor: isDark
+              ? `${alpha(v.cinzaAzulado, 0.55)} ${paperDark}`
+              : `${alpha(v.cinzaAzulado, 0.8)} #E8EAEF`,
             "&::-webkit-scrollbar, & *::-webkit-scrollbar": {
               width: 8,
               height: 8,
             },
             "&::-webkit-scrollbar-thumb, & *::-webkit-scrollbar-thumb": {
               borderRadius: 8,
-              backgroundColor: isDark ? "#475569" : "#CBD5E1",
+              backgroundColor: isDark
+                ? alpha(v.cinzaAzulado, 0.45)
+                : alpha(v.cinzaAzulado, 0.65),
               minHeight: 24,
             },
             "&::-webkit-scrollbar-thumb:hover, & *::-webkit-scrollbar-thumb:hover":
               {
-                backgroundColor: isDark ? "#64748B" : "#94A3B8",
+                backgroundColor: isDark
+                  ? alpha(v.cinzaAzulado, 0.7)
+                  : alpha(v.azulEscuro, 0.35),
               },
             "&::-webkit-scrollbar-track, & *::-webkit-scrollbar-track": {
-              backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+              backgroundColor: isDark ? paperDark : "#E8EAEF",
             },
           },
         },
@@ -130,9 +138,11 @@ const getTheme = (mode) => {
             borderRadius: 12,
             backgroundImage: "none",
             boxShadow: isDark
-              ? "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)"
-              : "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-            border: isDark ? "1px solid rgba(148, 163, 184, 0.1)" : "none",
+              ? "0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -1px rgba(0, 0, 0, 0.28)"
+              : "0 1px 3px 0 rgba(43, 45, 66, 0.08), 0 1px 2px 0 rgba(43, 45, 66, 0.06)",
+            border: isDark
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.2)}`
+              : `1px solid ${alpha(v.cinzaAzulado, 0.25)}`,
           },
         },
       },
@@ -148,8 +158,8 @@ const getTheme = (mode) => {
           paper: {
             backgroundImage: "none",
             borderRight: isDark
-              ? "1px solid rgba(148, 163, 184, 0.1)"
-              : "1px solid rgba(0, 0, 0, 0.12)",
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.22)}`
+              : `1px solid ${alpha(v.preto, 0.1)}`,
           },
         },
       },
@@ -166,22 +176,23 @@ const getTheme = (mode) => {
             "& .MuiOutlinedInput-root": {
               "& fieldset": {
                 borderColor: isDark
-                  ? "rgba(148, 163, 184, 0.2)"
-                  : "rgba(0, 0, 0, 0.23)",
+                  ? alpha(v.cinzaAzulado, 0.35)
+                  : alpha(v.azulEscuro, 0.22),
               },
               "&:hover fieldset": {
                 borderColor: isDark
-                  ? "rgba(148, 163, 184, 0.3)"
-                  : "rgba(0, 0, 0, 0.4)",
+                  ? alpha(v.cinzaAzulado, 0.55)
+                  : alpha(v.azulEscuro, 0.35),
               },
               "&.Mui-focused fieldset": {
-                borderColor: isDark ? "rgba(59, 130, 246, 0.5)" : undefined,
+                borderColor: isDark
+                  ? alpha(v.amareloNeon, 0.75)
+                  : v.amareloNeon,
               },
             },
           },
         },
       },
-      /** Campos com `required`: destaque (borda, fundo e label) em relação aos opcionais */
       MuiFormControl: {
         styleOverrides: {
           root: ({ theme, ownerState }) => {
@@ -191,10 +202,13 @@ const getTheme = (mode) => {
               "& .MuiOutlinedInput-root:not(.Mui-error):not(.Mui-disabled)": {
                 backgroundColor: alpha(
                   p.main,
-                  theme.palette.mode === "dark" ? 0.12 : 0.06,
+                  theme.palette.mode === "dark" ? 0.14 : 0.12,
                 ),
                 "& fieldset": {
-                  borderColor: alpha(p.main, theme.palette.mode === "dark" ? 0.75 : 0.55),
+                  borderColor: alpha(
+                    p.main,
+                    theme.palette.mode === "dark" ? 0.85 : 0.65,
+                  ),
                   borderWidth: 2,
                 },
                 "&:hover fieldset": {
@@ -216,8 +230,7 @@ const getTheme = (mode) => {
             const p = theme.palette.primary;
             return {
               fontWeight: 600,
-              color:
-                theme.palette.mode === "dark" ? p.light : p.dark,
+              color: theme.palette.mode === "dark" ? p.light : p.dark,
               "&.Mui-focused": {
                 color: p.main,
               },
@@ -232,9 +245,9 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             ...(isDark && {
-              backgroundColor: "rgba(15, 23, 42, 0.6)",
-              "&:hover": { backgroundColor: "rgba(30, 41, 59, 0.8)" },
-              "&.Mui-focused": { backgroundColor: "rgba(30, 41, 59, 0.9)" },
+              backgroundColor: alpha(v.azulEscuro, 0.65),
+              "&:hover": { backgroundColor: alpha(paperDark, 0.95) },
+              "&.Mui-focused": { backgroundColor: alpha(paperDark, 1) },
             }),
           },
         },
@@ -242,7 +255,7 @@ const getTheme = (mode) => {
       MuiAutocomplete: {
         styleOverrides: {
           paper: {
-            ...(isDark && { backgroundColor: "#1E293B" }),
+            ...(isDark && { backgroundColor: paperDark }),
           },
         },
       },
@@ -250,8 +263,8 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             borderBottom: isDark
-              ? "1px solid rgba(148, 163, 184, 0.1)"
-              : "1px solid rgba(224, 224, 224, 1)",
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.18)}`
+              : `1px solid ${alpha(v.cinzaAzulado, 0.35)}`,
           },
         },
       },
@@ -259,8 +272,8 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             borderColor: isDark
-              ? "rgba(148, 163, 184, 0.12)"
-              : "rgba(0, 0, 0, 0.12)",
+              ? alpha(v.cinzaAzulado, 0.22)
+              : alpha(v.preto, 0.1),
           },
         },
       },

@@ -15,7 +15,9 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
   Menu as MenuIcon,
   Notifications,
@@ -41,6 +43,8 @@ const NOTIFICACOES_INICIAIS = [
 ];
 
 function Header({ onMenuClick }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [anchorEl, setAnchorEl] = useState(null);
   const [anchorNotif, setAnchorNotif] = useState(null);
   const [anchorEmpresa, setAnchorEmpresa] = useState(null);
@@ -82,9 +86,20 @@ function Header({ onMenuClick }) {
       <AppBar
         position="fixed"
         sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: "primary.main",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          zIndex: (t) => t.zIndex.drawer + 1,
+          ...(isDark
+            ? {
+                backgroundColor: "background.paper",
+                color: "text.primary",
+                borderBottom: "2px solid",
+                borderColor: "primary.main",
+                boxShadow: `0 4px 24px ${alpha("#000000", 0.35)}`,
+              }
+            : {
+                backgroundColor: "primary.main",
+                color: "primary.contrastText",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              }),
         }}
       >
         <Toolbar>
@@ -105,6 +120,7 @@ function Header({ onMenuClick }) {
               flexGrow: 1,
               fontWeight: 700,
               letterSpacing: 1,
+              color: isDark ? "primary.main" : "inherit",
             }}
           >
             VEXA
@@ -120,7 +136,7 @@ function Header({ onMenuClick }) {
             }
             if (!empresaLabel && !isDev) return null;
             return (
-              <Typography variant="caption" sx={{ opacity: 0.9, mr: 1 }}>
+              <Typography variant="caption" sx={{ opacity: isDark ? 1 : 0.9, mr: 1, color: isDark ? "text.secondary" : "inherit" }}>
                 {empresaLabel || "Painel dev"}
               </Typography>
             );
@@ -138,12 +154,15 @@ function Header({ onMenuClick }) {
                   px: 1.5,
                   py: 0.5,
                   borderRadius: 1,
-                  border: "1px solid rgba(255,255,255,0.3)",
+                  border: "1px solid",
+                  borderColor: isDark ? "divider" : "rgba(255,255,255,0.3)",
                   bgcolor: "transparent",
                   color: "inherit",
                   cursor: "pointer",
                   fontSize: "0.75rem",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                  "&:hover": {
+                    bgcolor: isDark ? "action.hover" : "rgba(255,255,255,0.1)",
+                  },
                 }}
               >
                 <SwapHoriz fontSize="small" />
@@ -214,7 +233,7 @@ function Header({ onMenuClick }) {
               }
               sx={{
                 "&:hover": {
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  backgroundColor: (t) => t.palette.action.hover,
                 },
               }}
             >

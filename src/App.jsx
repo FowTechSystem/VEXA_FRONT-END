@@ -32,6 +32,7 @@ import CatalogoDigital from "./pages/CatalogoDigital";
 import CatalogoPublico from "./pages/CatalogoPublico";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
+import { vexaColors, vexaSurfaces } from "./theme";
 
 function AppContent() {
   const { mode } = useContext(ThemeContext);
@@ -51,15 +52,19 @@ function AppContent() {
             padding: "16px",
             fontSize: "14px",
             maxWidth: "500px",
-            background: mode === "dark" ? "#1e293b" : "#ffffff",
-            color: mode === "dark" ? "#f1f5f9" : "#1e293b",
+            background:
+              mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
+            color: mode === "dark" ? "#E8EAEF" : vexaColors.azulEscuro,
             border:
-              mode === "dark" ? "1px solid rgba(148, 163, 184, 0.1)" : "none",
+              mode === "dark"
+                ? `1px solid rgba(141, 153, 174, 0.22)`
+                : `1px solid rgba(43, 45, 66, 0.08)`,
           },
           success: {
             duration: 2500,
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
             iconTheme: {
               primary: "#10b981",
@@ -69,7 +74,8 @@ function AppContent() {
           error: {
             duration: 3500,
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
             iconTheme: {
               primary: "#ef4444",
@@ -78,7 +84,8 @@ function AppContent() {
           },
           loading: {
             style: {
-              background: mode === "dark" ? "#1e293b" : "#ffffff",
+              background:
+                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
             },
           },
         }}

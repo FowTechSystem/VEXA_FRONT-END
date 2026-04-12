@@ -76,7 +76,7 @@ const getAvatarColor = (nome) => {
     "#ef4444",
     "#f59e0b",
     "#10b981",
-    "#3b82f6",
+    "#F8F32B",
     "#8b5cf6",
     "#ec4899",
     "#06b6d4",

@@ -39,7 +39,7 @@ import { LoadingBox } from "../components/LoadingBox";
 const TIPOS_MOVIMENTACAO = {
   entrada: { label: "Entrada", icon: <TrendingUp />, color: "#16a34a" },
   saida: { label: "Saída", icon: <TrendingDown />, color: "#dc2626" },
-  ajuste: { label: "Ajuste", icon: <SwapHoriz />, color: "#2563eb" },
+  ajuste: { label: "Ajuste", icon: <SwapHoriz />, color: "#F8F32B" },
   inventario: { label: "Inventário", icon: <Inventory />, color: "#9333ea" },
 };
 

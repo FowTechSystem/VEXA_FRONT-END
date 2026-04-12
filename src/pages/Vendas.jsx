@@ -30,6 +30,8 @@ import {
   DialogActions,
   useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import { vexaColors } from "../theme";
 import {
   Search,
   Refresh,
@@ -262,8 +264,10 @@ function Movimentacoes() {
       },
       entrada: {
         label: "Lucro",
-        color: isDark ? "#3b82f6" : "#2563eb",
-        bgcolor: isDark ? "rgba(59, 130, 246, 0.15)" : "#dbeafe",
+        color: isDark ? vexaColors.preto : vexaColors.azulEscuro,
+        bgcolor: isDark
+          ? alpha(vexaColors.amareloNeon, 0.42)
+          : alpha(vexaColors.amareloNeon, 0.22),
         icon: <TrendingUp />,
       },
       saida: {
@@ -274,8 +278,10 @@ function Movimentacoes() {
       },
       outro: {
         label: "Movimentação",
-        color: isDark ? "#94a3b8" : "#64748b",
-        bgcolor: isDark ? "rgba(148, 163, 184, 0.12)" : "#f1f5f9",
+        color: isDark ? vexaColors.cinzaAzulado : vexaColors.azulEscuro,
+        bgcolor: isDark
+          ? alpha(vexaColors.cinzaAzulado, 0.18)
+          : alpha(vexaColors.cinzaAzulado, 0.14),
         icon: <Receipt />,
       },
     };
@@ -328,7 +334,7 @@ function Movimentacoes() {
             startIcon={<AttachMoney />}
             onClick={() => navigate("/vendas/nova-movimentacao")}
             sx={{
-              bgcolor: isDark ? "#3b82f6" : "#2563eb",
+              bgcolor: "primary.main",
               color: "primary.contrastText",
               textTransform: "none",
               fontWeight: 600,
@@ -336,7 +342,7 @@ function Movimentacoes() {
               py: 1.5,
               borderRadius: 2,
               "&:hover": {
-                bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                bgcolor: "primary.dark",
               },
             }}
           >
@@ -496,9 +502,9 @@ function Movimentacoes() {
             <Card
               elevation={0}
               sx={{
-                border: `2px solid ${isDark ? "rgba(59, 130, 246, 0.3)" : "#dbeafe"}`,
+                border: `2px solid ${alpha(theme.palette.primary.main, isDark ? 0.45 : 0.4)}`,
                 borderRadius: 2,
-                bgcolor: isDark ? "rgba(59, 130, 246, 0.08)" : "#eff6ff",
+                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.12 : 0.08),
               }}
             >
               <CardContent sx={{ p: 3 }}>
@@ -513,7 +519,7 @@ function Movimentacoes() {
                     <Typography
                       variant="body2"
                       sx={{
-                        color: isDark ? "#3b82f6" : "#2563eb",
+                        color: "primary.main",
                         fontWeight: 600,
                         mb: 1,
                       }}
@@ -524,7 +530,7 @@ function Movimentacoes() {
                       variant="h4"
                       sx={{
                         fontWeight: 700,
-                        color: isDark ? "#3b82f6" : "#2563eb",
+                        color: "primary.main",
                       }}
                     >
                       {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -532,7 +538,8 @@ function Movimentacoes() {
                   </Box>
                   <Avatar
                     sx={{
-                      bgcolor: isDark ? "#3b82f6" : "#2563eb",
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
                       width: 56,
                       height: 56,
                     }}
@@ -593,10 +600,10 @@ function Movimentacoes() {
                     textTransform: "none",
                     fontWeight: 600,
                     ...(filtroTipo === "todos" && {
-                      bgcolor: isDark ? "#3b82f6" : "#2563eb",
+                      bgcolor: "primary.main",
                       color: "primary.contrastText",
                       "&:hover": {
-                        bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                        bgcolor: "primary.dark",
                       },
                     }),
                     ...(filtroTipo !== "todos" && {
@@ -1012,7 +1019,7 @@ function Movimentacoes() {
             }}
           >
             <Visibility
-              sx={{ mr: 1.5, color: isDark ? "#3b82f6" : "#2563eb" }}
+              sx={{ mr: 1.5, color: "primary.main" }}
             />
             <Typography
               variant="body2"
@@ -1526,12 +1533,12 @@ function Movimentacoes() {
               variant="contained"
               startIcon={<Edit />}
               sx={{
-                bgcolor: isDark ? "#3b82f6" : "#2563eb",
+                bgcolor: "primary.main",
                 color: "primary.contrastText",
                 textTransform: "none",
                 fontWeight: 600,
                 "&:hover": {
-                  bgcolor: isDark ? "#2563eb" : "#1d4ed8",
+                  bgcolor: "primary.dark",
                 },
               }}
             >

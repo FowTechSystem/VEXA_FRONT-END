@@ -116,7 +116,7 @@ function UserProfileDrawer({ open, onClose }) {
       <Box>
         {/* Header */}
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: "#1976d2" }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: "primary.main" }}>
             Meu Perfil
           </Typography>
           <IconButton onClick={onClose}>
@@ -134,7 +134,8 @@ function UserProfileDrawer({ open, onClose }) {
               height: 100,
               margin: "0 auto",
               mb: 2,
-              bgcolor: "#1976d2",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
               fontSize: 40,
             }}
           >

@@ -31,8 +31,39 @@ import { PieChart } from "@mui/x-charts/PieChart";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { dashboardService } from "../api/dashboardService";
 import { vendasService } from "../api/vendasService";
+import { vexaColors } from "../theme";
 
 const MESES_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+/** Gráficos no claro (mantém o visual que você curtiu) */
+const CORES_CATEGORIAS_LIGHT = {
+  Roupas: "#14B8A6",
+  Calçados: "#8B5CF6",
+  Acessórios: "#EAB308",
+  Outros: "#6B7280",
+};
+const CORES_PRODUTOS_LIGHT = ["#14B8A6", "#8B5CF6", "#F8F32B", "#EAB308"];
+const FORMAS_PAGAMENTO_LIGHT = ["#14B8A6", "#8B5CF6", "#F8F32B", "#EAB308"];
+
+/** Gráficos no escuro — paleta VEXA (sem teal) */
+const CORES_CATEGORIAS_DARK = {
+  Roupas: vexaColors.amareloNeon,
+  Calçados: vexaColors.cinzaAzulado,
+  Acessórios: "#A8B2C3",
+  Outros: "#6F7A8C",
+};
+const CORES_PRODUTOS_DARK = [
+  vexaColors.amareloNeon,
+  vexaColors.cinzaAzulado,
+  "#A8B2C3",
+  "#6F7A8C",
+];
+const FORMAS_PAGAMENTO_DARK = [
+  vexaColors.amareloNeon,
+  vexaColors.cinzaAzulado,
+  "#FAF45A",
+  "#6F7A8C",
+];
 const STORAGE_METAS = "vexa_dashboard_metas";
 
 function Dashboard() {
@@ -63,19 +94,17 @@ function Dashboard() {
   const [metasEdit, setMetasEdit] = useState({ faturamento: "", vendas: "", novosClientes: "" });
 
   const [vendasPorCategoria, setVendasPorCategoria] = useState([
-    { categoria: "Roupas", valor: 0, percentual: 0, cor: "#14B8A6" },
-    { categoria: "Calçados", valor: 0, percentual: 0, cor: "#8B5CF6" },
-    { categoria: "Acessórios", valor: 0, percentual: 0, cor: "#EAB308" },
+    { categoria: "Roupas", valor: 0, percentual: 0, cor: CORES_CATEGORIAS_LIGHT.Roupas },
+    { categoria: "Calçados", valor: 0, percentual: 0, cor: CORES_CATEGORIAS_LIGHT.Calçados },
+    { categoria: "Acessórios", valor: 0, percentual: 0, cor: CORES_CATEGORIAS_LIGHT.Acessórios },
   ]);
   const [produtosMaisVendidos, setProdutosMaisVendidos] = useState([]);
   const [formasPagamento, setFormasPagamento] = useState([
-    { tipo: "Crédito", percentual: 0, valor: 0, cor: "#14B8A6" },
-    { tipo: "Débito", percentual: 0, valor: 0, cor: "#8B5CF6" },
-    { tipo: "Pix", percentual: 0, valor: 0, cor: "#3B82F6" },
-    { tipo: "Dinheiro", percentual: 0, valor: 0, cor: "#EAB308" },
+    { tipo: "Crédito", percentual: 0, valor: 0, cor: FORMAS_PAGAMENTO_LIGHT[0] },
+    { tipo: "Débito", percentual: 0, valor: 0, cor: FORMAS_PAGAMENTO_LIGHT[1] },
+    { tipo: "Pix", percentual: 0, valor: 0, cor: FORMAS_PAGAMENTO_LIGHT[2] },
+    { tipo: "Dinheiro", percentual: 0, valor: 0, cor: FORMAS_PAGAMENTO_LIGHT[3] },
   ]);
-  const CORES_PRODUTOS = ["#14B8A6", "#8B5CF6", "#3B82F6", "#EAB308"];
-  const CORES_CATEGORIAS = { Roupas: "#14B8A6", Calçados: "#8B5CF6", Acessórios: "#EAB308", Outros: "#6B7280" };
 
   const chartCardSx = {
     height: "100%",
@@ -84,7 +113,7 @@ function Dashboard() {
     borderColor: "divider",
     bgcolor: "background.paper",
     boxShadow: (t) =>
-      t.palette.mode === "dark" ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none",
+      t.palette.mode === "dark" ? "0 0 0 1px rgba(141, 153, 174, 0.14)" : "none",
   };
 
   useEffect(() => {
@@ -103,6 +132,12 @@ function Dashboard() {
 
   const fetchDashboardData = useCallback(async () => {
     setCarregando(true);
+    const isDarkNow = theme.palette.mode === "dark";
+    const CORES_CATEGORIAS = isDarkNow ? CORES_CATEGORIAS_DARK : CORES_CATEGORIAS_LIGHT;
+    const CORES_PRODUTOS = isDarkNow ? CORES_PRODUTOS_DARK : CORES_PRODUTOS_LIGHT;
+    const FORMAS_COL = isDarkNow ? FORMAS_PAGAMENTO_DARK : FORMAS_PAGAMENTO_LIGHT;
+    const fallbackCat = isDarkNow ? "#6F7A8C" : "#6B7280";
+    const fallbackProd = isDarkNow ? vexaColors.amareloNeon : "#14B8A6";
     try {
       const mesApi = anoMes.mes + 1;
       const res = await dashboardService.getResumo(anoMes.ano, mesApi);
@@ -168,14 +203,14 @@ function Dashboard() {
           valor,
           quantidade: qtd,
           percentual: pct,
-          cor: CORES_CATEGORIAS[nome] ?? "#6B7280",
+          cor: CORES_CATEGORIAS[nome] ?? fallbackCat,
         };
       });
       if (catFormat.length === 0) {
         setVendasPorCategoria([
-          { categoria: "Roupas", valor: 0, percentual: 0, cor: "#14B8A6" },
-          { categoria: "Calçados", valor: 0, percentual: 0, cor: "#8B5CF6" },
-          { categoria: "Acessórios", valor: 0, percentual: 0, cor: "#EAB308" },
+          { categoria: "Roupas", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Roupas },
+          { categoria: "Calçados", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Calçados },
+          { categoria: "Acessórios", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Acessórios },
         ]);
       } else {
         setVendasPorCategoria(catFormat);
@@ -189,7 +224,7 @@ function Dashboard() {
         quantidade: Number(p.quantidadeVendida ?? p.QuantidadeVendida) || 0,
         valor: Number(p.valorVendido ?? p.ValorVendido) || 0,
         percentual: totQty ? Math.round(((Number(p.quantidadeVendida ?? p.QuantidadeVendida) || 0) / totQty) * 100) : 0,
-        cor: CORES_PRODUTOS[i] ?? "#14B8A6",
+        cor: CORES_PRODUTOS[i] ?? fallbackProd,
       }));
       setProdutosMaisVendidos(prodsFormat);
 
@@ -208,10 +243,10 @@ function Dashboard() {
       const totalFp = Object.values(fpPorTipo).reduce((a, b) => a + b, 0);
       const pctFp = (v) => (totalFp ? Math.round((v / totalFp) * 100) : 25);
       setFormasPagamento([
-        { tipo: "Crédito", valor: fpPorTipo.Crédito, percentual: pctFp(fpPorTipo.Crédito), cor: "#14B8A6" },
-        { tipo: "Débito", valor: fpPorTipo.Débito, percentual: pctFp(fpPorTipo.Débito), cor: "#8B5CF6" },
-        { tipo: "Pix", valor: fpPorTipo.Pix, percentual: pctFp(fpPorTipo.Pix), cor: "#3B82F6" },
-        { tipo: "Dinheiro", valor: fpPorTipo.Dinheiro, percentual: pctFp(fpPorTipo.Dinheiro), cor: "#EAB308" },
+        { tipo: "Crédito", valor: fpPorTipo.Crédito, percentual: pctFp(fpPorTipo.Crédito), cor: FORMAS_COL[0] },
+        { tipo: "Débito", valor: fpPorTipo.Débito, percentual: pctFp(fpPorTipo.Débito), cor: FORMAS_COL[1] },
+        { tipo: "Pix", valor: fpPorTipo.Pix, percentual: pctFp(fpPorTipo.Pix), cor: FORMAS_COL[2] },
+        { tipo: "Dinheiro", valor: fpPorTipo.Dinheiro, percentual: pctFp(fpPorTipo.Dinheiro), cor: FORMAS_COL[3] },
       ]);
 
     } catch (error) {
@@ -260,21 +295,21 @@ function Dashboard() {
         });
       }
       setVendasPorCategoria([
-        { categoria: "Roupas", valor: 0, percentual: 0, cor: "#14B8A6" },
-        { categoria: "Calçados", valor: 0, percentual: 0, cor: "#8B5CF6" },
-        { categoria: "Acessórios", valor: 0, percentual: 0, cor: "#EAB308" },
+        { categoria: "Roupas", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Roupas },
+        { categoria: "Calçados", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Calçados },
+        { categoria: "Acessórios", valor: 0, percentual: 0, cor: CORES_CATEGORIAS.Acessórios },
       ]);
       setProdutosMaisVendidos([]);
       setFormasPagamento([
-        { tipo: "Crédito", percentual: 0, valor: 0, cor: "#14B8A6" },
-        { tipo: "Débito", percentual: 0, valor: 0, cor: "#8B5CF6" },
-        { tipo: "Pix", percentual: 0, valor: 0, cor: "#3B82F6" },
-        { tipo: "Dinheiro", percentual: 0, valor: 0, cor: "#EAB308" },
+        { tipo: "Crédito", percentual: 0, valor: 0, cor: FORMAS_COL[0] },
+        { tipo: "Débito", percentual: 0, valor: 0, cor: FORMAS_COL[1] },
+        { tipo: "Pix", percentual: 0, valor: 0, cor: FORMAS_COL[2] },
+        { tipo: "Dinheiro", percentual: 0, valor: 0, cor: FORMAS_COL[3] },
       ]);
     } finally {
       setCarregando(false);
     }
-  }, [anoMes.ano, anoMes.mes]);
+  }, [anoMes.ano, anoMes.mes, theme.palette.mode]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -354,28 +389,28 @@ function Dashboard() {
       value: formatFaturamento(stats.faturamentoMes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
       trendData: gerarTrendData(stats.faturamentoMes || 1),
-      trendColor: "#3B82F6",
+      trendColor: "#F8F32B",
     },
     {
       title: "Total de Vendas",
       value: String(stats.vendasMes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
       trendData: gerarTrendData(stats.vendasMes || 1),
-      trendColor: "#3B82F6",
+      trendColor: "#F8F32B",
     },
     {
       title: "Novos Clientes",
       value: String(stats.novosClientes),
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
       trendData: gerarTrendData(stats.novosClientes || 1),
-      trendColor: "#3B82F6",
+      trendColor: "#F8F32B",
     },
     {
       title: "Ticket Médio",
       value: `R$ ${stats.ticketMedio.toFixed(2)}`,
       subtitle: `${MESES_LABEL[anoMes.mes]} ${anoMes.ano}`,
       trendData: gerarTrendData(stats.ticketMedio || 1),
-      trendColor: "#3B82F6",
+      trendColor: "#F8F32B",
     },
   ];
 
@@ -532,7 +567,12 @@ function Dashboard() {
                       series={[{ data: stat.trendData, color: stat.trendColor, showMark: false, curve: "catmullRom", area: true }]}
                       height={59}
                       margin={{ left: 0, right: 0, top: 4, bottom: 0 }}
-                      sx={{ "& .MuiAreaElement-root": { opacity: 0.4 }, "& .MuiLineElement-root": { strokeWidth: 2 } }}
+                      sx={{
+                        "& .MuiAreaElement-root": {
+                          opacity: theme.palette.mode === "dark" ? 0.22 : 0.4,
+                        },
+                        "& .MuiLineElement-root": { strokeWidth: 2 },
+                      }}
                     />
                   </Box>
                 </Box>
@@ -579,7 +619,10 @@ function Dashboard() {
                   series={[
                     {
                       data: vendasPorCategoria.map((item) => item.quantidade ?? item.valor ?? 0),
-                      color: "#14B8A6",
+                      color:
+                        theme.palette.mode === "dark"
+                          ? vexaColors.amareloNeon
+                          : "#14B8A6",
                     },
                   ]}
                   height={isMobile ? 220 : isTablet ? 260 : 300}
@@ -924,7 +967,14 @@ function Dashboard() {
                           borderRadius: 1.5,
                           bgcolor: theme.palette.action.disabledBackground,
                           "& .MuiLinearProgress-bar": {
-                            bgcolor: item.percentual >= 90 ? theme.palette.success.main : item.percentual >= 70 ? "#14B8A6" : theme.palette.warning.main,
+                            bgcolor:
+                              item.percentual >= 90
+                                ? theme.palette.success.main
+                                : item.percentual >= 70
+                                  ? theme.palette.mode === "dark"
+                                    ? vexaColors.cinzaAzulado
+                                    : "#14B8A6"
+                                  : theme.palette.warning.main,
                             borderRadius: 1.5,
                           },
                         }}

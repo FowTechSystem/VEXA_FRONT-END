@@ -20,6 +20,7 @@ import {
   Alert,
   Divider,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { AddShoppingCart, Remove, ShoppingCart, WhatsApp } from "@mui/icons-material";
 import { catalogoService } from "../api/catalogoService";
 
@@ -103,16 +104,36 @@ function CatalogoPublico() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.mode === "dark" ? "#0f172a" : "#f8fafc", pb: 10 }}>
-      <AppBar position="sticky" sx={{ bgcolor: theme.palette.primary.main }}>
-        <Toolbar sx={{ justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
-          <Typography variant="h6" fontWeight={700}>
+    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.mode === "dark" ? "#2B2D42" : "#F0F1F5", pb: 10 }}>
+      <AppBar
+        position="sticky"
+        sx={{
+          bgcolor: theme.palette.primary.main,
+          color: theme.palette.primary.contrastText,
+        }}
+      >
+        <Toolbar
+          sx={{
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+            color: "inherit",
+          }}
+        >
+          <Typography variant="h6" fontWeight={700} color="inherit">
             {catalogo.empresaNome ?? "Catálogo"}
           </Typography>
           <Badge badgeContent={totalItens} color="secondary">
             <Button
               variant="outlined"
-              sx={{ color: "white", borderColor: "rgba(255,255,255,0.5)", "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" } }}
+              sx={{
+                color: "inherit",
+                borderColor: alpha(theme.palette.primary.contrastText, 0.55),
+                "&:hover": {
+                  borderColor: theme.palette.primary.contrastText,
+                  bgcolor: alpha(theme.palette.primary.contrastText, 0.12),
+                },
+              }}
               startIcon={<ShoppingCart />}
             >
               Carrinho ({totalItens})
