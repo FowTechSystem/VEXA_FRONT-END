@@ -32,6 +32,7 @@ import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
 } from "../utils/movimentacaoCaixa";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 import { caixaService } from "../api/caixaService";
 import {
   AttachMoney,
@@ -87,6 +88,7 @@ const CATEGORIAS_DESPESA = [
 function Financeiro() {
   const theme = useTheme();
   const isLight = theme.palette.mode === "light";
+  const { sincronizarMovimentacoesDoCaixa } = useInAppNotifications();
   const [tabAtual, setTabAtual] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
@@ -146,6 +148,7 @@ function Financeiro() {
           };
         });
         setMovimentacoesSistema(normalizadas);
+        sincronizarMovimentacoesDoCaixa(list);
       })
       .catch((err) => {
         console.error("Erro ao carregar movimentações do sistema:", err);

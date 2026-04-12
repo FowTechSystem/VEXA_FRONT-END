@@ -15,9 +15,11 @@ import {
 } from "@mui/material";
 import { ArrowBack, AttachMoney, TrendingDown, TrendingUp } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { caixaService } from "../api/caixaService";
+import { vexaColors } from "../theme";
 import { showSuccess, showError } from "../utils/notifications";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 
 const CATEGORIAS_LUCRO = [
   "Vendas",
@@ -52,9 +54,37 @@ function apiMessage(err) {
   return err?.message || "Não foi possível salvar.";
 }
 
+/** Bordas/labels alinhados ao MuiTextField do tema (Selects não herdam TextField). */
+function outlineFieldSx(theme) {
+  const isDark = theme.palette.mode === "dark";
+  return {
+    width: "100%",
+    minWidth: 0,
+    "& .MuiOutlinedInput-root": {
+      "& fieldset": {
+        borderColor: isDark
+          ? alpha(vexaColors.cinzaAzulado, 0.35)
+          : alpha(vexaColors.azulEscuro, 0.22),
+      },
+      "&:hover fieldset": {
+        borderColor: isDark
+          ? alpha(vexaColors.cinzaAzulado, 0.55)
+          : alpha(vexaColors.azulEscuro, 0.35),
+      },
+      "&.Mui-focused fieldset": {
+        borderColor: isDark ? alpha(vexaColors.amareloNeon, 0.75) : vexaColors.amareloNeon,
+      },
+    },
+    "& .MuiInputLabel-root.Mui-focused": { color: theme.palette.primary.main },
+    "& .MuiSelect-select": { py: 1.25, fontSize: "0.875rem" },
+  };
+}
+
 function NovaMovimentacaoCaixa() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { registrarMovimentacaoManualCriada } = useInAppNotifications();
+  const fieldSx = outlineFieldSx(theme);
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState({
     tipo: "lucro",
@@ -106,7 +136,13 @@ function NovaMovimentacaoCaixa() {
 
     setSalvando(true);
     try {
-      await caixaService.criarMovimentacaoManual(payload);
+      const res = await caixaService.criarMovimentacaoManual(payload);
+      registrarMovimentacaoManualCriada({
+        idBackend: res?.id ?? res?.Id,
+        descricao: form.descricao.trim(),
+        valor: Number(form.valor),
+        entrada: form.tipo === "lucro",
+      });
       showSuccess("Movimentação registrada.");
       navigate("/vendas");
     } catch (err) {
@@ -164,8 +200,8 @@ function NovaMovimentacaoCaixa() {
           }}
         >
           <Grid container spacing={2.5}>
-            <Grid item xs={12}>
-              <FormControl fullWidth size="small" required>
+            <Grid size={12}>
+              <FormControl fullWidth size="small" required sx={fieldSx}>
                 <InputLabel id="tipo-mov-label">Tipo</InputLabel>
                 <Select
                   labelId="tipo-mov-label"
@@ -189,7 +225,7 @@ function NovaMovimentacaoCaixa() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 required
@@ -199,9 +235,10 @@ function NovaMovimentacaoCaixa() {
                 value={form.descricao}
                 onChange={handleChange}
                 placeholder="Ex.: Ajuste de caixa, pagamento de aluguel"
+                sx={fieldSx}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -215,9 +252,10 @@ function NovaMovimentacaoCaixa() {
                   startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                 }}
                 inputProps={{ step: "0.01", min: "0.01" }}
+                sx={fieldSx}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 required
@@ -228,10 +266,11 @@ function NovaMovimentacaoCaixa() {
                 value={form.data}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
+                sx={fieldSx}
               />
             </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth size="small" required>
+            <Grid size={12}>
+              <FormControl fullWidth size="small" required sx={fieldSx}>
                 <InputLabel id="cat-mov-label">Categoria</InputLabel>
                 <Select
                   labelId="cat-mov-label"
@@ -249,8 +288,8 @@ function NovaMovimentacaoCaixa() {
               </FormControl>
             </Grid>
             {form.tipo === "lucro" && (
-              <Grid item xs={12}>
-                <FormControl fullWidth size="small">
+              <Grid size={12}>
+                <FormControl fullWidth size="small" sx={fieldSx}>
                   <InputLabel id="fp-mov-label">Forma de pagamento (opcional)</InputLabel>
                   <Select
                     labelId="fp-mov-label"
@@ -268,7 +307,7 @@ function NovaMovimentacaoCaixa() {
                 </FormControl>
               </Grid>
             )}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 size="small"
@@ -279,9 +318,10 @@ function NovaMovimentacaoCaixa() {
                 value={form.observacoes}
                 onChange={handleChange}
                 placeholder="Informações adicionais"
+                sx={fieldSx}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <Button
                   type="button"

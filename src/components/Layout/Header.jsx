@@ -33,14 +33,7 @@ import { ThemeContext } from "../../contexts/ThemeContext";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import UserProfileDrawer from "../UserProfileDrawer";
 import { authService } from "../../api/authService";
-
-// Notificações exibidas no painel (pode ser conectado a um contexto/API depois)
-const NOTIFICACOES_INICIAIS = [
-  { id: 1, titulo: "Nova venda", texto: "Venda #1245 finalizada com sucesso.", data: "Há 5 min", lida: false },
-  { id: 2, titulo: "Estoque baixo", texto: "Produto Camiseta Básica abaixo do mínimo.", data: "Há 1 h", lida: false },
-  { id: 3, titulo: "Relatório disponível", texto: "Relatório de vendas do mês está pronto.", data: "Ontem", lida: false },
-  { id: 4, titulo: "Atualização do sistema", texto: "VEXA atualizado para a versão 1.0.", data: "Ontem", lida: false },
-];
+import { useInAppNotifications } from "../../contexts/InAppNotificationContext";
 
 function Header({ onMenuClick }) {
   const theme = useTheme();
@@ -49,10 +42,11 @@ function Header({ onMenuClick }) {
   const [anchorNotif, setAnchorNotif] = useState(null);
   const [anchorEmpresa, setAnchorEmpresa] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [notificacoes] = useState(NOTIFICACOES_INICIAIS);
+  const { notificacoes, marcarTodasComoLidas } = useInAppNotifications();
   const { mode, toggleTheme } = useContext(ThemeContext);
   const { empresaAtiva, empresas, setEmpresaAtiva, sairEmpresa, isDev } = useEmpresa();
   const navigate = useNavigate();
+  const qtdNaoLidas = notificacoes.filter((n) => !n.lida).length;
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -64,6 +58,7 @@ function Header({ onMenuClick }) {
 
   const handleNotifOpen = (event) => {
     setAnchorNotif(event.currentTarget);
+    marcarTodasComoLidas();
   };
 
   const handleNotifClose = () => {
@@ -241,7 +236,7 @@ function Header({ onMenuClick }) {
             </IconButton>
 
             <IconButton color="inherit" onClick={handleNotifOpen} title="Notificações">
-              <Badge badgeContent={notificacoes.filter((n) => !n.lida).length} color="secondary">
+              <Badge badgeContent={qtdNaoLidas} color="secondary" invisible={qtdNaoLidas === 0}>
                 <Notifications />
               </Badge>
             </IconButton>

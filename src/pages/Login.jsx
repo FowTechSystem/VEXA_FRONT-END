@@ -1,5 +1,5 @@
 // src/pages/Login.jsx
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import {
   Box,
   TextField,
@@ -7,21 +7,21 @@ import {
   Typography,
   InputAdornment,
   IconButton,
-  Container,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Link as MuiLink,
 } from "@mui/material";
 import {
   Visibility,
   VisibilityOff,
   WarningAmber,
 } from "@mui/icons-material";
-import { useNavigate, useLocation, Navigate } from "react-router-dom";
-import { ThemeContext } from "../contexts/ThemeContext";
+import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { showError } from "../utils/notifications";
 import { authService } from "../api/authService";
+import AuthSplitShell from "../components/Auth/AuthSplitShell";
 
 const DEMO_SEM_BACKEND = false;
 
@@ -36,7 +36,6 @@ function Login() {
   const [mensagemAviso, setMensagemAviso] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const { mode } = useContext(ThemeContext);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -87,160 +86,102 @@ function Login() {
   }
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
-      }}
-    >
-      <Box
-        sx={{
-          flex: 1,
-          background: "linear-gradient(135deg, #2B2D42 0%, #000000 100%)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          color: "#E8EAEF",
-          p: 4,
-        }}
-      >
-        <Box
-          component="img"
-          src="/logo.png"
-          alt="VEXA"
-          sx={{ height: 120, mb: 3, objectFit: "contain" }}
-        />
-        <Typography variant="h2" sx={{ fontWeight: 700, mb: 2 }}>
-          VEXA
-        </Typography>
-        <Typography
-          variant="h6"
-          sx={{ opacity: 0.9, textAlign: "center", maxWidth: 500 }}
-        >
-          Sistema de Gerenciamento de Relacionamento com Cliente
-        </Typography>
-      </Box>
+    <>
+      <AuthSplitShell title="VEXA" subtitle="Entre com suas credenciais">
+        <form onSubmit={handleLogin}>
+          <TextField
+            fullWidth
+            label="E-mail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            sx={{ mb: 3 }}
+            required
+            disabled={loading}
+            placeholder="seu@email.com"
+          />
 
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          backgroundColor: "background.paper",
-          p: 4,
-        }}
-      >
-        <Container maxWidth="sm">
-          <Box sx={{ mb: 4 }}>
-            <Typography
-              variant="h4"
-              sx={{ fontWeight: 700, mb: 1, color: "primary.main" }}
-            >
-              VEXA
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Entre com suas credenciais
-            </Typography>
-          </Box>
+          <TextField
+            fullWidth
+            label="Senha"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            sx={{ mb: 4 }}
+            required
+            disabled={loading}
+            placeholder="••••••••"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
 
-          <form onSubmit={handleLogin}>
-            <TextField
-              fullWidth
-              label="E-mail"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              sx={{ mb: 3 }}
-              required
-              disabled={loading}
-              placeholder="seu@email.com"
-            />
+          <Button
+            fullWidth
+            variant="contained"
+            color="primary"
+            type="submit"
+            size="large"
+            disabled={loading}
+            sx={{
+              py: 1.5,
+              fontSize: "1rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              boxShadow: "0 3px 5px 2px rgba(248, 243, 43, 0.35)",
+            }}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </Button>
+        </form>
 
-            <TextField
-              fullWidth
-              label="Senha"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              sx={{ mb: 4 }}
-              required
-              disabled={loading}
-              placeholder="••••••••"
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              type="submit"
-              size="large"
-              disabled={loading}
+        <Box sx={{ textAlign: "center", mt: 3 }}>
+          <Typography variant="body2" color="text.secondary">
+            Esqueceu sua senha?{" "}
+            <MuiLink
+              component={Link}
+              to="/recuperar-senha"
               sx={{
-                py: 1.5,
-                fontSize: "1rem",
+                color: "#F8F32B",
+                textDecoration: "none",
                 fontWeight: 600,
-                textTransform: "uppercase",
-                boxShadow: "0 3px 5px 2px rgba(248, 243, 43, 0.35)",
+                "&:hover": { textDecoration: "underline" },
               }}
             >
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
+              Recuperar
+            </MuiLink>
+          </Typography>
+        </Box>
 
-          <Box sx={{ textAlign: "center", mt: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              Esqueceu sua senha?{" "}
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                style={{
-                  color: "#F8F32B",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                }}
-              >
-                Recuperar
-              </a>
+        {DEMO_SEM_BACKEND && (
+          <Box
+            sx={{
+              mt: 4,
+              pt: 3,
+              borderTop: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              align="center"
+              display="block"
+            >
+              Modo demo (backend desativado)
             </Typography>
           </Box>
-
-          {DEMO_SEM_BACKEND && (
-            <Box
-              sx={{
-                mt: 4,
-                pt: 3,
-                borderTop: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                align="center"
-                display="block"
-              >
-                Modo demo (backend desativado)
-              </Typography>
-            </Box>
-          )}
-        </Container>
-      </Box>
+        )}
+      </AuthSplitShell>
 
       <Dialog
         open={openAviso}
@@ -274,7 +215,7 @@ function Login() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 

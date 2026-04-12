@@ -29,6 +29,8 @@ Requests e responses em **camelCase** no fio (`email`, `password`, `token`, `use
 
 **401:** credenciais inválidas ou body incompleto; pode vir `{ "message": "..." }`.
 
+**Recuperação de senha (rotas públicas):** `POST /api/Auth/forgot-password` e `POST /api/Auth/reset-password` — especificação completa em [`HANDOFF-RECUPERACAO-SENHA-BACKEND.md`](./HANDOFF-RECUPERACAO-SENHA-BACKEND.md).
+
 ## 4. Demais rotas
 
 Enviar **`Authorization: Bearer <token>`** quando a rota exigir autenticação (configurado em `src/api/axiosConfig.js`).

@@ -4,6 +4,7 @@ import { Box, useTheme } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import { InAppNotificationProvider } from "../../contexts/InAppNotificationContext";
 
 function MainLayout() {
   const theme = useTheme();
@@ -14,6 +15,7 @@ function MainLayout() {
   };
 
   return (
+    <InAppNotificationProvider>
     <Box
       sx={{
         display: "flex",
@@ -48,6 +50,7 @@ function MainLayout() {
         <Outlet />
       </Box>
     </Box>
+    </InAppNotificationProvider>
   );
 }
 

@@ -58,6 +58,7 @@ import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
 } from "../utils/movimentacaoCaixa";
+import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 
 function apiErrMessage(err) {
   const d = err?.response?.data;
@@ -70,6 +71,7 @@ function Movimentacoes() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isDark = theme.palette.mode === "dark";
+  const { sincronizarMovimentacoesDoCaixa } = useInAppNotifications();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -152,6 +154,7 @@ function Movimentacoes() {
         setTotalSaidas(saidas);
         setSaldoAtual(saldo);
         setMovimentacoes(normalizadas);
+        sincronizarMovimentacoesDoCaixa(list);
       })
       .catch((err) => {
         console.error("Erro ao carregar movimentações:", err);
@@ -746,15 +749,6 @@ function Movimentacoes() {
                       borderBottom: `1px solid ${theme.palette.divider}`,
                     }}
                   >
-                    Cliente/Fornecedor
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
                     Data
                   </TableCell>
                   <TableCell
@@ -800,7 +794,7 @@ function Movimentacoes() {
               <TableBody>
                 {carregandoMovimentacoes ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                       <Typography variant="body2" color="text.secondary">
                         Carregando movimentações...
                       </Typography>
@@ -808,7 +802,7 @@ function Movimentacoes() {
                   </TableRow>
                 ) : movimentacoesFiltradas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                       <Box sx={{ color: theme.palette.text.secondary }}>
                         <Receipt sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
                         <Typography variant="h6" sx={{ fontWeight: 500 }}>
@@ -872,33 +866,13 @@ function Movimentacoes() {
                         >
                           <Typography
                             variant="body2"
-                            sx={{ color: theme.palette.text.secondary }}
+                            sx={{
+                              fontWeight: 500,
+                              color: theme.palette.text.primary,
+                            }}
                           >
-                            {mov.cliente || mov.fornecedor || "—"}
+                            {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
                           </Typography>
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Box>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 500,
-                                color: theme.palette.text.primary,
-                              }}
-                            >
-                              {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: theme.palette.text.secondary }}
-                            >
-                              {mov.hora || "—"}
-                            </Typography>
-                          </Box>
                         </TableCell>
                         <TableCell
                           align="right"

@@ -34,7 +34,6 @@ import {
   LocalShipping,
   AssignmentReturn,
   PointOfSale,
-  CardMembership,
   Search,
   Business,
   Category,
@@ -103,10 +102,7 @@ const menuSectionsBase = [
   },
   {
     title: "Sistema",
-    items: [
-      { text: "Planos", icon: <CardMembership />, path: "planos" },
-      { text: "Configurações", icon: <Settings />, path: "configuracoes" },
-    ],
+    items: [{ text: "Configurações", icon: <Settings />, path: "configuracoes" }],
   },
 ];
 

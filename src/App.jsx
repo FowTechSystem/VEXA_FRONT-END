@@ -9,6 +9,8 @@ import {
 import CriticalErrorDialog from "./components/CriticalErrorDialog";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
+import RecuperarSenha from "./pages/RecuperarSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Dashboard from "./pages/Dashboard";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
@@ -23,7 +25,6 @@ import Fiscal from "./pages/Fiscal";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
-import Planos from "./pages/Planos";
 import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
 import Categorias from "./pages/Categorias";
@@ -94,6 +95,8 @@ function AppContent() {
       <Routes>
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/catalogo-publico/:id" element={<CatalogoPublico />} />
 
         {/* Rotas Protegidas (com sidebar) */}
@@ -120,7 +123,6 @@ function AppContent() {
           <Route path="marcas" element={<Marcas />} />
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
-          <Route path="planos" element={<Planos />} />
           <Route path="condicional" element={<Condicional />} />
           <Route path="empresas" element={<Empresas />} />
           <Route path="configuracoes" element={<Configuracoes />} />

@@ -70,6 +70,21 @@ function labelTipo(t) {
   return "Roupas";
 }
 
+/** URL da imagem do produto (mesma convenção da página Produtos). */
+function urlFotoProduto(p) {
+  const u =
+    p?.foto1 ??
+    p?.Foto1 ??
+    p?.imagemPrincipal ??
+    p?.urlImagem ??
+    p?.imagemUrl ??
+    p?.fotoUrl ??
+    p?.urlFoto ??
+    "";
+  const s = String(u).trim();
+  return s.length > 0 ? s : null;
+}
+
 function parseListaCategorias(res) {
   const raw = res?.categorias ?? res?.Categorias ?? res?.items ?? res;
   if (Array.isArray(raw)) return raw;
@@ -203,7 +218,7 @@ function CatalogoDigital() {
     }
   }, [user.telefone, user.Telefone]);
 
-  const handleGerarCatalogo = () => {
+  const handleGerarCatalogo = async () => {
     if (!podeGerar) {
       showError(`Selecione pelo menos ${MIN_PRODUTOS_GERAR} produto(s).`);
       return;
@@ -230,6 +245,7 @@ function CatalogoDigital() {
             quantidade: 1,
             sku: String(p.sku ?? p.Sku ?? "").trim() || "—",
             tipo: labelTipo(getTipoProduto(p)),
+            imagemUrl: urlFotoProduto(p),
           });
         }
       });
@@ -249,11 +265,12 @@ function CatalogoDigital() {
       });
 
       const link = catalogoService.getLinkPublico(catalogoId);
-      const itensPdf = linhas.map(({ nome, preco, sku, tipo }) => ({
+      const itensPdf = linhas.map(({ nome, preco, sku, tipo, imagemUrl }) => ({
         nome,
         preco,
         sku,
         tipo,
+        imagemUrl,
       }));
 
       setUltimoCatalogo({
@@ -262,10 +279,9 @@ function CatalogoDigital() {
         link,
       });
 
-      const doc = montarDocumentoCatalogoPdf({
+      const doc = await montarDocumentoCatalogoPdf({
         itens: itensPdf,
         empresaNome,
-        linkPublico: link,
       });
       doc.save(nomeArquivoCatalogoPdf(empresaNome));
 
@@ -285,10 +301,9 @@ function CatalogoDigital() {
     }
 
     const { itensPdf, empresaNome, link } = ultimoCatalogo;
-    const doc = montarDocumentoCatalogoPdf({
+    const doc = await montarDocumentoCatalogoPdf({
       itens: itensPdf,
       empresaNome,
-      linkPublico: link,
     });
     const blob = catalogoPdfParaBlob(doc);
     const fileName = nomeArquivoCatalogoPdf(empresaNome);
@@ -338,6 +353,7 @@ function CatalogoDigital() {
     const sel = !!selecionados[id];
     const preco = precosSugeridos[id] ?? sugerirPreco(p);
     const tipo = getTipoProduto(p);
+    const fotoSrc = urlFotoProduto(p);
 
     return (
       <Card
@@ -345,12 +361,44 @@ function CatalogoDigital() {
         variant="outlined"
         sx={{
           height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
           border: sel ? `2px solid ${theme.palette.primary.main}` : "1px solid",
           borderColor: "divider",
           "&:hover": { borderColor: theme.palette.primary.light },
         }}
       >
-        <CardContent sx={{ p: 1.5 }}>
+        {fotoSrc ? (
+          <Box
+            data-catalogo-foto-wrap
+            sx={{
+              width: "100%",
+              height: 160,
+              flexShrink: 0,
+              bgcolor: "action.hover",
+              overflow: "hidden",
+              borderBottom: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Box
+              component="img"
+              src={fotoSrc}
+              alt=""
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+              onError={(e) => {
+                e.currentTarget.closest("[data-catalogo-foto-wrap]")?.remove();
+              }}
+            />
+          </Box>
+        ) : null}
+        <CardContent sx={{ p: 1.5, flex: 1, display: "flex", flexDirection: "column" }}>
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Checkbox
               checked={sel}
