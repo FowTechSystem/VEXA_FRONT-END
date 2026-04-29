@@ -13,6 +13,8 @@ import {
   DialogActions,
   Link as MuiLink,
 } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
+import { authPillTextFieldSx } from "../components/Auth/authFieldStyles";
 import {
   Visibility,
   VisibilityOff,
@@ -28,6 +30,8 @@ const DEMO_SEM_BACKEND = false;
 const MSG_CREDENCIAIS_INVALIDAS = "E-mail ou senha incorretos. Verifique e tente novamente.";
 
 function Login() {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === "light";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -87,18 +91,18 @@ function Login() {
 
   return (
     <>
-      <AuthSplitShell title="VEXA" subtitle="Entre com suas credenciais">
-        <form onSubmit={handleLogin}>
+      <AuthSplitShell title="Acessar conta" subtitle="Entre com o e-mail e a senha da sua conta.">
+        <form onSubmit={handleLogin} noValidate>
           <TextField
             fullWidth
             label="E-mail"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            sx={{ mb: 3 }}
-            required
+            sx={{ mb: 2.5, ...authPillTextFieldSx(theme, isLight) }}
             disabled={loading}
             placeholder="seu@email.com"
+            inputProps={{ "aria-required": "true", autoComplete: "email" }}
           />
 
           <TextField
@@ -107,10 +111,10 @@ function Login() {
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            sx={{ mb: 4 }}
-            required
+            sx={{ mb: 3.5, ...authPillTextFieldSx(theme, isLight) }}
             disabled={loading}
             placeholder="••••••••"
+            inputProps={{ "aria-required": "true", autoComplete: "current-password" }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -133,11 +137,14 @@ function Login() {
             size="large"
             disabled={loading}
             sx={{
-              py: 1.5,
+              py: 1.35,
               fontSize: "1rem",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              boxShadow: "0 3px 5px 2px rgba(248, 243, 43, 0.35)",
+              fontWeight: 700,
+              textTransform: "none",
+              borderRadius: 999,
+              boxShadow: isLight
+                ? `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`
+                : `0 4px 18px ${alpha(theme.palette.primary.main, 0.35)}`,
             }}
           >
             {loading ? "Entrando..." : "Entrar"}
@@ -151,10 +158,13 @@ function Login() {
               component={Link}
               to="/recuperar-senha"
               sx={{
-                color: "#F8F32B",
+                color: isLight ? theme.palette.primary.dark : theme.palette.primary.main,
                 textDecoration: "none",
                 fontWeight: 600,
-                "&:hover": { textDecoration: "underline" },
+                "&:hover": {
+                  textDecoration: "underline",
+                  color: isLight ? theme.palette.primary.main : theme.palette.primary.light,
+                },
               }}
             >
               Recuperar

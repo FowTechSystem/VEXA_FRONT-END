@@ -1,14 +1,12 @@
-/**
- * Utilitário para geração de relatórios em PDF - layout profissional
- */
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const COR_PRIMARIA = [41, 98, 255]; // #2962FF
-const COR_TEXTO = [33, 33, 33];
-const COR_TEXTO_SECUNDARIO = [97, 97, 97];
-const COR_BORDA = [224, 224, 224];
-const COR_FUNDO_HEADER = [245, 247, 250];
+const COR_AZUL_ESCURO = [43, 45, 66];
+const COR_AMARELO = [248, 243, 43];
+const COR_TEXTO = [31, 41, 55];
+const COR_TEXTO_SECUNDARIO = [107, 114, 128];
+const COR_BORDA = [214, 219, 226];
+const COR_FUNDO_HEADER = [245, 246, 250];
 const COR_FUNDO_ALT = [250, 251, 253];
 
 function formatarDataBR(dataStr) {
@@ -26,25 +24,36 @@ function formatarMoeda(valor) {
 }
 
 /**
- * Adiciona cabeçalho padrão em todas as páginas
+ * Cabeçalho padrão no tema do sistema.
  */
-function adicionarCabecalho(doc, titulo) {
-  doc.setFillColor(...COR_PRIMARIA);
-  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 32, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("VEXA CRM", 14, 20);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.text(titulo, 14, 28);
+function adicionarCabecalho(doc, titulo, nomeEmpresa = "VEXA") {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFillColor(...COR_AZUL_ESCURO);
+  doc.rect(0, 0, pageWidth, 30, "F");
 
-  doc.setTextColor(...COR_TEXTO_SECUNDARIO);
+  doc.setFillColor(...COR_AMARELO);
+  doc.rect(0, 30, pageWidth, 2, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("VEXA CRM", 14, 14);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(titulo, 14, 22);
+
+  doc.setTextColor(...COR_AMARELO);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(nomeEmpresa || "VEXA", pageWidth - 14, 14, { align: "right" });
+
+  doc.setTextColor(225, 228, 235);
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(
     `Gerado em ${new Date().toLocaleString("pt-BR")}`,
-    doc.internal.pageSize.getWidth() - 14,
-    20,
+    pageWidth - 14,
+    22,
     { align: "right" }
   );
 }
@@ -67,19 +76,38 @@ function adicionarRodape(doc) {
   }
 }
 
-/**
- * Gera PDF do relatório de vendas por período
- */
-export function gerarPdfVendas(vendas, dataInicio, dataFim, nomeEmpresa = "VEXA") {
+function criarTabela(doc, options) {
+  autoTable(doc, {
+    theme: "plain",
+    headStyles: {
+      fillColor: COR_FUNDO_HEADER,
+      textColor: COR_TEXTO,
+      fontStyle: "bold",
+      fontSize: 10,
+      cellPadding: { top: 8, right: 6, bottom: 8, left: 6 },
+    },
+    bodyStyles: {
+      fontSize: 9,
+      textColor: COR_TEXTO,
+      cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
+    },
+    alternateRowStyles: {
+      fillColor: COR_FUNDO_ALT,
+    },
+    margin: { left: 14, right: 14 },
+    tableLineColor: COR_BORDA,
+    tableLineWidth: 0.1,
+    ...options,
+  });
+}
+
+export function gerarPdfVendasPeriodo(vendas, dataInicio, dataFim, nomeEmpresa = "VEXA") {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
-  const startY = 42;
+  const startY = 40;
 
-  // Cabeçalho
-  adicionarCabecalho(doc, "Relatório de Vendas por Período");
+  adicionarCabecalho(doc, "Relatório de Vendas por Período", nomeEmpresa);
 
-  // Informações do período
   doc.setFontSize(10);
   doc.setTextColor(...COR_TEXTO);
   doc.setFont("helvetica", "bold");
@@ -94,40 +122,23 @@ export function gerarPdfVendas(vendas, dataInicio, dataFim, nomeEmpresa = "VEXA"
   doc.text("Empresa:", margin, startY + 6);
   doc.text(nomeEmpresa, margin + 22, startY + 6);
 
-  // Tabela de vendas
   const tableStartY = startY + 20;
-
-  autoTable(doc, {
+  const total = vendas.reduce((a, v) => a + Number(v.valor || 0), 0);
+  criarTabela(doc, {
     startY: tableStartY,
     head: [["Data", "Cliente", "Itens", "Valor (R$)"]],
     body: vendas.map((v) => [
       formatarDataBR(v.data),
       v.cliente || "—",
-      String(v.itens ?? 0),
-      formatarMoeda(v.valor),
+      String(Array.isArray(v.itens) ? v.itens.length : v.itens ?? 0),
+      formatarMoeda(Number(v.valor || 0)),
     ]),
     foot: [
-      ["", "", "Total", formatarMoeda(vendas.reduce((a, v) => a + v.valor, 0))],
+      ["", "", "Total", formatarMoeda(total)],
     ],
-    theme: "plain",
-    headStyles: {
-      fillColor: COR_FUNDO_HEADER,
-      textColor: COR_TEXTO,
-      fontStyle: "bold",
-      fontSize: 10,
-      cellPadding: { top: 8, right: 6, bottom: 8, left: 6 },
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: COR_TEXTO,
-      cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
-    },
-    alternateRowStyles: {
-      fillColor: COR_FUNDO_ALT,
-    },
     footStyles: {
-      fillColor: COR_PRIMARIA,
-      textColor: [255, 255, 255],
+      fillColor: COR_AZUL_ESCURO,
+      textColor: COR_AMARELO,
       fontStyle: "bold",
       fontSize: 10,
       cellPadding: { top: 8, right: 6, bottom: 8, left: 6 },
@@ -138,17 +149,13 @@ export function gerarPdfVendas(vendas, dataInicio, dataFim, nomeEmpresa = "VEXA"
       2: { cellWidth: 22, halign: "center" },
       3: { cellWidth: 35, halign: "right" },
     },
-    margin: { left: margin, right: margin },
-    tableLineColor: COR_BORDA,
-    tableLineWidth: 0.1,
   });
 
-  // Resumo abaixo da tabela
   const finalY = doc.lastAutoTable.finalY || tableStartY + 40;
   doc.setFontSize(10);
   doc.setTextColor(...COR_TEXTO_SECUNDARIO);
   doc.text(
-    `${vendas.length} venda(s) no período | Total: ${formatarMoeda(vendas.reduce((a, v) => a + v.valor, 0))}`,
+    `${vendas.length} venda(s) no período | Total: ${formatarMoeda(total)}`,
     margin,
     finalY + 12
   );
@@ -158,23 +165,20 @@ export function gerarPdfVendas(vendas, dataInicio, dataFim, nomeEmpresa = "VEXA"
   return doc;
 }
 
-/**
- * Gera PDF do relatório de estoque
- */
 export function gerarPdfEstoque(estoque, nomeEmpresa = "VEXA") {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const margin = 14;
-  const startY = 42;
+  const startY = 40;
 
-  adicionarCabecalho(doc, "Relatório de Produtos em Estoque");
+  adicionarCabecalho(doc, "Relatório de Produtos em Estoque", nomeEmpresa);
 
   doc.setFontSize(10);
   doc.setTextColor(...COR_TEXTO);
+  doc.setFont("helvetica", "bold");
   doc.text("Empresa: " + nomeEmpresa, margin, startY);
 
   const tableStartY = startY + 14;
-
-  autoTable(doc, {
+  criarTabela(doc, {
     startY: tableStartY,
     head: [["Produto", "SKU", "Estoque", "Mín.", "Status"]],
     body: estoque.map((e) => [
@@ -184,22 +188,6 @@ export function gerarPdfEstoque(estoque, nomeEmpresa = "VEXA") {
       String(e.minimo),
       e.status,
     ]),
-    theme: "plain",
-    headStyles: {
-      fillColor: COR_FUNDO_HEADER,
-      textColor: COR_TEXTO,
-      fontStyle: "bold",
-      fontSize: 10,
-      cellPadding: { top: 8, right: 6, bottom: 8, left: 6 },
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: COR_TEXTO,
-      cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
-    },
-    alternateRowStyles: {
-      fillColor: COR_FUNDO_ALT,
-    },
     columnStyles: {
       0: { cellWidth: "auto" },
       1: { cellWidth: 35 },
@@ -207,9 +195,6 @@ export function gerarPdfEstoque(estoque, nomeEmpresa = "VEXA") {
       3: { cellWidth: 18, halign: "center" },
       4: { cellWidth: 28, halign: "center" },
     },
-    margin: { left: margin, right: margin },
-    tableLineColor: COR_BORDA,
-    tableLineWidth: 0.1,
   });
 
   const criticos = estoque.filter((e) => e.status === "Crítico").length;
@@ -227,9 +212,72 @@ export function gerarPdfEstoque(estoque, nomeEmpresa = "VEXA") {
   return doc;
 }
 
-/**
- * Faz o download do PDF
- */
+export function gerarPdfVendasPorCliente(clientes, dataInicio, dataFim, nomeEmpresa = "VEXA") {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const margin = 14;
+  const startY = 40;
+  adicionarCabecalho(doc, "Relatório de Vendas por Cliente", nomeEmpresa);
+
+  doc.setFontSize(10);
+  doc.setTextColor(...COR_TEXTO);
+  doc.setFont("helvetica", "bold");
+  doc.text("Período:", margin, startY);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${formatarDataBR(dataInicio)} a ${formatarDataBR(dataFim)}`, margin + 22, startY);
+
+  criarTabela(doc, {
+    startY: startY + 12,
+    head: [["Cliente", "Pedidos", "Total vendido", "Ticket médio"]],
+    body: clientes.map((item) => [
+      item.cliente || "Não informado",
+      String(item.pedidos || 0),
+      formatarMoeda(item.valor || 0),
+      formatarMoeda(item.ticketMedio || 0),
+    ]),
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { cellWidth: 24, halign: "center" },
+      2: { cellWidth: 40, halign: "right" },
+      3: { cellWidth: 40, halign: "right" },
+    },
+  });
+
+  adicionarRodape(doc);
+  return doc;
+}
+
+export function gerarPdfProdutosMaisVendidos(produtos, dataInicio, dataFim, nomeEmpresa = "VEXA") {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const margin = 14;
+  const startY = 40;
+  adicionarCabecalho(doc, "Relatório de Produtos Mais Vendidos", nomeEmpresa);
+
+  doc.setFontSize(10);
+  doc.setTextColor(...COR_TEXTO);
+  doc.setFont("helvetica", "bold");
+  doc.text("Período:", margin, startY);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${formatarDataBR(dataInicio)} a ${formatarDataBR(dataFim)}`, margin + 22, startY);
+
+  criarTabela(doc, {
+    startY: startY + 12,
+    head: [["Produto", "Qtd. vendida", "Valor total"]],
+    body: produtos.map((item) => [
+      item.produto || "Produto",
+      String(item.quantidade || 0),
+      formatarMoeda(item.valor || 0),
+    ]),
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { cellWidth: 34, halign: "center" },
+      2: { cellWidth: 44, halign: "right" },
+    },
+  });
+
+  adicionarRodape(doc);
+  return doc;
+}
+
 export function downloadPdf(doc, filename) {
   doc.save(filename);
 }

@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import { Box, TextField, Button, Typography, Link as MuiLink } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
 import { Link, Navigate } from "react-router-dom";
 import AuthSplitShell from "../components/Auth/AuthSplitShell";
+import { authPillTextFieldSx } from "../components/Auth/authFieldStyles";
 import { authService } from "../api/authService";
 import { showError, showSuccess } from "../utils/notifications";
 
 export default function RecuperarSenha() {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === "light";
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -60,18 +64,18 @@ export default function RecuperarSenha() {
       }
     >
       {!enviado ? (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <TextField
             fullWidth
             label="E-mail"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            sx={{ mb: 3 }}
-            required
+            sx={{ mb: 3, ...authPillTextFieldSx(theme, isLight) }}
             disabled={loading}
             placeholder="seu@email.com"
             autoComplete="email"
+            inputProps={{ "aria-required": "true" }}
           />
           <Button
             fullWidth
@@ -81,11 +85,14 @@ export default function RecuperarSenha() {
             size="large"
             disabled={loading}
             sx={{
-              py: 1.5,
+              py: 1.35,
               fontSize: "1rem",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              boxShadow: "0 3px 5px 2px rgba(248, 243, 43, 0.35)",
+              fontWeight: 700,
+              textTransform: "none",
+              borderRadius: 999,
+              boxShadow: isLight
+                ? `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`
+                : `0 4px 18px ${alpha(theme.palette.primary.main, 0.35)}`,
             }}
           >
             {loading ? "Enviando…" : "Enviar link"}
