@@ -503,7 +503,7 @@ function CatalogoDigital() {
 
       {!whatsappDigits && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Para abrir o WhatsApp já no seu número, cadastre o telefone em Configurações (ou dados do usuário).
+          Para abrir o WhatsApp já no seu número, cadastre o telefone no seu perfil (menu do usuário).
           Ainda assim você pode usar &quot;Enviar por WhatsApp&quot; para escolher o contato manualmente.
         </Alert>
       )}

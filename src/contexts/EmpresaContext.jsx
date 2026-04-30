@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { authService } from "../api/authService";
 import { listarEmpresas } from "../api/empresasService";
+import { isDevAdminUser } from "../constants/devAdmin";
 
-const DEV_ADMIN_EMAIL = "dev@gmail.com";
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
 
 const EmpresaContext = createContext(null);
@@ -22,9 +22,10 @@ export function EmpresaProvider({ children }) {
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
 
   const user = authService.getUsuario();
-  const isDev = user.email === DEV_ADMIN_EMAIL;
+  const isDev = isDevAdminUser(user);
 
   const setEmpresaAtiva = useCallback((empresa) => {
+    if (!isDevAdminUser(authService.getUsuario())) return;
     if (empresa) {
       localStorage.setItem(EMPRESA_ATIVA_KEY, JSON.stringify(empresa));
     } else {
@@ -55,6 +56,15 @@ export function EmpresaProvider({ children }) {
   useEffect(() => {
     if (isDev) loadEmpresas();
   }, [isDev, loadEmpresas]);
+
+  /** Usuário comum não deve manter empresa “ativa” do painel dev no storage. */
+  useEffect(() => {
+    if (!isDev) {
+      localStorage.removeItem(EMPRESA_ATIVA_KEY);
+      setEmpresaAtivaState(null);
+      setEmpresas([]);
+    }
+  }, [isDev]);
 
   const value = {
     empresaAtiva,

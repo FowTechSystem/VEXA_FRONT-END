@@ -3,6 +3,7 @@
 // Autenticação: Authorization: Bearer <token>. Multi-tenancy dev: X-Empresa-Id (admin); não enviar empresaId no body/query.
 import axios from "axios";
 import { apiBaseURL } from "../config/apiBase";
+import { isDevAdminUser } from "../constants/devAdmin";
 
 const TOKEN_KEY = "token";
 const AUTH_KEY = "isAuthenticated";
@@ -10,7 +11,6 @@ const USER_EMAIL_KEY = "userEmail";
 const USER_DATA_KEY = "userData";
 
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
-const DEV_ADMIN_EMAIL = "dev@gmail.com";
 
 const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);
@@ -24,10 +24,10 @@ const clearAuth = () => {
 function getEmpresaAtivaId() {
   try {
     const user = JSON.parse(localStorage.getItem(USER_DATA_KEY) || "{}");
-    if (user.email !== DEV_ADMIN_EMAIL) return null;
+    if (!isDevAdminUser(user)) return null;
     const raw = localStorage.getItem(EMPRESA_ATIVA_KEY);
     const empresa = raw ? JSON.parse(raw) : null;
-    return empresa?.id ?? 1;
+    return empresa?.id ?? null;
   } catch {
     return null;
   }

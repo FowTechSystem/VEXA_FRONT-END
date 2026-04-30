@@ -27,6 +27,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Relatorios from "./pages/Relatorios";
 import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
+import DevOnlyRoute from "./components/Auth/DevOnlyRoute";
 import Categorias from "./pages/Categorias";
 import Marcas from "./pages/Marcas";
 import CatalogoDigital from "./pages/CatalogoDigital";
@@ -124,8 +125,22 @@ function AppContent() {
           <Route path="usuarios" element={<Usuarios />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="condicional" element={<Condicional />} />
-          <Route path="empresas" element={<Empresas />} />
-          <Route path="configuracoes" element={<Configuracoes />} />
+          <Route
+            path="empresas"
+            element={
+              <DevOnlyRoute>
+                <Empresas />
+              </DevOnlyRoute>
+            }
+          />
+          <Route
+            path="configuracoes"
+            element={
+              <DevOnlyRoute>
+                <Configuracoes />
+              </DevOnlyRoute>
+            }
+          />
           <Route path="catalogo-digital" element={<CatalogoDigital />} />
         </Route>
 
