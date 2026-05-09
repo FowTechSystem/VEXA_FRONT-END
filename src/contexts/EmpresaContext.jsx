@@ -4,12 +4,15 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { authService } from "../api/authService";
 import { listarEmpresas } from "../api/empresasService";
 import { isDevAdminUser } from "../constants/devAdmin";
+import { AUTH_CHANGED_EVENT } from "../utils/authEvents";
 
 const EMPRESA_ATIVA_KEY = "empresaAtiva";
 
 const EmpresaContext = createContext(null);
 
 export function EmpresaProvider({ children }) {
+  /** Força novo render após login/logout (Provider não remonta na navegação /login → /). */
+  const [, setAuthTick] = useState(0);
   const [empresaAtiva, setEmpresaAtivaState] = useState(() => {
     try {
       const raw = localStorage.getItem(EMPRESA_ATIVA_KEY);
@@ -56,6 +59,12 @@ export function EmpresaProvider({ children }) {
   useEffect(() => {
     if (isDev) loadEmpresas();
   }, [isDev, loadEmpresas]);
+
+  useEffect(() => {
+    const bump = () => setAuthTick((n) => n + 1);
+    window.addEventListener(AUTH_CHANGED_EVENT, bump);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, bump);
+  }, []);
 
   /** Usuário comum não deve manter empresa “ativa” do painel dev no storage. */
   useEffect(() => {

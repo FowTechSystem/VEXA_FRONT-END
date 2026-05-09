@@ -4,6 +4,7 @@
 import axios from "axios";
 import { apiBaseURL } from "../config/apiBase";
 import { isDevAdminUser } from "../constants/devAdmin";
+import { notifyAuthChanged } from "../utils/authEvents";
 
 const TOKEN_KEY = "token";
 const AUTH_KEY = "isAuthenticated";
@@ -19,6 +20,7 @@ const clearAuth = () => {
   localStorage.removeItem(USER_DATA_KEY);
   localStorage.removeItem(EMPRESA_ATIVA_KEY);
   sessionStorage.removeItem(AUTH_KEY);
+  notifyAuthChanged();
 };
 
 function getEmpresaAtivaId() {

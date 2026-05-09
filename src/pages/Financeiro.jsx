@@ -27,7 +27,6 @@ import {
   Tab,
   useTheme,
 } from "@mui/material";
-import { showError } from "../utils/notifications";
 import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
@@ -49,6 +48,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Refresh,
+  Lock,
 } from "@mui/icons-material";
 
 function getMonthBounds(mesAno) {
@@ -302,7 +302,16 @@ function Financeiro() {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh", ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}) }}>
+    <Box
+      sx={{
+        position: "relative",
+        p: 3,
+        bgcolor: "background.default",
+        minHeight: "100vh",
+        color: "text.primary",
+        ...(openDialog ? { display: "flex", flexDirection: "column", overflow: "hidden" } : {}),
+      }}
+    >
       {!openDialog ? (
         <>
       {/* Header */}
@@ -856,6 +865,42 @@ function Financeiro() {
         <DialogContent><Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}><Button variant="contained" autoFocus onClick={() => setOpenValidacaoModal(false)} sx={{ textTransform: "none", minWidth: 100 }}>OK</Button></DialogActions>
       </Dialog>
+
+      {/* Igual ao Fiscal: fundo borrado + mensagem de bloqueio */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          backgroundColor: "rgba(0,0,0,0.25)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            maxWidth: 400,
+            textAlign: "center",
+            borderRadius: 2,
+          }}
+        >
+          <Lock sx={{ fontSize: 56, color: "action.disabled", mb: 2 }} />
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            Função em processo de integração
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Contate o suporte para maiores detalhes.
+          </Typography>
+        </Paper>
+      </Box>
     </Box>
   );
 }

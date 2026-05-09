@@ -143,9 +143,16 @@ function CatalogoDigital() {
     buscarDados();
   }, [buscarDados]);
 
+  const produtosComFoto = useMemo(
+    () => produtos.filter((p) => Boolean(urlFotoProduto(p))),
+    [produtos],
+  );
+
   const produtosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return produtos.filter((p) => {
+      if (!urlFotoProduto(p)) return false;
+
       if (filtroTipo && getTipoProduto(p) !== filtroTipo) return false;
 
       if (filtroCategoriaId !== "" && filtroCategoriaId != null) {
@@ -165,6 +172,22 @@ function CatalogoDigital() {
     () => produtosFiltrados.map((p) => String(p.id ?? p.Id)).filter(Boolean),
     [produtosFiltrados],
   );
+
+  /** Remove seleção de produtos que saíram da lista (ex.: sem foto ou filtros). */
+  useEffect(() => {
+    const allowed = new Set(idsFiltrados);
+    setSelecionados((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(next).forEach((id) => {
+        if (next[id] && !allowed.has(id)) {
+          next[id] = false;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [idsFiltrados]);
 
   const todosVisiveisSelecionados =
     idsFiltrados.length > 0 &&
@@ -235,7 +258,7 @@ function CatalogoDigital() {
       Object.keys(selecionados).forEach((idStr) => {
         if (!selecionados[idStr]) return;
         const p = produtos.find((x) => String(x.id ?? x.Id) === idStr);
-        if (p) {
+        if (p && urlFotoProduto(p)) {
           const pid = p.id ?? p.Id;
           const preco = precosSugeridos[pid] ?? sugerirPreco(p);
           linhas.push({
@@ -454,6 +477,9 @@ function CatalogoDigital() {
             para compartilhar o PDF (quando o navegador permitir) ou baixar de novo e anexar na conversa. O link da vitrine
             online também entra no PDF e na mensagem.
           </Typography>
+          <Alert severity="info" sx={{ mt: 1.5, maxWidth: 720 }} variant="outlined">
+            Apenas produtos com fotos são listados neste catálogo.
+          </Alert>
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button startIcon={<Refresh />} onClick={buscarDados} variant="outlined" size="medium">
@@ -556,7 +582,7 @@ function CatalogoDigital() {
 
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 2 }}>
         <Chip
-          label={`${produtosFiltrados.length} produto(s) na lista filtrada`}
+          label={`${produtosFiltrados.length} produto(s) com foto na lista filtrada`}
           size="small"
           variant="outlined"
         />
@@ -576,12 +602,19 @@ function CatalogoDigital() {
         )}
       </Box>
 
+      {produtos.length > 0 && produtosComFoto.length === 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Nenhum produto possui foto cadastrada (campos como foto1 / URL de imagem). Adicione imagens em Produtos para
+          disponibilizá-los aqui.
+        </Alert>
+      )}
+
       {produtos.length === 0 && (
         <Alert severity="warning">Nenhum produto encontrado. Cadastre produtos em Produtos.</Alert>
       )}
 
-      {produtos.length > 0 && produtosFiltrados.length === 0 && (
-        <Alert severity="info">Nenhum produto corresponde aos filtros. Ajuste a busca ou os filtros.</Alert>
+      {produtosComFoto.length > 0 && produtosFiltrados.length === 0 && (
+        <Alert severity="info">Nenhum produto com foto corresponde aos filtros. Ajuste a busca ou os filtros.</Alert>
       )}
 
       {produtosFiltrados.length > 0 && (
