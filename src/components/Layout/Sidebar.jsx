@@ -45,6 +45,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { isDevAdminUser } from "../../constants/devAdmin";
+import { canAccessConfiguracoesSistema } from "../../constants/configAccess";
 
 const drawerWidth = 260;
 
@@ -151,20 +152,22 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const user = authService.getUsuario();
   const { empresaAtiva } = useEmpresa();
   const isDevAdmin = isDevAdminUser(user);
+  const showConfigMenu = canAccessConfiguracoesSistema(user);
 
   const menuSections = useMemo(() => {
-    const comDevExtras = isDevAdmin
-      ? [...menuSectionsBase, sistemaSection]
-      : menuSectionsBase;
-    if (!isDevAdmin) return comDevExtras;
-    return [
-      ...comDevExtras,
-      {
-        title: "Administração",
-        items: [{ text: "Empresas", icon: <Business />, path: "empresas" }],
-      },
-    ];
-  }, [isDevAdmin]);
+    let sections = [...menuSectionsBase];
+    if (showConfigMenu) sections = [...sections, sistemaSection];
+    if (isDevAdmin) {
+      sections = [
+        ...sections,
+        {
+          title: "Administração",
+          items: [{ text: "Empresas", icon: <Business />, path: "empresas" }],
+        },
+      ];
+    }
+    return sections;
+  }, [showConfigMenu, isDevAdmin]);
 
   const menuFiltrado = useMemo(
     () => filterMenuSections(menuSections, pesquisa),
