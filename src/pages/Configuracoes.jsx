@@ -18,6 +18,8 @@ import {
 import { Business, Language, Palette, Notifications } from "@mui/icons-material";
 import { ThemeContext } from "../contexts/ThemeContext";
 import { showSuccess, showError } from "../utils/notifications";
+import { authService } from "../api/authService";
+import { isDevAdminUser } from "../constants/devAdmin";
 
 const STORAGE_KEY = "vexa_config";
 
@@ -109,6 +111,23 @@ function Configuracoes() {
       "&.Mui-focused": { boxShadow: 1 },
     },
   };
+
+  const user = authService.getUsuario();
+  if (!isDevAdminUser(user)) {
+    return (
+      <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+        <Paper sx={{ p: 3, maxWidth: 520, borderRadius: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+            Acesso restrito
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            As configurações gerais do sistema ficam disponíveis apenas para o administrador de desenvolvimento
+            (conta dev@gmail.com).
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box

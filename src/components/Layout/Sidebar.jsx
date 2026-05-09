@@ -44,9 +44,9 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
 import { useEmpresa } from "../../contexts/EmpresaContext";
+import { isDevAdminUser } from "../../constants/devAdmin";
 
 const drawerWidth = 260;
-const DEV_ADMIN_EMAIL = "dev@gmail.com";
 
 /** Rotas consideradas “dentro” do grupo Produtos (mantém submenu aberto e destaque no pai). */
 const PRODUTOS_GROUP_PATHS = ["produtos", "categorias", "marcas"];
@@ -100,11 +100,12 @@ const menuSectionsBase = [
     title: "Análises",
     items: [{ text: "Relatórios", icon: <Assessment />, path: "relatorios" }],
   },
-  {
-    title: "Sistema",
-    items: [{ text: "Configurações", icon: <Settings />, path: "configuracoes" }],
-  },
 ];
+
+const sistemaSection = {
+  title: "Sistema",
+  items: [{ text: "Configurações", icon: <Settings />, path: "configuracoes" }],
+};
 
 function isProdutosGroupActive(pathname) {
   return PRODUTOS_GROUP_PATHS.some((p) => {
@@ -149,12 +150,15 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const [produtosSubmenuOpen, setProdutosSubmenuOpen] = useState(false);
   const user = authService.getUsuario();
   const { empresaAtiva } = useEmpresa();
-  const isDevAdmin = user.email === DEV_ADMIN_EMAIL;
+  const isDevAdmin = isDevAdminUser(user);
 
   const menuSections = useMemo(() => {
-    if (!isDevAdmin) return menuSectionsBase;
+    const comDevExtras = isDevAdmin
+      ? [...menuSectionsBase, sistemaSection]
+      : menuSectionsBase;
+    if (!isDevAdmin) return comDevExtras;
     return [
-      ...menuSectionsBase,
+      ...comDevExtras,
       {
         title: "Administração",
         items: [{ text: "Empresas", icon: <Business />, path: "empresas" }],

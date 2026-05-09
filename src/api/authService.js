@@ -9,6 +9,7 @@
  */
 
 import api from "./axiosConfig";
+import { notifyAuthChanged } from "../utils/authEvents";
 
 const AUTH_KEY = "isAuthenticated";
 const TOKEN_KEY = "token";
@@ -42,9 +43,16 @@ export const authService = {
       localStorage.setItem(AUTH_KEY, "true");
       sessionStorage.setItem(AUTH_KEY, "true");
       localStorage.setItem(USER_EMAIL_KEY, trimmedEmail);
-      if (data.user) {
-        localStorage.setItem(USER_DATA_KEY, JSON.stringify(data.user));
-      }
+      const apiUser = data.user ?? data.User;
+      const merged =
+        apiUser && typeof apiUser === "object"
+          ? {
+              ...apiUser,
+              email: apiUser.email ?? apiUser.Email ?? trimmedEmail,
+            }
+          : { email: trimmedEmail };
+      localStorage.setItem(USER_DATA_KEY, JSON.stringify(merged));
+      notifyAuthChanged();
     }
 
     return data;
@@ -56,12 +64,19 @@ export const authService = {
     localStorage.removeItem(USER_EMAIL_KEY);
     localStorage.removeItem(USER_DATA_KEY);
     sessionStorage.removeItem(AUTH_KEY);
+    notifyAuthChanged();
   },
 
   getUsuario() {
     try {
       const raw = localStorage.getItem(USER_DATA_KEY);
-      return raw ? JSON.parse(raw) : {};
+      let u = raw ? JSON.parse(raw) : {};
+      if (!u || typeof u !== "object") u = {};
+      const loginEmail = localStorage.getItem(USER_EMAIL_KEY);
+      if (loginEmail && !(u.email ?? u.Email)) {
+        u = { ...u, email: loginEmail };
+      }
+      return u;
     } catch {
       return {};
     }

@@ -27,7 +27,7 @@ import { showSuccess, showError } from "../utils/notifications";
 import { authService } from "../api/authService";
 import { useEmpresa } from "../contexts/EmpresaContext";
 
-const DEV_ADMIN_EMAIL = "dev@gmail.com";
+import { DEV_ADMIN_EMAIL } from "../constants/devAdmin";
 
 const initialState = {
   nome: "",

@@ -951,7 +951,7 @@ function Fiscal() {
         >
           <Lock sx={{ fontSize: 56, color: "action.disabled", mb: 2 }} />
           <Typography variant="h6" fontWeight={600} gutterBottom>
-            Função indisponível
+            Função em processo de integração
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Contate o suporte para maiores detalhes.
