@@ -1,4 +1,6 @@
-/** Tokens visuais da tela Configurações (alinhado ao guia VEXA ERP). */
+import { alpha } from "@mui/material/styles";
+
+/** Tokens visuais da tela Configurações (alinhado ao guia VEXA ERP — modo escuro). */
 export const VEX = {
   bgBase: "#1a1f2e",
   bgSidebar: "#141824",
@@ -28,8 +30,54 @@ export const VEX = {
   radiusInput: "8px",
 };
 
+/**
+ * Cores da página Configurações alinhadas ao tema global (evita cards escuros no modo claro).
+ * @param {import('@mui/material/styles').Theme} theme
+ */
+export function configUiPalette(theme) {
+  const { palette } = theme;
+  if (palette.mode === "dark") {
+    return {
+      isDark: true,
+      bgCard: VEX.bgCard,
+      bgCardHover: VEX.bgCardHover,
+      bgInput: VEX.bgInput,
+      border: VEX.border,
+      borderActive: VEX.borderActive,
+      textPrimary: VEX.textPrimary,
+      textSecondary: VEX.textSecondary,
+      textMuted: VEX.textMuted,
+      accent: VEX.yellow,
+      accentContrast: "#111",
+      skeletonBg: VEX.bgInput,
+      alertTintBg: VEX.bgCard,
+      neutralBadgeBg: "rgba(255,255,255,0.06)",
+      tableHeadBg: VEX.bgInput,
+    };
+  }
+  const t = palette.text.primary;
+  return {
+    isDark: false,
+    bgCard: palette.background.paper,
+    bgCardHover: alpha(palette.primary.main, 0.1),
+    bgInput: palette.grey[50],
+    border: alpha(t, 0.12),
+    borderActive: alpha(t, 0.28),
+    textPrimary: t,
+    textSecondary: palette.text.secondary,
+    textMuted: alpha(t, 0.58),
+    accent: palette.primary.main,
+    accentContrast: palette.primary.contrastText,
+    skeletonBg: alpha(t, 0.06),
+    alertTintBg: alpha(palette.info.main, 0.06),
+    neutralBadgeBg: alpha(t, 0.08),
+    tableHeadBg: palette.grey[100],
+  };
+}
+
 /** Badge por texto de perfil (exibição na lista). */
-export function badgeStyleForPerfil(perfil) {
+export function badgeStyleForPerfil(perfil, ui) {
+  const neutralBg = ui?.neutralBadgeBg ?? "rgba(255,255,255,0.06)";
   const p = String(perfil || "").toLowerCase();
   if (p.includes("admin")) return { bg: VEX.infoSoft, color: VEX.info, label: perfil || "Administrador" };
   if (p.includes("gerente")) return { bg: VEX.yellowSoft, color: VEX.yellow, label: perfil || "Gerente" };
@@ -38,7 +86,7 @@ export function badgeStyleForPerfil(perfil) {
   if (p.includes("estoquista")) return { bg: VEX.cyanSoft, color: VEX.cyan, label: perfil || "Estoquista" };
   if (p.includes("financeiro")) return { bg: VEX.dangerSoft, color: VEX.danger, label: perfil || "Financeiro" };
   if (p.includes("suporte")) return { bg: VEX.purpleSoft, color: VEX.purple, label: perfil || "Suporte" };
-  return { bg: "rgba(255,255,255,0.06)", color: VEX.textSecondary, label: perfil || "—" };
+  return { bg: neutralBg, color: ui?.textSecondary ?? VEX.textSecondary, label: perfil || "—" };
 }
 
 const R = {

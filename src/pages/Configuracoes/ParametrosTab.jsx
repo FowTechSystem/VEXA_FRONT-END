@@ -17,11 +17,12 @@ import {
   Paper,
   Grid,
   InputAdornment,
+  useTheme,
 } from "@mui/material";
 import { Save } from "@mui/icons-material";
 import { fetchSettingsMap, bulkUpdateSettings } from "../../api/settingsService";
 import { showSuccess, showError } from "../../utils/notifications";
-import { VEX } from "./configuracoesHelpers";
+import { VEX, configUiPalette } from "./configuracoesHelpers";
 
 const STORAGE_EMPRESA = "vexa_config";
 const defaultEmpresa = {
@@ -66,6 +67,8 @@ function boolStr(v) {
 }
 
 export default function ParametrosTab({ onDirtyChange }) {
+  const theme = useTheme();
+  const ui = useMemo(() => configUiPalette(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState(defaultsMap());
   const [snapshots, setSnapshots] = useState({});
@@ -76,9 +79,9 @@ export default function ParametrosTab({ onDirtyChange }) {
   const cardSx = {
     p: 2.5,
     borderRadius: VEX.radiusCard,
-    bgcolor: VEX.bgCard,
-    border: `1px solid ${VEX.border}`,
-    color: VEX.textPrimary,
+    bgcolor: ui.bgCard,
+    border: `1px solid ${ui.border}`,
+    color: ui.textPrimary,
   };
 
   const load = useCallback(async () => {
@@ -200,18 +203,18 @@ export default function ParametrosTab({ onDirtyChange }) {
   const fieldSx = (dirty) => ({
     "& .MuiOutlinedInput-root": {
       borderRadius: VEX.radiusInput,
-      bgcolor: VEX.bgInput,
-      color: VEX.textPrimary,
-      ...(dirty ? { "& fieldset": { borderColor: VEX.yellow } } : {}),
+      bgcolor: ui.bgInput,
+      color: ui.textPrimary,
+      ...(dirty ? { "& fieldset": { borderColor: ui.accent } } : {}),
     },
-    "& .MuiInputLabel-root": { color: VEX.textSecondary },
+    "& .MuiInputLabel-root": { color: ui.textSecondary },
   });
 
   if (loading) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} variant="rounded" height={160} sx={{ bgcolor: VEX.bgCard }} />
+          <Skeleton key={i} variant="rounded" height={160} sx={{ bgcolor: ui.skeletonBg }} />
         ))}
       </Box>
     );
@@ -221,17 +224,25 @@ export default function ParametrosTab({ onDirtyChange }) {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-      <Alert severity="info" sx={{ bgcolor: VEX.bgCard, color: VEX.textSecondary, border: `1px solid ${VEX.border}` }}>
+      <Alert
+        severity="info"
+        sx={{
+          bgcolor: ui.alertTintBg,
+          color: ui.textSecondary,
+          border: `1px solid ${ui.border}`,
+          "& .MuiAlert-icon": { color: ui.accent },
+        }}
+      >
         Cada grupo possui salvar próprio. Campos alterados ganham borda amarela até salvar. Integração:{" "}
         <strong>GET /settings</strong> e <strong>PUT /settings/bulk</strong> — fallback em localStorage se a API não existir.
       </Alert>
 
       {/* Empresa (legado vexa_config) */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.empresa ? { borderColor: VEX.yellow } : {}) }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: VEX.yellow }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.empresa ? { borderColor: ui.accent } : {}) }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: ui.accent }}>
           Identidade da loja
         </Typography>
-        <Typography variant="caption" sx={{ color: VEX.textSecondary, display: "block", mb: 2 }}>
+        <Typography variant="caption" sx={{ color: ui.textSecondary, display: "block", mb: 2 }}>
           Persistido em localStorage (<code>vexa_config</code>), compatível com o fluxo anterior do VEXA.
         </Typography>
         <Grid container spacing={2}>
@@ -285,9 +296,9 @@ export default function ParametrosTab({ onDirtyChange }) {
             sx={{
               textTransform: "none",
               borderRadius: VEX.radiusInput,
-              bgcolor: VEX.yellow,
-              color: "#111",
-              "&:hover": { bgcolor: "#e6b415" },
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
             }}
           >
             {saving.empresa ? "Salvando..." : "Salvar identidade"}
@@ -296,7 +307,7 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Vendas */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.vendas ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.vendas ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Vendas
         </Typography>
@@ -313,7 +324,7 @@ export default function ParametrosTab({ onDirtyChange }) {
               inputProps={{ min: 0, max: 100 }}
               sx={fieldSx(dirtyGroups.vendas)}
             />
-            <Typography variant="caption" sx={{ color: VEX.textMuted, mt: 0.5, display: "block" }}>
+            <Typography variant="caption" sx={{ color: ui.textMuted, mt: 0.5, display: "block" }}>
               Vendedores não podem aplicar descontos acima deste valor sem aprovação de um gerente.
             </Typography>
           </Grid>
@@ -328,7 +339,7 @@ export default function ParametrosTab({ onDirtyChange }) {
               InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
               sx={fieldSx(dirtyGroups.vendas)}
             />
-            <Typography variant="caption" sx={{ color: VEX.textMuted, mt: 0.5, display: "block" }}>
+            <Typography variant="caption" sx={{ color: ui.textMuted, mt: 0.5, display: "block" }}>
               Dentro deste prazo a venda pode ser cancelada livremente; após, exige gerente.
             </Typography>
           </Grid>
@@ -338,13 +349,13 @@ export default function ParametrosTab({ onDirtyChange }) {
                 <Switch
                   checked={values.vendas_allow_below_cost === "true"}
                   onChange={(e) => setVal("vendas_allow_below_cost", boolStr(e.target.checked))}
-                  sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: VEX.yellow } }}
+                  sx={{ "& .MuiSwitch-switchBase.Mui-checked": { color: ui.accent } }}
                 />
               }
               label="Permitir venda abaixo do custo"
-              sx={{ color: VEX.textSecondary, mt: 1 }}
+              sx={{ color: ui.textSecondary, mt: 1 }}
             />
-            <Typography variant="caption" sx={{ color: VEX.textMuted, display: "block" }}>
+            <Typography variant="caption" sx={{ color: ui.textMuted, display: "block" }}>
               Se desativado, bloqueia preço de venda abaixo do custo de aquisição.
             </Typography>
           </Grid>
@@ -358,9 +369,9 @@ export default function ParametrosTab({ onDirtyChange }) {
             sx={{
               textTransform: "none",
               borderRadius: VEX.radiusInput,
-              bgcolor: VEX.yellow,
-              color: "#111",
-              "&:hover": { bgcolor: "#e6b415" },
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
             }}
           >
             Salvar alterações
@@ -369,7 +380,7 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Pagamentos */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.pagamentos ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.pagamentos ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Pagamentos
         </Typography>
@@ -386,11 +397,11 @@ export default function ParametrosTab({ onDirtyChange }) {
                 <Checkbox
                   checked={values[key] === "true"}
                   onChange={(e) => setVal(key, boolStr(e.target.checked))}
-                  sx={{ color: VEX.textSecondary, "&.Mui-checked": { color: VEX.yellow } }}
+                  sx={{ color: ui.textSecondary, "&.Mui-checked": { color: ui.accent } }}
                 />
               }
               label={lab}
-              sx={{ color: VEX.textSecondary }}
+              sx={{ color: ui.textSecondary }}
             />
           ))}
         </FormGroup>
@@ -404,7 +415,7 @@ export default function ParametrosTab({ onDirtyChange }) {
           inputProps={{ min: 1, max: 24 }}
           sx={{ ...fieldSx(dirtyGroups.pagamentos), maxWidth: 280 }}
         />
-        <Typography variant="caption" sx={{ color: VEX.textMuted, display: "block", mt: 1 }}>
+        <Typography variant="caption" sx={{ color: ui.textMuted, display: "block", mt: 1 }}>
           Pelo menos uma forma de pagamento deve permanecer ativa (validação ao salvar).
         </Typography>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
@@ -423,8 +434,9 @@ export default function ParametrosTab({ onDirtyChange }) {
             sx={{
               textTransform: "none",
               borderRadius: VEX.radiusInput,
-              bgcolor: VEX.yellow,
-              color: "#111",
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
             }}
           >
             Salvar alterações
@@ -433,7 +445,7 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Estoque */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.estoque ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.estoque ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Estoque
         </Typography>
@@ -458,7 +470,7 @@ export default function ParametrosTab({ onDirtyChange }) {
                 />
               }
               label="Justificativa obrigatória em ajuste de inventário"
-              sx={{ color: VEX.textSecondary, mt: 1 }}
+              sx={{ color: ui.textSecondary, mt: 1 }}
             />
           </Grid>
         </Grid>
@@ -468,7 +480,13 @@ export default function ParametrosTab({ onDirtyChange }) {
             startIcon={<Save />}
             disabled={!dirtyGroups.estoque || saving.estoque}
             onClick={() => saveGroup("estoque")}
-            sx={{ textTransform: "none", bgcolor: VEX.yellow, color: "#111", borderRadius: VEX.radiusInput }}
+            sx={{
+              textTransform: "none",
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              borderRadius: VEX.radiusInput,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
+            }}
           >
             Salvar alterações
           </Button>
@@ -476,11 +494,11 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Metas */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.metas ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.metas ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Metas do mês
         </Typography>
-        <Typography variant="caption" sx={{ color: VEX.textMuted, mb: 2, display: "block" }}>
+        <Typography variant="caption" sx={{ color: ui.textMuted, mb: 2, display: "block" }}>
           Podem ser lidas pelo Dashboard quando o backend expuser os mesmos valores (hoje o Dashboard usa metas locais).
         </Typography>
         <Grid container spacing={2}>
@@ -523,7 +541,13 @@ export default function ParametrosTab({ onDirtyChange }) {
             startIcon={<Save />}
             disabled={!dirtyGroups.metas || saving.metas}
             onClick={() => saveGroup("metas")}
-            sx={{ textTransform: "none", bgcolor: VEX.yellow, color: "#111", borderRadius: VEX.radiusInput }}
+            sx={{
+              textTransform: "none",
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              borderRadius: VEX.radiusInput,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
+            }}
           >
             Salvar alterações
           </Button>
@@ -531,7 +555,7 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Condicional */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.condicional ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.condicional ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Condicional
         </Typography>
@@ -550,7 +574,13 @@ export default function ParametrosTab({ onDirtyChange }) {
             startIcon={<Save />}
             disabled={!dirtyGroups.condicional || saving.condicional}
             onClick={() => saveGroup("condicional")}
-            sx={{ textTransform: "none", bgcolor: VEX.yellow, color: "#111", borderRadius: VEX.radiusInput }}
+            sx={{
+              textTransform: "none",
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              borderRadius: VEX.radiusInput,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
+            }}
           >
             Salvar alterações
           </Button>
@@ -558,7 +588,7 @@ export default function ParametrosTab({ onDirtyChange }) {
       </Paper>
 
       {/* Impressão */}
-      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.impressao ? { borderColor: VEX.yellow } : {}) }}>
+      <Paper elevation={0} sx={{ ...cardSx, ...(dirtyGroups.impressao ? { borderColor: ui.accent } : {}) }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
           Impressão
         </Typography>
@@ -570,15 +600,15 @@ export default function ParametrosTab({ onDirtyChange }) {
             />
           }
           label="Impressão automática ao finalizar venda"
-          sx={{ color: VEX.textSecondary, mb: 2 }}
+          sx={{ color: ui.textSecondary, mb: 2 }}
         />
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel sx={{ color: VEX.textSecondary }}>Vias do cupom</InputLabel>
+          <InputLabel sx={{ color: ui.textSecondary }}>Vias do cupom</InputLabel>
           <Select
             label="Vias do cupom"
             value={values.imp_coupon_copies}
             onChange={(e) => setVal("imp_coupon_copies", e.target.value)}
-            sx={{ bgcolor: VEX.bgInput, color: VEX.textPrimary, borderRadius: VEX.radiusInput }}
+            sx={{ bgcolor: ui.bgInput, color: ui.textPrimary, borderRadius: VEX.radiusInput }}
           >
             <MenuItem value="1">1 via</MenuItem>
             <MenuItem value="2">2 vias</MenuItem>
@@ -590,7 +620,13 @@ export default function ParametrosTab({ onDirtyChange }) {
             startIcon={<Save />}
             disabled={!dirtyGroups.impressao || saving.impressao}
             onClick={() => saveGroup("impressao")}
-            sx={{ textTransform: "none", bgcolor: VEX.yellow, color: "#111", borderRadius: VEX.radiusInput }}
+            sx={{
+              textTransform: "none",
+              bgcolor: ui.accent,
+              color: ui.accentContrast,
+              borderRadius: VEX.radiusInput,
+              "&:hover": { bgcolor: ui.isDark ? "#e6b415" : theme.palette.primary.dark },
+            }}
           >
             Salvar alterações
           </Button>
