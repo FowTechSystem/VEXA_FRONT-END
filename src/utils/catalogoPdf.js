@@ -1,27 +1,32 @@
 /**
- * PDF do catálogo de produtos — layout em grade (referência: catálogos B2B com foto + código + preço).
+ * PDF do catálogo digital — layout vitrine (foto em destaque, tipografia hierarchy, VEXA).
  */
 import { jsPDF } from "jspdf";
 import { apiBaseURL } from "../config/apiBase.js";
 
-/** Paleta alinhada ao tema VEXA (azul escuro + amarelo destaque) */
+/** Paleta VEXA */
 const NAVY = [43, 45, 66];
+const NAVY_CLARO = [58, 62, 88];
 const AMARELO = [248, 243, 43];
 const BRANCO = [255, 255, 255];
-const TEXTO = [33, 33, 33];
-const TEXTO_MUDO = [120, 120, 120];
-const FUNDO_CELULA = [248, 249, 251];
-const BORDA = [220, 223, 230];
+const TEXTO = [26, 32, 44];
+const TEXTO_MUDO = [107, 114, 128];
+const FUNDO_PAGINA = [246, 247, 250];
+const CARD_SOMBRA = [220, 223, 232];
+const BORDA_CARD = [226, 229, 237];
+const FAIXA_IMG = [243, 244, 248];
 
 const MM = {
-  margem: 10,
-  headerH: 26,
-  footerH: 11,
-  gutter: 5,
-  cellH: 68,
-  imgBoxH: 36,
-  tituloH: 12,
-  rodapeCelH: 8,
+  margem: 11,
+  headerH: 34,
+  footerH: 14,
+  gutter: 7,
+  /** Altura total do cartão (mm) */
+  cellH: 92,
+  /** Área da foto (mm) — proporção mais “catálogo” */
+  imgBoxH: 54,
+  /** Cantos arredondados cartão */
+  cardR: 3.2,
 };
 
 function formatarMoeda(valor) {
@@ -30,6 +35,14 @@ function formatarMoeda(valor) {
     currency: "BRL",
     minimumFractionDigits: 2,
   }).format(Number(valor) || 0);
+}
+
+function dataCatalogoLegivel() {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
 }
 
 function absolutizarUrlImagem(src) {
@@ -82,107 +95,165 @@ function formatoAddImage(dataUrl) {
   return "JPEG";
 }
 
+/**
+ * Preenche o retângulo (object-fit: cover) com clipping.
+ */
+function desenharImagemCover(doc, dataUrl, fmt, imgX, imgY, imgW, imgH) {
+  const prop = doc.getImageProperties(dataUrl);
+  const pw = Math.max(prop.width, 1);
+  const ph = Math.max(prop.height, 1);
+  const scale = Math.max(imgW / pw, imgH / ph);
+  const dw = pw * scale;
+  const dh = ph * scale;
+  const ix = imgX + (imgW - dw) / 2;
+  const iy = imgY + (imgH - dh) / 2;
+
+  doc.saveGraphicsState();
+  doc.rect(imgX, imgY, imgW, imgH);
+  doc.clip();
+  doc.addImage(dataUrl, fmt, ix, iy, dw, dh, undefined, "FAST");
+  doc.restoreGraphicsState();
+}
+
+function desenharFundoConteudo(doc, pageW, pageH) {
+  doc.setFillColor(...FUNDO_PAGINA);
+  doc.rect(0, MM.headerH, pageW, pageH - MM.headerH, "F");
+}
+
 function desenharCabecalho(doc, empresaNome, pageW) {
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, pageW, MM.headerH, "F");
 
-  doc.setTextColor(...BRANCO);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("VEXA CRM", MM.margem, 11);
+  doc.setDrawColor(...NAVY_CLARO);
+  doc.setLineWidth(0.35);
+  doc.line(0, MM.headerH - 0.2, pageW, MM.headerH - 0.2);
 
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  const nomeEmp = String(empresaNome || "Loja").slice(0, 48);
-  doc.text(nomeEmp, MM.margem, 20);
-
-  const pillW = 42;
-  const pillH = 14;
-  const pillX = pageW - MM.margem - pillW;
-  const pillY = 6;
   doc.setFillColor(...AMARELO);
-  doc.roundedRect(pillX, pillY, pillW, pillH, 2, 2, "F");
+  doc.rect(0, MM.headerH - 2.2, pageW, 2.2, "F");
+
+  doc.setTextColor(...BRANCO);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text("VEXA · Catálogo digital", MM.margem, 12);
+
+  doc.setFontSize(15);
+  doc.setFont("helvetica", "bold");
+  const nomeEmp = String(empresaNome || "Loja").slice(0, 52);
+  doc.text(nomeEmp, MM.margem, 23);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(200, 203, 220);
+  doc.text(dataCatalogoLegivel(), MM.margem, 30);
+
+  const pillW = 48;
+  const pillH = 15;
+  const pillX = pageW - MM.margem - pillW;
+  const pillY = 9;
+  doc.setFillColor(...AMARELO);
+  doc.roundedRect(pillX, pillY, pillW, pillH, 2.5, 2.5, "F");
   doc.setTextColor(...NAVY);
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("Nossos produtos", pillX + pillW / 2, pillY + pillH / 2 + 2.2, { align: "center" });
+  doc.text("NOSSOS PRODUTOS", pillX + pillW / 2, pillY + pillH / 2 + 2.4, { align: "center" });
 }
 
 function desenharRodapePagina(doc, pageIndex, totalPaginas, pageW, pageH) {
   doc.setFillColor(...NAVY);
   doc.rect(0, pageH - MM.footerH, pageW, MM.footerH, "F");
+
   doc.setTextColor(...BRANCO);
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setFont("helvetica", "normal");
-  doc.text(`Página ${pageIndex} de ${totalPaginas}`, pageW / 2, pageH - 4, { align: "center" });
+  doc.text("Preços e disponibilidade sujeitos à loja.", MM.margem + 1, pageH - 5);
+
+  doc.text(`Página ${pageIndex} · ${totalPaginas}`, pageW / 2, pageH - 5, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.text("vexa.app", pageW - MM.margem - 1, pageH - 5, { align: "right" });
 }
 
 /**
- * Desenha uma célula de produto (nome, área de foto, código, preço).
+ * Cartão estilo vitrine: foto grande (cover), nome, categoria, código e preço em destaque.
  */
 function desenharCelulaProduto(doc, x, y, colW, item, dataUrlImagem) {
-  doc.setDrawColor(...BORDA);
-  doc.setFillColor(...FUNDO_CELULA);
-  doc.roundedRect(x, y, colW, MM.cellH, 1.2, 1.2, "FD");
-
-  doc.setTextColor(...TEXTO);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  const nome = String(item.nome || "—").slice(0, 80);
-  const linhasNome = doc.splitTextToSize(nome, colW - 4);
-  const maxLinhas = 2;
-  const usar = linhasNome.slice(0, maxLinhas);
-  doc.text(usar, x + 2, y + 5.5);
-
-  const imgX = x + 2;
-  const imgY = y + MM.tituloH;
-  const imgW = colW - 4;
+  const pad = 3;
+  const imgX = x + pad;
+  const imgY = y + pad;
+  const imgW = colW - 2 * pad;
   const imgH = MM.imgBoxH;
 
-  doc.setDrawColor(...BORDA);
-  doc.setFillColor(255, 255, 255);
-  doc.rect(imgX, imgY, imgW, imgH, "FD");
+  const shadowOff = 0.55;
+  doc.setFillColor(...CARD_SOMBRA);
+  doc.roundedRect(x + shadowOff, y + shadowOff, colW, MM.cellH, MM.cardR, MM.cardR, "F");
+
+  doc.setDrawColor(...BORDA_CARD);
+  doc.setFillColor(...BRANCO);
+  doc.roundedRect(x, y, colW, MM.cellH, MM.cardR, MM.cardR, "FD");
+
+  doc.setFillColor(...FAIXA_IMG);
+  doc.rect(imgX, imgY, imgW, imgH, "F");
 
   if (dataUrlImagem) {
     try {
       const fmt = formatoAddImage(dataUrlImagem);
-      const prop = doc.getImageProperties(dataUrlImagem);
-      const pw = Math.max(prop.width, 1);
-      const ph = Math.max(prop.height, 1);
-      let w = imgW;
-      let h = (ph / pw) * w;
-      if (h > imgH) {
-        h = imgH;
-        w = (pw / ph) * h;
-      }
-      const ix = imgX + (imgW - w) / 2;
-      const iy = imgY + (imgH - h) / 2;
-      doc.addImage(dataUrlImagem, fmt, ix, iy, w, h, undefined, "FAST");
+      desenharImagemCover(doc, dataUrlImagem, fmt, imgX, imgY, imgW, imgH);
     } catch {
-      doc.setFontSize(7);
+      doc.setFontSize(7.5);
       doc.setTextColor(...TEXTO_MUDO);
       doc.setFont("helvetica", "italic");
-      doc.text("Foto indisponível", imgX + imgW / 2, imgY + imgH / 2, { align: "center" });
+      doc.text("Foto indisponível", imgX + imgW / 2, imgY + imgH / 2, { align: "center", baseline: "middle" });
     }
   } else {
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(...TEXTO_MUDO);
     doc.setFont("helvetica", "italic");
-    doc.text("Sem foto", imgX + imgW / 2, imgY + imgH / 2, { align: "center" });
+    doc.text("Sem foto", imgX + imgW / 2, imgY + imgH / 2, { align: "center", baseline: "middle" });
   }
 
-  const baseY = y + MM.cellH - 3;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(...TEXTO_MUDO);
-  const cod = String(item.sku || item.Sku || "—").slice(0, 24);
-  doc.text(`Cod: ${cod}`, x + 2, baseY);
+  doc.setDrawColor(...BORDA_CARD);
+  doc.setLineWidth(0.15);
+  doc.line(imgX, imgY + imgH, imgX + imgW, imgY + imgH);
 
+  let ty = imgY + imgH + 5;
+  doc.setTextColor(...TEXTO);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(...NAVY);
+  const nome = String(item.nome || "—").trim().slice(0, 90);
+  const linhasNome = doc.splitTextToSize(nome, colW - 2 * pad - 2);
+  doc.text(linhasNome.slice(0, 2), imgX, ty);
+  ty += Math.min(linhasNome.length, 2) * 4.2 + 1;
+
+  const tipo = String(item.tipo || "").trim();
+  if (tipo) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.8);
+    doc.setTextColor(...TEXTO_MUDO);
+    doc.text(tipo.toUpperCase(), imgX, ty);
+    ty += 4;
+  }
+
+  const baseY = y + MM.cellH - 4.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.8);
+  doc.setTextColor(...TEXTO_MUDO);
+  const cod = String(item.sku || item.Sku || "—").slice(0, 28);
+  doc.text(`REF  ${cod}`, imgX, baseY);
+
   const precoTxt = formatarMoeda(item.preco);
-  doc.text(precoTxt, x + colW - 2, baseY, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  const pw = doc.getTextWidth(precoTxt);
+  const pillPadX = 2.4;
+  const pillPadY = 1.8;
+  const pillW2 = pw + 2 * pillPadX;
+  const pillH2 = 7.5;
+  const pillX2 = x + colW - pad - pillW2;
+  const pillY2 = baseY - pillH2 + 2;
+  doc.setFillColor(...AMARELO);
+  doc.roundedRect(pillX2, pillY2, pillW2, pillH2, 1.8, 1.8, "F");
+  doc.setTextColor(...NAVY);
+  doc.setFontSize(10);
+  doc.text(precoTxt, pillX2 + pillW2 / 2, pillY2 + pillH2 / 2 + 1.5, { align: "center" });
 }
 
 /**
@@ -202,22 +273,22 @@ export async function montarDocumentoCatalogoPdf({ itens, empresaNome }) {
   const pageH = doc.internal.pageSize.getHeight();
 
   const colW = (pageW - 2 * MM.margem - MM.gutter) / 2;
-  const contentTop = MM.headerH + 5;
-  const contentBottom = pageH - MM.footerH - 4;
+  const contentTop = MM.headerH + 7;
+  const contentBottom = pageH - MM.footerH - 5;
   const rowH = MM.cellH + MM.gutter;
   const maxRows = Math.max(1, Math.floor((contentBottom - contentTop) / rowH));
   const perPage = maxRows * 2;
 
-  let pageNum = 1;
   desenharCabecalho(doc, empresaNome, pageW);
+  desenharFundoConteudo(doc, pageW, pageH);
 
   let y0 = contentTop;
 
   for (let i = 0; i < lista.length; i++) {
     if (i > 0 && i % perPage === 0) {
       doc.addPage();
-      pageNum += 1;
       desenharCabecalho(doc, empresaNome, pageW);
+      desenharFundoConteudo(doc, pageW, pageH);
       y0 = contentTop;
     }
 
@@ -225,9 +296,9 @@ export async function montarDocumentoCatalogoPdf({ itens, empresaNome }) {
     const row = Math.floor(pos / 2);
     const col = pos % 2;
     const x = MM.margem + col * (colW + MM.gutter);
-    const y = y0 + row * rowH;
+    const cardY = y0 + row * rowH;
 
-    desenharCelulaProduto(doc, x, y, colW, lista[i], imagensData[i]);
+    desenharCelulaProduto(doc, x, cardY, colW, lista[i], imagensData[i]);
   }
 
   const totalPaginas = doc.internal.getNumberOfPages();

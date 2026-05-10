@@ -91,4 +91,15 @@ export const usuariosService = {
     const response = await api.post(`/usuarios/${id}/cancelar`, { motivo });
     return response.data;
   },
+
+  /** Ativar/desativar — tenta PATCH conforme contrato novo; fallback PUT mínimo. */
+  setAtivo: async (id, ativo) => {
+    try {
+      const response = await api.patch(`/usuarios/${id}/status`, { is_active: ativo, ativo });
+      return response.data;
+    } catch {
+      const response = await api.put(`/usuarios/${id}`, { id, ativo });
+      return response.data;
+    }
+  },
 };
