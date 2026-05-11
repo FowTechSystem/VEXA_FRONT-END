@@ -137,6 +137,7 @@ function Produtos() {
   const [salvandoProduto, setSalvandoProduto] = useState(false);
   /** Arquivo escolhido na galeria — usado para upload na edição e base64 na criação (como clientes/usuários). */
   const [imagemProdutoFile, setImagemProdutoFile] = useState(null);
+  const imagemAdicionalFileRefs = useRef([]);
 
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
@@ -322,6 +323,23 @@ function Produtos() {
 
     payload.observacoes = str(p.observacoes);
 
+    const extrasArr = Array.isArray(p.imagensAdicionais) ? p.imagensAdicionais : [];
+    extrasArr.forEach((img, idx) => {
+      if (idx > 1) return;
+      if (img == null || String(img).trim() === "") return;
+      const s = String(img).trim();
+      if (s.includes("base64,")) {
+        const b64 = s.split(",")[1];
+        if (b64) {
+          if (idx === 0) payload.foto2Base64 = b64;
+          if (idx === 1) payload.foto3Base64 = b64;
+        }
+      } else if (isHttpImageUrl(s)) {
+        if (idx === 0) payload.foto2 = s;
+        if (idx === 1) payload.foto3 = s;
+      }
+    });
+
     return payload;
   };
 
@@ -418,6 +436,9 @@ function Produtos() {
         p.urlImagem ||
         p.imagemUrl ||
         "";
+      const f2 = p.foto2 ?? p.Foto2 ?? "";
+      const f3 = p.foto3 ?? p.Foto3 ?? "";
+      p.imagensAdicionais = [f2, f3].map((u) => (u != null && String(u).trim() !== "" ? String(u).trim() : ""));
       setImagemProdutoFile(null);
       setCurrentProduto(p);
       setEditMode(true);
@@ -679,6 +700,47 @@ function Produtos() {
     showSuccess("Recorte aplicado. Salve o produto para enviar a imagem ajustada.");
   };
 
+  const abrirSeletorImagemAdicional = (index) => {
+    imagemAdicionalFileRefs.current[index]?.click();
+  };
+
+  const handleImagemAdicionalFileChange = (index) => (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showError("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+      showError("Imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") return;
+      setCurrentProduto((prev) => {
+        const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
+        while (arr.length < 2) arr.push("");
+        arr[index] = dataUrl;
+        return { ...prev, imagensAdicionais: arr };
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const limparImagemAdicional = (index) => (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentProduto((prev) => {
+      const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
+      while (arr.length < 2) arr.push("");
+      arr[index] = "";
+      return { ...prev, imagensAdicionais: arr };
+    });
+  };
+
   const handleMultipleChange = (name, value) => {
     setCurrentProduto((prev) => ({
       ...prev,
@@ -750,21 +812,37 @@ function Produtos() {
 
   const modalLabel = (text) => (
     <Typography
-      variant="caption"
       component="span"
       sx={{
         display: "block",
-        mb: 0.75,
+        mb: 1,
         fontWeight: 700,
-        letterSpacing: "0.08em",
-        color: "text.secondary",
+        letterSpacing: "0.04em",
+        color: isDark ? alpha("#fff", 0.78) : "text.secondary",
         textTransform: "uppercase",
-        fontSize: "0.65rem",
+        fontSize: { xs: "0.78rem", sm: "0.82rem" },
+        lineHeight: 1.35,
       }}
     >
       {text}
     </Typography>
   );
+
+  /** Campos tipo select/autocomplete: texto interno legível e largura total */
+  const modalAutocompleteInputSx = {
+    ...modalFieldSx,
+    width: "100%",
+    minWidth: 0,
+    "& .MuiOutlinedInput-root": {
+      ...modalFieldSx["& .MuiOutlinedInput-root"],
+      minHeight: 48,
+      alignItems: "center",
+    },
+    "& .MuiAutocomplete-input": {
+      fontSize: "0.9375rem !important",
+      minWidth: "8em",
+    },
+  };
 
   const precoPromocionalAtivo = (() => {
     const pv = parseFloat(String(currentProduto.precoPromocional ?? "").replace(",", "."));
@@ -1412,26 +1490,94 @@ function Produtos() {
                   </Box>
                   {modalLabel("Imagens adicionais")}
                   <Box sx={{ display: "flex", gap: 1.5 }}>
-                    {[0, 1].map((i) => (
-                      <Box
-                        key={i}
-                        sx={{
-                          flex: 1,
-                          aspectRatio: "1",
-                          maxWidth: 120,
-                          border: "2px dashed",
-                          borderColor: isDark ? alpha("#fff", 0.18) : "divider",
-                          borderRadius: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "text.secondary",
-                          bgcolor: modalSurface,
-                        }}
-                      >
-                        <Add sx={{ fontSize: 28, opacity: 0.7 }} />
-                      </Box>
-                    ))}
+                    {[0, 1].map((i) => {
+                      const extras = Array.isArray(currentProduto.imagensAdicionais)
+                        ? currentProduto.imagensAdicionais
+                        : [];
+                      const src =
+                        extras[i] != null && String(extras[i]).trim() !== ""
+                          ? String(extras[i])
+                          : null;
+                      return (
+                        <Box
+                          key={i}
+                          sx={{
+                            flex: 1,
+                            maxWidth: 120,
+                            position: "relative",
+                          }}
+                        >
+                          <input
+                            ref={(el) => {
+                              imagemAdicionalFileRefs.current[i] = el;
+                            }}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={handleImagemAdicionalFileChange(i)}
+                          />
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => abrirSeletorImagemAdicional(i)}
+                            sx={{
+                              width: "100%",
+                              aspectRatio: "1",
+                              border: "2px dashed",
+                              borderColor: isDark ? alpha("#fff", 0.18) : "divider",
+                              borderRadius: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "text.secondary",
+                              bgcolor: modalSurface,
+                              cursor: "pointer",
+                              overflow: "hidden",
+                              p: 0,
+                              "&:hover": {
+                                borderColor: alpha(theme.palette.primary.main, 0.45),
+                              },
+                            }}
+                          >
+                            {src ? (
+                              <Box
+                                component="img"
+                                alt=""
+                                src={src}
+                                sx={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              <Add sx={{ fontSize: 28, opacity: 0.7 }} pointerEvents="none" />
+                            )}
+                          </Box>
+                          {src ? (
+                            <IconButton
+                              type="button"
+                              size="small"
+                              onClick={limparImagemAdicional(i)}
+                              sx={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                bgcolor: alpha("#000", 0.5),
+                                color: "common.white",
+                                "&:hover": { bgcolor: alpha("#000", 0.7) },
+                                width: 28,
+                                height: 28,
+                              }}
+                              aria-label="Remover imagem adicional"
+                            >
+                              <Close sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          ) : null}
+                        </Box>
+                      );
+                    })}
                   </Box>
                 </Stack>
               </Grid>
@@ -1508,8 +1654,8 @@ function Produtos() {
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
                       {modalLabel("Categoria")}
                       <Autocomplete
                         fullWidth
@@ -1532,14 +1678,14 @@ function Produtos() {
                           <TextField
                             {...params}
                             required
-                            placeholder="Selecione…"
-                            sx={modalFieldSx}
+                            placeholder="Selecione a categoria"
+                            sx={modalAutocompleteInputSx}
                             hiddenLabel
                           />
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       {modalLabel("Marca")}
                       <Autocomplete
                         fullWidth
@@ -1559,7 +1705,12 @@ function Produtos() {
                           paper: { sx: { borderRadius: "10px" } },
                         }}
                         renderInput={(params) => (
-                          <TextField {...params} placeholder="Selecione…" sx={modalFieldSx} hiddenLabel />
+                          <TextField
+                            {...params}
+                            placeholder="Selecione a marca"
+                            sx={modalAutocompleteInputSx}
+                            hiddenLabel
+                          />
                         )}
                       />
                     </Grid>
@@ -1958,16 +2109,36 @@ function Produtos() {
               textTransform: "none",
               fontWeight: 800,
               fontSize: "1rem",
-              color: (t) => t.palette.common.black,
-              bgcolor: (t) => t.palette.common.white,
               boxShadow: "none",
-              "&:hover": {
-                bgcolor: (t) => alpha(t.palette.common.white, 0.92),
-              },
-              "&.Mui-disabled": {
-                color: (t) => alpha(t.palette.common.black, 0.35),
-                bgcolor: (t) => alpha(t.palette.common.white, 0.5),
-              },
+              ...(isDark
+                ? {
+                    color: theme.palette.common.black,
+                    bgcolor: "#EAB308",
+                    border: "2px solid #EAB308",
+                    "&:hover": {
+                      bgcolor: "#FACC15",
+                      borderColor: "#FACC15",
+                    },
+                    "&.Mui-disabled": {
+                      color: alpha(theme.palette.common.black, 0.4),
+                      bgcolor: alpha("#EAB308", 0.45),
+                      borderColor: alpha("#EAB308", 0.35),
+                    },
+                  }
+                : {
+                    color: theme.palette.common.black,
+                    bgcolor: theme.palette.common.white,
+                    border: `2px solid ${theme.palette.common.white}`,
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.common.white, 0.92),
+                      borderColor: alpha(theme.palette.common.white, 0.92),
+                    },
+                    "&.Mui-disabled": {
+                      color: alpha(theme.palette.common.black, 0.35),
+                      bgcolor: alpha(theme.palette.common.white, 0.5),
+                      borderColor: "transparent",
+                    },
+                  }),
             }}
           >
             {salvandoProduto ? "Salvando…" : "Salvar produto"}
