@@ -24,14 +24,11 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Autocomplete,
   Avatar,
   Stack,
-  Slide,
-  AppBar,
-  Toolbar,
-  Container,
+  DialogTitle,
+  DialogActions,
   useTheme,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
@@ -48,6 +45,8 @@ import {
   LastPage,
   ChevronLeft,
   ChevronRight,
+  Star,
+  LocalShipping,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { ProdutoImagemAjuste } from "../components/ProdutoImagemAjuste";
@@ -63,11 +62,6 @@ import {
   entityNames,
 } from "../utils/entityMessages";
 import { validateRequired } from "../utils/validators";
-
-// Transição para o Dialog
-const Transition = React.forwardRef(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -143,6 +137,7 @@ function Produtos() {
   const [salvandoProduto, setSalvandoProduto] = useState(false);
   /** Arquivo escolhido na galeria — usado para upload na edição e base64 na criação (como clientes/usuários). */
   const [imagemProdutoFile, setImagemProdutoFile] = useState(null);
+  const imagemAdicionalFileRefs = useRef([]);
 
   const [currentProduto, setCurrentProduto] = useState({
     nome: "",
@@ -328,6 +323,23 @@ function Produtos() {
 
     payload.observacoes = str(p.observacoes);
 
+    const extrasArr = Array.isArray(p.imagensAdicionais) ? p.imagensAdicionais : [];
+    extrasArr.forEach((img, idx) => {
+      if (idx > 1) return;
+      if (img == null || String(img).trim() === "") return;
+      const s = String(img).trim();
+      if (s.includes("base64,")) {
+        const b64 = s.split(",")[1];
+        if (b64) {
+          if (idx === 0) payload.foto2Base64 = b64;
+          if (idx === 1) payload.foto3Base64 = b64;
+        }
+      } else if (isHttpImageUrl(s)) {
+        if (idx === 0) payload.foto2 = s;
+        if (idx === 1) payload.foto3 = s;
+      }
+    });
+
     return payload;
   };
 
@@ -424,6 +436,9 @@ function Produtos() {
         p.urlImagem ||
         p.imagemUrl ||
         "";
+      const f2 = p.foto2 ?? p.Foto2 ?? "";
+      const f3 = p.foto3 ?? p.Foto3 ?? "";
+      p.imagensAdicionais = [f2, f3].map((u) => (u != null && String(u).trim() !== "" ? String(u).trim() : ""));
       setImagemProdutoFile(null);
       setCurrentProduto(p);
       setEditMode(true);
@@ -685,6 +700,47 @@ function Produtos() {
     showSuccess("Recorte aplicado. Salve o produto para enviar a imagem ajustada.");
   };
 
+  const abrirSeletorImagemAdicional = (index) => {
+    imagemAdicionalFileRefs.current[index]?.click();
+  };
+
+  const handleImagemAdicionalFileChange = (index) => (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showError("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+      showError("Imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== "string") return;
+      setCurrentProduto((prev) => {
+        const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
+        while (arr.length < 2) arr.push("");
+        arr[index] = dataUrl;
+        return { ...prev, imagensAdicionais: arr };
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const limparImagemAdicional = (index) => (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setCurrentProduto((prev) => {
+      const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
+      while (arr.length < 2) arr.push("");
+      arr[index] = "";
+      return { ...prev, imagensAdicionais: arr };
+    });
+  };
+
   const handleMultipleChange = (name, value) => {
     setCurrentProduto((prev) => ({
       ...prev,
@@ -727,9 +783,101 @@ function Produtos() {
     }));
   };
 
+  const toggleTamanhoChip = (tam) => {
+    setCurrentProduto((prev) => {
+      const arr = Array.isArray(prev.tamanhos) ? prev.tamanhos : [];
+      const next = arr.includes(tam) ? arr.filter((t) => t !== tam) : [...arr, tam];
+      return { ...prev, tamanhos: next };
+    });
+  };
+
   useEffect(() => {
     fetchProdutos();
   }, []);
+
+  const modalSurface = isDark ? alpha("#ffffff", 0.06) : alpha(theme.palette.common.black, 0.05);
+  const modalFieldSx = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "10px",
+      bgcolor: modalSurface,
+      "& fieldset": {
+        borderColor: isDark ? alpha("#fff", 0.14) : theme.palette.divider,
+      },
+      "&:hover fieldset": { borderColor: alpha(theme.palette.primary.main, 0.45) },
+      "&.Mui-focused fieldset": { borderWidth: "1px" },
+    },
+    "& .MuiInputLabel-root": { color: "text.secondary" },
+    "& .MuiInputBase-input": { color: "text.primary" },
+  };
+
+  const modalLabel = (text) => (
+    <Typography
+      component="span"
+      sx={{
+        display: "block",
+        mb: 1,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        color: isDark ? alpha("#fff", 0.78) : "text.secondary",
+        textTransform: "uppercase",
+        fontSize: { xs: "0.78rem", sm: "0.82rem" },
+        lineHeight: 1.35,
+      }}
+    >
+      {text}
+    </Typography>
+  );
+
+  /** Campos tipo select/autocomplete: texto interno legível e largura total */
+  const modalAutocompleteInputSx = {
+    ...modalFieldSx,
+    width: "100%",
+    minWidth: 0,
+    "& .MuiOutlinedInput-root": {
+      ...modalFieldSx["& .MuiOutlinedInput-root"],
+      minHeight: 48,
+      alignItems: "center",
+    },
+    "& .MuiAutocomplete-input": {
+      fontSize: "0.9375rem !important",
+      minWidth: "8em",
+    },
+  };
+
+  const precoPromocionalAtivo = (() => {
+    const pv = parseFloat(String(currentProduto.precoPromocional ?? "").replace(",", "."));
+    return pv > 0 && !Number.isNaN(pv);
+  })();
+
+  const tipoTamanhoTabsSx = {
+    display: "flex",
+    width: "100%",
+    gap: 0.5,
+    p: 0.5,
+    borderRadius: "10px",
+    bgcolor: modalSurface,
+    border: "1px solid",
+    borderColor: isDark ? alpha("#fff", 0.12) : "divider",
+    "& .MuiToggleButtonGroup-grouped": { border: "none", mx: 0 },
+    "& .MuiToggleButton-root": {
+      flex: 1,
+      textTransform: "uppercase",
+      fontWeight: 700,
+      fontSize: "0.68rem",
+      letterSpacing: "0.05em",
+      py: 1,
+      px: 0.5,
+      color: "text.secondary",
+      border: "none",
+      borderRadius: "8px !important",
+      "&.Mui-selected": {
+        bgcolor: "background.paper",
+        color: "text.primary",
+        boxShadow: isDark ? `0 0 0 1px ${alpha("#fff", 0.2)}` : theme.shadows[2],
+        "&:hover": { bgcolor: "background.paper" },
+      },
+    },
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
@@ -1176,192 +1324,342 @@ function Produtos() {
         )}
       </TableContainer>
 
-      {/* Dialog em Tela Cheia - LATERAL ESQUERDO */}
+      {/* Cadastro de produto — modal em duas colunas (layout vitrine) */}
       <Dialog
-        fullScreen
         open={openDialog}
         onClose={handleCloseDialog}
-        TransitionComponent={Transition}
-        PaperProps={{ sx: { bgcolor: theme.palette.background.default } }}
+        maxWidth="lg"
+        fullWidth
+        scroll="body"
+        slotProps={{
+          backdrop: { sx: { backdropFilter: "blur(4px)" } },
+        }}
+        PaperProps={{
+          elevation: 12,
+          sx: {
+            borderRadius: "16px",
+            maxHeight: "min(92vh, 900px)",
+            bgcolor: "background.paper",
+            backgroundImage: isDark
+              ? `linear-gradient(180deg, ${alpha("#fff", 0.03)} 0%, transparent 40%)`
+              : undefined,
+            overflow: "hidden",
+          },
+        }}
       >
-        {/* AppBar Superior */}
-        <AppBar
+        <DialogTitle
           sx={{
-            position: "sticky",
-            bgcolor: theme.palette.background.paper,
-            color: theme.palette.text.primary,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            py: 2.5,
+            px: { xs: 2, sm: 3 },
             borderBottom: "1px solid",
-            borderColor: theme.palette.divider,
+            borderColor: "divider",
           }}
         >
-          <Toolbar>
-            <IconButton
-              edge="start"
-              color="inherit"
-              onClick={handleCloseDialog}
-              sx={{ color: theme.palette.text.primary }}
-            >
-              <Close />
-            </IconButton>
-            <Typography
-              sx={{ ml: 2, flex: 1, fontWeight: 600, fontSize: "20px", color: theme.palette.text.primary }}
-            >
-              {editMode ? "Editar Produto" : "Novo Produto"}
-            </Typography>
-            <Button
-              type="button"
-              onClick={() => void handleSave()}
-              variant="contained"
-              disabled={salvandoProduto}
-              sx={{
-                textTransform: "none",
-                bgcolor: "primary.main",
-                boxShadow: "none",
-                px: 4,
-                fontWeight: 600,
-              }}
-            >
-              {salvandoProduto ? "Salvando…" : "Salvar Produto"}
-            </Button>
-          </Toolbar>
-        </AppBar>
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: 800,
+              fontSize: "1.05rem",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "text.primary",
+            }}
+          >
+            {editMode ? "EDITAR PRODUTO" : "NOVO PRODUTO"}
+          </Typography>
+          <IconButton
+            type="button"
+            aria-label="Fechar"
+            onClick={handleCloseDialog}
+            size="small"
+            sx={{
+              color: "text.secondary",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "10px",
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
 
-        <DialogContent sx={{ bgcolor: theme.palette.background.default, p: 0 }}>
-          <Box sx={{ overflowY: "auto", minHeight: "calc(100vh - 64px)" }}>
-            {/* Imagem no centro superior - sem card */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                pt: 4,
-                pb: 2,
-                px: 4,
-              }}
-            >
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>
-                Imagem do Produto
-              </Typography>
-              {currentProduto.imagemPrincipal ? (
-                <ProdutoImagemAjuste
-                  src={currentProduto.imagemPrincipal}
-                  onAdjusted={handleProdutoImagemAjustado}
-                  onError={showError}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 280,
-                    height: 280,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Box sx={{ textAlign: "center", color: theme.palette.text.secondary }}>
-                    <ImageIcon sx={{ fontSize: 64, mb: 1, color: theme.palette.text.secondary }} />
-                    <Typography variant="body2" sx={{ color: theme.palette.text.primary }}>Sem imagem</Typography>
-                    <Typography variant="caption" component="span" sx={{ color: theme.palette.text.secondary, display: "block", mt: 0.5 }}>
-                      Cole a URL ou{" "}
-                      <Box
-                        component="button"
-                        type="button"
-                        onClick={abrirSeletorImagemProduto}
-                        sx={{
-                          border: "none",
-                          background: "none",
-                          p: 0,
-                          cursor: "pointer",
-                          color: "primary.main",
-                          textDecoration: "underline",
-                          font: "inherit",
-                          fontSize: "inherit",
-                        }}
-                      >
-                        faça upload
-                      </Box>
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              <input
-                ref={produtoImagemFileRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleProdutoImagemFileChange}
-              />
-              <Box sx={{ display: "flex", gap: 2, alignItems: "center", mt: 2, width: "100%", maxWidth: 420, flexWrap: "wrap", justifyContent: "center" }}>
-                <TextField
-                  label="URL da Imagem"
-                  name="imagemPrincipal"
-                  value={currentProduto.imagemPrincipal}
-                  onChange={handleChange}
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <ImageIcon sx={{ color: "text.secondary" }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  size="small"
-                  sx={{ flex: 1, minWidth: 200 }}
-                />
-                <Button
-                  type="button"
-                  variant="outlined"
-                  startIcon={<CloudUpload />}
-                  onClick={abrirSeletorImagemProduto}
-                  sx={{
-                    textTransform: "none",
-                    py: 1.25,
-                    borderColor: "divider",
-                    "&:hover": { borderColor: "primary.main", bgcolor: "action.hover", color: "primary.main" },
-                  }}
-                >
-                  Upload
-                </Button>
-              </Box>
-            </Box>
-
-            <Box sx={{ p: 4 }}>
-            <Stack spacing={3}>
-
-                {/* Informações Básicas */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
+        <DialogContent
+          sx={{
+            p: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Box
+            sx={{
+              overflowY: "auto",
+              maxHeight: { xs: "70vh", sm: "calc(min(92vh, 900px) - 160px)" },
+            }}
+          >
+            <Grid container spacing={0}>
+              {/* Coluna imagens */}
+              <Grid
+                item
+                xs={12}
+                md={5}
+                sx={{
+                  p: { xs: 2, sm: 3 },
+                  borderRight: { md: "1px solid" },
+                  borderColor: "divider",
+                  bgcolor: isDark ? alpha("#fff", 0.02) : alpha(theme.palette.common.black, 0.02),
+                }}
+              >
+                <Stack spacing={2}>
+                  {modalLabel("Imagem principal")}
+                  <Box
+                    sx={{
+                      border: "2px dashed",
+                      borderColor: isDark ? alpha("#fff", 0.22) : "divider",
+                      borderRadius: "14px",
+                      minHeight: 260,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 2,
+                      bgcolor: modalSurface,
+                    }}
                   >
-                    Informações Básicas
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    {currentProduto.imagemPrincipal ? (
+                      <Box sx={{ width: "100%", maxWidth: 320, mx: "auto" }}>
+                        <ProdutoImagemAjuste
+                          src={currentProduto.imagemPrincipal}
+                          onAdjusted={handleProdutoImagemAjustado}
+                          onError={showError}
+                        />
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: "center", py: 3, px: 1 }}>
+                        <ImageIcon sx={{ fontSize: 56, mb: 1, color: "text.secondary", opacity: 0.9 }} />
+                        <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", fontSize: "0.72rem" }}>
+                          Upload imagem
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+                          Cole a URL abaixo ou envie um arquivo
+                        </Typography>
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          startIcon={<CloudUpload />}
+                          onClick={abrirSeletorImagemProduto}
+                          sx={{
+                            mt: 2,
+                            textTransform: "none",
+                            borderRadius: "10px",
+                            borderColor: "divider",
+                          }}
+                        >
+                          Escolher arquivo
+                        </Button>
+                      </Box>
+                    )}
+                  </Box>
+                  <input
+                    ref={produtoImagemFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleProdutoImagemFileChange}
+                  />
+                  <Box>
+                    {modalLabel("URL da imagem (opcional)")}
+                    <TextField
+                      fullWidth
+                      name="imagemPrincipal"
+                      value={currentProduto.imagemPrincipal}
+                      onChange={handleChange}
+                      placeholder="https://…"
+                      size="small"
+                      sx={modalFieldSx}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <ImageIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Box>
+                  {modalLabel("Imagens adicionais")}
+                  <Box sx={{ display: "flex", gap: 1.5 }}>
+                    {[0, 1].map((i) => {
+                      const extras = Array.isArray(currentProduto.imagensAdicionais)
+                        ? currentProduto.imagensAdicionais
+                        : [];
+                      const src =
+                        extras[i] != null && String(extras[i]).trim() !== ""
+                          ? String(extras[i])
+                          : null;
+                      return (
+                        <Box
+                          key={i}
+                          sx={{
+                            flex: 1,
+                            maxWidth: 120,
+                            position: "relative",
+                          }}
+                        >
+                          <input
+                            ref={(el) => {
+                              imagemAdicionalFileRefs.current[i] = el;
+                            }}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={handleImagemAdicionalFileChange(i)}
+                          />
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => abrirSeletorImagemAdicional(i)}
+                            sx={{
+                              width: "100%",
+                              aspectRatio: "1",
+                              border: "2px dashed",
+                              borderColor: isDark ? alpha("#fff", 0.18) : "divider",
+                              borderRadius: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "text.secondary",
+                              bgcolor: modalSurface,
+                              cursor: "pointer",
+                              overflow: "hidden",
+                              p: 0,
+                              "&:hover": {
+                                borderColor: alpha(theme.palette.primary.main, 0.45),
+                              },
+                            }}
+                          >
+                            {src ? (
+                              <Box
+                                component="img"
+                                alt=""
+                                src={src}
+                                sx={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              <Add sx={{ fontSize: 28, opacity: 0.7 }} pointerEvents="none" />
+                            )}
+                          </Box>
+                          {src ? (
+                            <IconButton
+                              type="button"
+                              size="small"
+                              onClick={limparImagemAdicional(i)}
+                              sx={{
+                                position: "absolute",
+                                top: 4,
+                                right: 4,
+                                bgcolor: alpha("#000", 0.5),
+                                color: "common.white",
+                                "&:hover": { bgcolor: alpha("#000", 0.7) },
+                                width: 28,
+                                height: 28,
+                              }}
+                              aria-label="Remover imagem adicional"
+                            >
+                              <Close sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          ) : null}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Stack>
+              </Grid>
+
+              {/* Coluna formulário */}
+              <Grid item xs={12} md={7} sx={{ p: { xs: 2, sm: 3 } }}>
+                <Stack spacing={2.25}>
+                  <Box>
+                    {modalLabel("Nome do produto")}
+                    <TextField
+                      fullWidth
+                      required
+                      name="nome"
+                      value={currentProduto.nome}
+                      onChange={handleChange}
+                      placeholder="Ex: Camiseta oversized"
+                      size="small"
+                      sx={modalFieldSx}
+                      hiddenLabel
+                      variant="outlined"
+                    />
+                  </Box>
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Preço de custo R$")}
                       <TextField
                         fullWidth
                         required
-                        label="Nome do Produto"
-                        name="nome"
-                        value={currentProduto.nome}
+                        name="precoCusto"
+                        type="number"
+                        value={currentProduto.precoCusto}
                         onChange={handleChange}
-                        placeholder="Ex: Vestido Floral"
+                        placeholder="0,00"
                         size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Typography component="span" variant="body2" color="text.secondary">
+                                R$
+                              </Typography>
+                            </InputAdornment>
+                          ),
+                        }}
+                        inputProps={{ step: "0.01", min: "0" }}
                       />
                     </Grid>
-                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Preço de venda R$")}
+                      <TextField
+                        fullWidth
+                        required
+                        name="precoVenda"
+                        type="number"
+                        value={currentProduto.precoVenda}
+                        onChange={handleChange}
+                        placeholder="0,00"
+                        size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Typography component="span" variant="body2" color="text.secondary">
+                                R$
+                              </Typography>
+                            </InputAdornment>
+                          ),
+                        }}
+                        inputProps={{ step: "0.01", min: "0" }}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      {modalLabel("Categoria")}
                       <Autocomplete
                         fullWidth
+                        size="small"
                         options={listaCategorias}
                         value={listaCategorias.find((c) => c.id === currentProduto.categoriaId) || null}
                         getOptionLabel={(c) => c.nome || ""}
@@ -1373,41 +1671,25 @@ function Produtos() {
                           }));
                         }}
                         noOptionsText="Nenhuma categoria cadastrada. Cadastre em Cadastros > Categorias."
-                        sx={{ minWidth: 280 }}
+                        slotProps={{
+                          paper: { sx: { borderRadius: "10px" } },
+                        }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
                             required
-                            label="Categoria"
-                            size="small"
                             placeholder="Selecione a categoria"
-                            InputLabelProps={{
-                              shrink: true,
-                              sx: {
-                                fontSize: "1rem",
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                            }}
-                            sx={{
-                              minWidth: 280,
-                              "& .MuiInputLabel-root": {
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                borderRadius: 1,
-                                minHeight: 52,
-                                "& .MuiAutocomplete-input": { py: 1.5 },
-                              },
-                            }}
+                            sx={modalAutocompleteInputSx}
+                            hiddenLabel
                           />
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} sx={{ minWidth: 0 }}>
+                    <Grid item xs={12}>
+                      {modalLabel("Marca")}
                       <Autocomplete
                         fullWidth
+                        size="small"
                         options={listaMarcas}
                         value={listaMarcas.find((m) => m.id === currentProduto.marcaId) || null}
                         getOptionLabel={(m) => m.nome || ""}
@@ -1419,49 +1701,35 @@ function Produtos() {
                           }));
                         }}
                         noOptionsText="Nenhuma marca cadastrada. Cadastre em Cadastros > Marcas."
-                        sx={{ minWidth: 280 }}
+                        slotProps={{
+                          paper: { sx: { borderRadius: "10px" } },
+                        }}
                         renderInput={(params) => (
                           <TextField
                             {...params}
-                            label="Marca"
-                            size="small"
                             placeholder="Selecione a marca"
-                            InputLabelProps={{
-                              shrink: true,
-                              sx: {
-                                fontSize: "1rem",
-                                fontWeight: 500,
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                            }}
-                            sx={{
-                              minWidth: 280,
-                              "& .MuiInputLabel-root": {
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                bgcolor: "background.default",
-                                borderRadius: 1,
-                                minHeight: 52,
-                                "& .MuiAutocomplete-input": { py: 1.5 },
-                              },
-                            }}
+                            sx={modalAutocompleteInputSx}
+                            hiddenLabel
                           />
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small" sx={{ minWidth: 180 }}>
-                        <InputLabel id="prod-genero-label">Gênero</InputLabel>
+                  </Grid>
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Gênero")}
+                      <FormControl fullWidth size="small" sx={modalFieldSx}>
                         <Select
                           name="genero"
-                          value={currentProduto.genero}
+                          value={currentProduto.genero || ""}
                           onChange={handleChange}
-                          labelId="prod-genero-label"
-                          label="Gênero"
+                          displayEmpty
+                          sx={{ borderRadius: "10px" }}
                         >
+                          <MenuItem value="" disabled>
+                            <em>Selecione…</em>
+                          </MenuItem>
                           {GENEROS.map((gen) => (
                             <MenuItem key={gen} value={gen}>
                               {gen}
@@ -1470,412 +1738,412 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("SKU")}
                       <TextField
                         fullWidth
                         required
-                        label="SKU"
                         name="sku"
                         value={currentProduto.sku}
                         onChange={handleChange}
                         placeholder="Ex: CAM-BRA-001"
                         size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Código de Barras"
-                        name="codigoBarras"
-                        value={currentProduto.codigoBarras}
-                        onChange={handleChange}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sx={{ minWidth: 0 }}>
-                      <Autocomplete
-                        fullWidth
-                        options={listaFornecedores}
-                        value={listaFornecedores.find((f) => f.id === currentProduto.fornecedorId) || null}
-                        getOptionLabel={(f) => f.nome || f.razaoSocial || ""}
-                        onChange={(_, newValue) => {
-                          setCurrentProduto((prev) => ({
-                            ...prev,
-                            fornecedorId: newValue?.id ?? null,
-                            fornecedor: newValue ? (newValue.nome || newValue.razaoSocial || "") : "",
-                          }));
+                  </Grid>
+
+                  <Box>
+                    {modalLabel("Código de barras")}
+                    <TextField
+                      fullWidth
+                      name="codigoBarras"
+                      value={currentProduto.codigoBarras}
+                      onChange={handleChange}
+                      size="small"
+                      sx={modalFieldSx}
+                      hiddenLabel
+                      placeholder="Opcional"
+                    />
+                  </Box>
+
+                  <Box>
+                    {modalLabel("Fornecedor")}
+                    <Autocomplete
+                      fullWidth
+                      size="small"
+                      options={listaFornecedores}
+                      value={listaFornecedores.find((f) => f.id === currentProduto.fornecedorId) || null}
+                      getOptionLabel={(f) => f.nome || f.razaoSocial || ""}
+                      onChange={(_, newValue) => {
+                        setCurrentProduto((prev) => ({
+                          ...prev,
+                          fornecedorId: newValue?.id ?? null,
+                          fornecedor: newValue ? (newValue.nome || newValue.razaoSocial || "") : "",
+                        }));
+                      }}
+                      filterSelectedOptions={false}
+                      noOptionsText="Nenhum fornecedor cadastrado"
+                        slotProps={{
+                          paper: { sx: { borderRadius: "10px" } },
                         }}
-                        filterSelectedOptions={false}
-                        noOptionsText="Nenhum fornecedor cadastrado"
-                        sx={{ minWidth: 280 }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Fornecedor"
-                            size="small"
-                            placeholder="Digite para buscar fornecedores"
-                            InputLabelProps={{
-                              shrink: true,
-                              sx: {
-                                fontSize: "1rem",
-                                fontWeight: 500,
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                            }}
-                            sx={{
-                              minWidth: 280,
-                              "& .MuiInputLabel-root": {
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                bgcolor: "background.default",
-                                borderRadius: 1,
-                                minHeight: 52,
-                                "& .MuiAutocomplete-input": { py: 1.5 },
-                              },
-                            }}
-                          />
-                        )}
                         ListboxProps={{ sx: { maxHeight: 280 } }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Digite para buscar…"
+                          sx={modalFieldSx}
+                          hiddenLabel
+                        />
+                      )}
+                    />
+                  </Box>
 
-                {/* Variações */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
-                  >
-                    Variações do Produto
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
-                      <Autocomplete
-                        multiple
-                        options={CORES}
-                        value={currentProduto.cores ?? []}
-                        onChange={(event, newValue) =>
-                          handleMultipleChange("cores", newValue)
-                        }
-                        sx={{ minWidth: 220 }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            required
-                            label="Cores"
-                            size="small"
-                            placeholder="Selecione as cores"
-                            InputLabelProps={{
-                              ...params.InputLabelProps,
-                              shrink: true,
-                              sx: {
-                                fontSize: "1rem",
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                            }}
-                            sx={{
-                              minWidth: 220,
-                              "& .MuiInputLabel-root": {
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                borderRadius: 1,
-                                minHeight: 52,
-                                paddingLeft: 1,
-                                "& .MuiAutocomplete-input": { py: 1.5 },
-                              },
-                            }}
-                          />
-                        )}
-                        renderTags={(value, getTagProps) =>
-                          value.map((option, index) => (
-                            <Chip
-                              label={option}
-                              {...getTagProps({ index })}
-                              size="small"
-                            />
-                          ))
-                        }
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6} sx={{ minWidth: 0 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
-                        <Typography variant="subtitle2" sx={{ color: "text.secondary", fontSize: "0.875rem", lineHeight: 1.5 }}>
-                          Tamanhos
-                        </Typography>
-                        <ToggleButtonGroup
-                          value={currentProduto.tipoTamanho || "roupas"}
-                          exclusive
-                          onChange={handleTipoTamanhoChange}
-                          size="small"
-                          sx={{ "& .MuiToggleButton-root": { py: 0.25, px: 1, fontSize: "0.75rem" } }}
-                        >
-                          <ToggleButton value="roupas">Roupas</ToggleButton>
-                          <ToggleButton value="calcados">Calçados</ToggleButton>
-                          <ToggleButton value="acessorios">Acessórios</ToggleButton>
-                        </ToggleButtonGroup>
-                      </Box>
-                      <Autocomplete
-                        multiple
-                        options={getTamanhosDisponiveis()}
-                        value={currentProduto.tamanhos ?? []}
-                        onChange={(event, newValue) =>
-                          handleMultipleChange("tamanhos", newValue)
-                        }
-                        sx={{ minWidth: 220 }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            required
-                            label="Tamanhos"
-                            size="small"
-                            placeholder={
-                              (currentProduto.tipoTamanho || "roupas") === "roupas"
-                                ? "PP, P, M, G..."
-                                : (currentProduto.tipoTamanho || "roupas") === "calcados"
-                                  ? "33, 34, 35..."
-                                  : "Único, P, M..."
-                            }
-                            InputLabelProps={{
-                              ...params.InputLabelProps,
-                              shrink: true,
-                              sx: {
-                                fontSize: "1rem",
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                            }}
-                            sx={{
-                              minWidth: 220,
-                              "& .MuiInputLabel-root": {
-                                whiteSpace: "nowrap",
-                                overflow: "visible",
-                              },
-                              "& .MuiOutlinedInput-root": {
-                                borderRadius: 1,
-                                minHeight: 52,
-                                paddingLeft: 1,
-                                "& .MuiAutocomplete-input": { py: 1.5 },
-                              },
-                            }}
-                          />
-                        )}
-                        renderTags={(value, getTagProps) =>
-                          value.map((option, index) => (
-                            <Chip
-                              label={option}
-                              {...getTagProps({ index })}
-                              size="small"
-                            />
-                          ))
-                        }
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={12}>
-                      <FormControl fullWidth size="small" sx={{ minWidth: 220, maxWidth: 400 }}>
-                        <InputLabel id="prod-material-label">Material</InputLabel>
-                        <Select
-                          name="material"
-                          value={currentProduto.material}
-                          onChange={handleChange}
-                          labelId="prod-material-label"
-                          label="Material"
-                        >
-                          {MATERIAIS.map((mat) => (
-                            <MenuItem key={mat} value={mat}>
-                              {mat}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
+                  <Box>
+                    {modalLabel("Cores")}
+                    <Autocomplete
+                      multiple
+                      fullWidth
+                      size="small"
+                      options={CORES}
+                      value={currentProduto.cores ?? []}
+                      onChange={(_e, newValue) => handleMultipleChange("cores", newValue)}
+                      sx={modalFieldSx}
+                      slotProps={{
+                        paper: { sx: { borderRadius: "10px" } },
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          required
+                          placeholder="Selecione as cores"
+                          sx={modalFieldSx}
+                          hiddenLabel
+                        />
+                      )}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip label={option} {...getTagProps({ index })} size="small" />
+                        ))
+                      }
+                    />
+                  </Box>
 
-                {/* Precificação */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
-                  >
-                    Precificação
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        required
-                        label="Preço de Custo"
-                        name="precoCusto"
-                        type="number"
-                        value={currentProduto.precoCusto}
+                  <Box>
+                    {modalLabel("Tamanhos disponíveis")}
+                    <ToggleButtonGroup
+                      exclusive
+                      value={currentProduto.tipoTamanho || "roupas"}
+                      onChange={handleTipoTamanhoChange}
+                      sx={tipoTamanhoTabsSx}
+                    >
+                      <ToggleButton value="roupas">Padrão</ToggleButton>
+                      <ToggleButton value="acessorios">Infantil</ToggleButton>
+                      <ToggleButton value="calcados">Numeração</ToggleButton>
+                    </ToggleButtonGroup>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 1.5 }}>
+                      {getTamanhosDisponiveis().map((tam) => {
+                        const selected = (currentProduto.tamanhos ?? []).includes(tam);
+                        return (
+                          <Button
+                            key={tam}
+                            type="button"
+                            size="small"
+                            variant={selected ? "contained" : "outlined"}
+                            onClick={() => toggleTamanhoChip(tam)}
+                            sx={{
+                              minWidth: 42,
+                              height: 40,
+                              p: 0,
+                              borderRadius: "10px",
+                              fontWeight: 700,
+                              fontSize: "0.8rem",
+                              ...(selected
+                                ? {
+                                    bgcolor: "background.paper",
+                                    color: "text.primary",
+                                    boxShadow: isDark ? `0 0 0 1px ${alpha("#fff", 0.25)}` : theme.shadows[1],
+                                    border: "none",
+                                  }
+                                : {
+                                    borderColor: isDark ? alpha("#fff", 0.2) : "divider",
+                                    color: "text.secondary",
+                                  }),
+                            }}
+                          >
+                            {tam}
+                          </Button>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+
+                  <Box>
+                    {modalLabel("Material")}
+                    <FormControl fullWidth size="small" sx={modalFieldSx}>
+                      <Select
+                        name="material"
+                        value={currentProduto.material || ""}
                         onChange={handleChange}
-                        placeholder="0,00"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">R$</InputAdornment>
-                          ),
-                        }}
-                        inputProps={{ step: "0.01", min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
+                        displayEmpty
+                        sx={{ borderRadius: "10px" }}
+                      >
+                        <MenuItem value="">
+                          <em>Selecione…</em>
+                        </MenuItem>
+                        {MATERIAIS.map((mat) => (
+                          <MenuItem key={mat} value={mat}>
+                            {mat}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Preço promocional R$")}
                       <TextField
                         fullWidth
-                        required
-                        label="Preço de Venda"
-                        name="precoVenda"
-                        type="number"
-                        value={currentProduto.precoVenda}
-                        onChange={handleChange}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">R$</InputAdornment>
-                          ),
-                        }}
-                        inputProps={{ step: "0.01", min: "0" }}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        label="Preço Promocional"
                         name="precoPromocional"
                         type="number"
                         value={currentProduto.precoPromocional}
                         onChange={handleChange}
+                        size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
                         InputProps={{
                           startAdornment: (
-                            <InputAdornment position="start">R$</InputAdornment>
+                            <InputAdornment position="start">
+                              <Typography component="span" variant="body2" color="text.secondary">
+                                R$
+                              </Typography>
+                            </InputAdornment>
                           ),
                         }}
                         inputProps={{ step: "0.01", min: "0" }}
-                        size="small"
+                        placeholder="Opcional"
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Margem de lucro")}
                       <TextField
                         fullWidth
-                        label="Margem de Lucro"
                         value={calcularMargemLucro() + "%"}
                         InputProps={{ readOnly: true }}
                         size="small"
                         sx={{
+                          ...modalFieldSx,
                           bgcolor: isDark ? "rgba(16, 185, 129, 0.12)" : "#dcfce7",
                           "& .MuiInputBase-input": {
-                            fontWeight: 600,
+                            fontWeight: 700,
                             color: "success.main",
                           },
                         }}
+                        hiddenLabel
                       />
                     </Grid>
                   </Grid>
-                </Paper>
 
-                {/* Estoque */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: 1.25,
+                      flexWrap: "wrap",
+                    }}
                   >
-                    Controle de Estoque
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
+                    <Box
+                      sx={{
+                        flex: "1 1 140px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.25,
+                        p: 1.5,
+                        borderRadius: "12px",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: modalSurface,
+                      }}
+                    >
+                      <Star sx={{ color: "warning.main", fontSize: 22 }} />
+                      <Box>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", fontSize: "0.6rem" }}>
+                          Margem
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                          {calcularMargemLucro()}%
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: "1 1 140px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.25,
+                        p: 1.5,
+                        borderRadius: "12px",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: modalSurface,
+                      }}
+                    >
+                      <LocalShipping sx={{ color: "info.main", fontSize: 22 }} />
+                      <Box>
+                        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", fontSize: "0.6rem" }}>
+                          Estoque
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                          {currentProduto.estoqueTotal !== "" && currentProduto.estoqueTotal != null
+                            ? `${currentProduto.estoqueTotal} un.`
+                            : "—"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Estoque total")}
                       <TextField
                         fullWidth
-                        label="Estoque Total"
                         name="estoqueTotal"
                         type="number"
                         value={currentProduto.estoqueTotal}
                         onChange={handleChange}
                         inputProps={{ min: "0" }}
                         size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
+                        placeholder={editMode ? undefined : "0"}
                       />
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid item xs={12} sm={6}>
+                      {modalLabel("Estoque mínimo")}
                       <TextField
                         fullWidth
-                        label="Estoque Mínimo"
                         name="estoqueMinimo"
                         type="number"
                         value={currentProduto.estoqueMinimo}
                         onChange={handleChange}
                         inputProps={{ min: "0" }}
                         size="small"
+                        sx={modalFieldSx}
+                        hiddenLabel
                       />
                     </Grid>
                   </Grid>
-                </Paper>
 
-                {/* Observações */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: 600, mb: 2.5, color: "text.primary" }}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 2,
+                      py: 0.5,
+                    }}
                   >
-                    Observações Internas
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    label="Observações"
-                    name="observacoes"
-                    multiline
-                    rows={3}
-                    value={currentProduto.observacoes}
-                    onChange={handleChange}
-                    placeholder="Informações internas sobre o produto..."
-                    size="small"
-                  />
-                </Paper>
-              </Stack>
-            </Box>
+                    <Box>
+                      {modalLabel("Promoção ativa")}
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: -0.25 }}>
+                        Liga automaticamente se o preço promocional for maior que zero
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={precoPromocionalAtivo ? "Sim" : "Não"}
+                      sx={{
+                        fontWeight: 800,
+                        borderRadius: "8px",
+                        bgcolor: precoPromocionalAtivo
+                          ? alpha(theme.palette.warning.main, 0.2)
+                          : modalSurface,
+                      }}
+                    />
+                  </Box>
+
+                  <Box>
+                    {modalLabel("Observações internas")}
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1 }}>
+                      Visíveis apenas para a equipe (não vão para o catálogo).
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      name="observacoes"
+                      multiline
+                      rows={3}
+                      value={currentProduto.observacoes}
+                      onChange={handleChange}
+                      placeholder="Informações internas sobre o produto…"
+                      size="small"
+                      sx={modalFieldSx}
+                      hiddenLabel
+                    />
+                  </Box>
+                </Stack>
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
+
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pb: 3,
+            pt: 0,
+            flexDirection: "column",
+            alignItems: "stretch",
+            gap: 0,
+          }}
+        >
+          <Button
+            type="button"
+            fullWidth
+            size="large"
+            onClick={() => void handleSave()}
+            disabled={salvandoProduto}
+            sx={{
+              py: 1.5,
+              borderRadius: "12px",
+              textTransform: "none",
+              fontWeight: 800,
+              fontSize: "1rem",
+              boxShadow: "none",
+              ...(isDark
+                ? {
+                    color: theme.palette.common.black,
+                    bgcolor: "#EAB308",
+                    border: "2px solid #EAB308",
+                    "&:hover": {
+                      bgcolor: "#FACC15",
+                      borderColor: "#FACC15",
+                    },
+                    "&.Mui-disabled": {
+                      color: alpha(theme.palette.common.black, 0.4),
+                      bgcolor: alpha("#EAB308", 0.45),
+                      borderColor: alpha("#EAB308", 0.35),
+                    },
+                  }
+                : {
+                    color: theme.palette.common.black,
+                    bgcolor: theme.palette.common.white,
+                    border: `2px solid ${theme.palette.common.white}`,
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.common.white, 0.92),
+                      borderColor: alpha(theme.palette.common.white, 0.92),
+                    },
+                    "&.Mui-disabled": {
+                      color: alpha(theme.palette.common.black, 0.35),
+                      bgcolor: alpha(theme.palette.common.white, 0.5),
+                      borderColor: "transparent",
+                    },
+                  }),
+            }}
+          >
+            {salvandoProduto ? "Salvando…" : "Salvar produto"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
