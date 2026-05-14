@@ -84,7 +84,6 @@ export function badgeStyleForPerfil(perfil, ui) {
   if (p.includes("vendedor")) return { bg: VEX.successSoft, color: VEX.success, label: perfil || "Vendedor" };
   if (p.includes("caixa")) return { bg: VEX.purpleSoft, color: VEX.purple, label: perfil || "Operador de Caixa" };
   if (p.includes("estoquista")) return { bg: VEX.cyanSoft, color: VEX.cyan, label: perfil || "Estoquista" };
-  if (p.includes("financeiro")) return { bg: VEX.dangerSoft, color: VEX.danger, label: perfil || "Financeiro" };
   if (p.includes("suporte")) return { bg: VEX.purpleSoft, color: VEX.purple, label: perfil || "Suporte" };
   return { bg: neutralBg, color: ui?.textSecondary ?? VEX.textSecondary, label: perfil || "—" };
 }
@@ -103,7 +102,6 @@ export function getPermissionsMatrixForPerfil(perfilRaw) {
   const isVendedor = p.includes("vendedor");
   const isCaixa = p.includes("caixa");
   const isEstoque = p.includes("estoquista");
-  const isFin = p.includes("financeiro");
 
   const pick = (map) => {
     if (isAdmin) return map.admin ?? R.full;
@@ -111,7 +109,6 @@ export function getPermissionsMatrixForPerfil(perfilRaw) {
     if (isVendedor) return map.vendedor ?? R.none;
     if (isCaixa) return map.caixa ?? R.none;
     if (isEstoque) return map.estoquista ?? R.none;
-    if (isFin) return map.financeiro ?? R.none;
     return map.default ?? R.none;
   };
 
@@ -133,11 +130,11 @@ export function getPermissionsMatrixForPerfil(perfilRaw) {
   ];
 
   const compras = [
-    { permission_key: "purchase_create", label: "Registrar compra", ...pick({ admin: R.full, gerente: R.full, estoquista: R.full, financeiro: R.full, default: R.none }) },
+    { permission_key: "purchase_create", label: "Registrar compra", ...pick({ admin: R.full, gerente: R.full, estoquista: R.full, default: R.none }) },
   ];
 
   const rel = [
-    { permission_key: "reports_view", label: "Visualizar relatórios", ...pick({ admin: R.full, gerente: R.full, financeiro: R.full, default: R.none }) },
+    { permission_key: "reports_view", label: "Visualizar relatórios", ...pick({ admin: R.full, gerente: R.full, default: R.none }) },
   ];
 
   const wrap = (module, rows) =>

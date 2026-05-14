@@ -34,8 +34,9 @@ function EtapaPagamento({ venda, setVenda, totalVenda }) {
   const troco = totalPago - totalVenda;
 
   useEffect(() => {
-    restante > 0 ? restante : 0;
-  }, [restante]);
+    const falta = Math.max(0, totalVenda - totalPago);
+    setValorParcial((prev) => (falta > 0 ? falta : prev));
+  }, [totalVenda, totalPago]);
 
   const adicionarPagamento = () => {
     if (!formaSelecionada || valorParcial <= 0) return;

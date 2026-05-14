@@ -321,6 +321,16 @@ function Clientes() {
     }
   };
 
+  const handleTelefoneChange = (e) => {
+    const telefone = e.target.value.replace(/\D/g, "").slice(0, 11);
+    setCurrentCliente({ ...currentCliente, telefone });
+  };
+
+  const handleWhatsAppChange = (e) => {
+    const whatsApp = e.target.value.replace(/\D/g, "").slice(0, 11);
+    setCurrentCliente({ ...currentCliente, whatsApp });
+  };
+
   const fetchClientes = useCallback(async () => {
     setCarregando(true);
     try {
@@ -978,9 +988,9 @@ function Clientes() {
                 <Grid item xs={12} md={3}><TextField fullWidth label="RG" name="rg" value={currentCliente.rg} onChange={handleChange} size="small" placeholder="RG" /></Grid>
                 <Grid item xs={12} md={3}><TextField fullWidth required={cnpjObrigatorio} label="CNPJ" name="cnpj" value={currentCliente.cnpj} onChange={handleCNPJChange} error={!!cnpjError} helperText={cnpjError || ""} size="small" placeholder="00.000.000/0000-00" /></Grid>
                 <Grid item xs={12} md={3}><TextField fullWidth required label="Data Nascimento" name="dataNascimento" type="date" value={currentCliente.dataNascimento} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} /></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentCliente.whatsApp} onChange={handleChange} size="small" placeholder="(00) 00000-0000" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentCliente.whatsApp} onChange={handleWhatsAppChange} size="small" placeholder="Somente números" inputProps={{ inputMode: "numeric" }} /></Grid>
                 <Grid item xs={12} md={4}><FormControl fullWidth size="small" sx={selectFieldSx}><InputLabel id="tipo-tel-label">Tipo</InputLabel><Select labelId="tipo-tel-label" label="Tipo" defaultValue="Celular"><MenuItem value="Celular">Celular</MenuItem><MenuItem value="Fixo">Fixo</MenuItem><MenuItem value="Comercial">Comercial</MenuItem></Select></FormControl></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentCliente.telefone} onChange={handleChange} size="small" placeholder="(00) 0000-0000" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentCliente.telefone} onChange={handleTelefoneChange} size="small" placeholder="Somente números" inputProps={{ inputMode: "numeric" }} /></Grid>
                 <Grid item xs={12} md={4}><FormControl fullWidth size="small" sx={selectFieldSx}><InputLabel id="tipo-email-label">Tipo Email</InputLabel><Select labelId="tipo-email-label" label="Tipo Email" defaultValue="Email"><MenuItem value="Email">Email</MenuItem><MenuItem value="Pessoal">Pessoal</MenuItem><MenuItem value="Comercial">Comercial</MenuItem></Select></FormControl></Grid>
                 <Grid item xs={12} md={8}><TextField fullWidth label="Email" name="email" type="email" value={currentCliente.email} onChange={handleChange} size="small" placeholder="cliente@exemplo.com" /></Grid>
               </Grid>

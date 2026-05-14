@@ -144,7 +144,7 @@ function NovaMovimentacaoCaixa() {
         entrada: form.tipo === "lucro",
       });
       showSuccess("Movimentação registrada.");
-      navigate("/vendas");
+      navigate("/caixa");
     } catch (err) {
       showError(apiMessage(err));
     } finally {
@@ -171,7 +171,7 @@ function NovaMovimentacaoCaixa() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Button
             startIcon={<ArrowBack />}
-            onClick={() => navigate("/vendas")}
+            onClick={() => navigate("/caixa")}
             sx={{ textTransform: "none", color: "text.secondary" }}
           >
             Voltar
@@ -325,7 +325,7 @@ function NovaMovimentacaoCaixa() {
               <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <Button
                   type="button"
-                  onClick={() => navigate("/vendas")}
+                  onClick={() => navigate("/caixa")}
                   sx={{ textTransform: "none" }}
                 >
                   Cancelar

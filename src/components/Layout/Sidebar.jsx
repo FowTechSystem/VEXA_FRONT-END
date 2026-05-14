@@ -29,7 +29,6 @@ import {
   Assessment,
   Settings,
   ShoppingBag,
-  AttachMoney,
   Receipt,
   LocalShipping,
   AssignmentReturn,
@@ -52,23 +51,41 @@ const drawerWidth = 260;
 /** Rotas consideradas “dentro” do grupo Produtos (mantém submenu aberto e destaque no pai). */
 const PRODUTOS_GROUP_PATHS = ["produtos", "categorias", "marcas"];
 
+/** Ordena itens do menu por rótulo (pt-BR), incluindo `children` quando existir. */
+function sortMenuItemsByLabel(items) {
+  return [...items]
+    .map((item) =>
+      item.children?.length
+        ? {
+            ...item,
+            children: [...item.children].sort((a, b) =>
+              a.text.localeCompare(b.text, "pt-BR", { sensitivity: "base" }),
+            ),
+          }
+        : item,
+    )
+    .sort((a, b) => a.text.localeCompare(b.text, "pt-BR", { sensitivity: "base" }));
+}
+
 const menuSectionsBase = [
   {
     title: "Visão Geral",
-    items: [{ text: "Dashboard", icon: <Dashboard />, path: "/" }],
+    items: sortMenuItemsByLabel([
+      { text: "Dashboard", icon: <Dashboard />, path: "/" },
+    ]),
   },
   {
     title: "Operação",
-    items: [
+    items: sortMenuItemsByLabel([
       { text: "Catálogo Digital", icon: <MenuBook />, path: "catalogo-digital" },
-      { text: "Vendas", icon: <PointOfSale />, path: "caixa" },
-      { text: "Caixa", icon: <ShoppingCart />, path: "vendas" },
+      { text: "Vendas", icon: <PointOfSale />, path: "vendas" },
+      { text: "Caixa", icon: <ShoppingCart />, path: "caixa" },
       { text: "Condicional", icon: <AssignmentReturn />, path: "condicional" },
-    ],
+    ]),
   },
   {
     title: "Gestão",
-    items: [
+    items: sortMenuItemsByLabel([
       {
         text: "Produtos",
         icon: <Inventory />,
@@ -80,32 +97,30 @@ const menuSectionsBase = [
       },
       { text: "Estoque", icon: <Warehouse />, path: "estoque" },
       { text: "Compras", icon: <ShoppingBag />, path: "compras" },
-    ],
-  },
-  {
-    title: "Financeiro & Fiscal",
-    items: [
-      { text: "Financeiro", icon: <AttachMoney />, path: "financeiro" },
       { text: "Fiscal", icon: <Receipt />, path: "fiscal" },
-    ],
+    ]),
   },
   {
     title: "Cadastros",
-    items: [
+    items: sortMenuItemsByLabel([
       { text: "Usuários", icon: <AccountCircle />, path: "usuarios" },
       { text: "Clientes", icon: <People />, path: "clientes" },
       { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores" },
-    ],
+    ]),
   },
   {
     title: "Análises",
-    items: [{ text: "Relatórios", icon: <Assessment />, path: "relatorios" }],
+    items: sortMenuItemsByLabel([
+      { text: "Relatórios", icon: <Assessment />, path: "relatorios" },
+    ]),
   },
 ];
 
 const sistemaSection = {
   title: "Sistema",
-  items: [{ text: "Configurações", icon: <Settings />, path: "configuracoes" }],
+  items: sortMenuItemsByLabel([
+    { text: "Configurações", icon: <Settings />, path: "configuracoes" },
+  ]),
 };
 
 function isProdutosGroupActive(pathname) {
@@ -162,7 +177,9 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
         ...sections,
         {
           title: "Administração",
-          items: [{ text: "Empresas", icon: <Business />, path: "empresas" }],
+          items: sortMenuItemsByLabel([
+            { text: "Empresas", icon: <Business />, path: "empresas" },
+          ]),
         },
       ];
     }

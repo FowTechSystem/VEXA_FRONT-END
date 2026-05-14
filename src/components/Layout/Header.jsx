@@ -1,5 +1,5 @@
 // src/components/Layout/Header.jsx
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AppBar,
@@ -34,6 +34,7 @@ import { useEmpresa } from "../../contexts/EmpresaContext";
 import UserProfileDrawer from "../UserProfileDrawer";
 import { authService } from "../../api/authService";
 import { useInAppNotifications } from "../../contexts/InAppNotificationContext";
+import { formatRelativeTimeLabel } from "../../utils/formatRelativeTime";
 
 function Header({ onMenuClick }) {
   const theme = useTheme();
@@ -47,6 +48,12 @@ function Header({ onMenuClick }) {
   const { empresaAtiva, empresas, setEmpresaAtiva, sairEmpresa, isDev } = useEmpresa();
   const navigate = useNavigate();
   const qtdNaoLidas = notificacoes.filter((n) => !n.lida).length;
+
+  const [, setRelogioNotificacoes] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setRelogioNotificacoes((x) => x + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -343,7 +350,12 @@ function Header({ onMenuClick }) {
                                 {n.texto}
                               </Typography>
                               <Typography component="span" variant="caption" color="text.secondary">
-                                {n.data}
+                                {formatRelativeTimeLabel(
+                                  n.dataISO ||
+                                    (typeof n.createdAt === "number"
+                                      ? new Date(n.createdAt).toISOString()
+                                      : null),
+                                )}
                               </Typography>
                             </>
                           }

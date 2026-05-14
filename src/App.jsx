@@ -20,7 +20,6 @@ import Produtos from "./pages/Produtos";
 import Estoque from "./pages/Estoque";
 import Compras from "./pages/Compras";
 import Fornecedores from "./pages/Fornecedores";
-import Financeiro from "./pages/Financeiro";
 import Fiscal from "./pages/Fiscal";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
@@ -111,13 +110,13 @@ function AppContent() {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="caixa" element={<Caixa />} />
-          <Route path="vendas/nova-movimentacao" element={<NovaMovimentacaoCaixa />} />
-          <Route path="vendas" element={<Vendas />} />
+          <Route path="vendas/nova-movimentacao" element={<Navigate to="/caixa/nova-movimentacao" replace />} />
+          <Route path="vendas" element={<Caixa />} />
+          <Route path="caixa/nova-movimentacao" element={<NovaMovimentacaoCaixa />} />
+          <Route path="caixa" element={<Vendas />} />
           <Route path="produtos" element={<Produtos />} />
           <Route path="estoque" element={<Estoque />} />
           <Route path="compras" element={<Compras />} />
-          <Route path="financeiro" element={<Financeiro />} />
           <Route path="fiscal" element={<Fiscal />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="fornecedores" element={<Fornecedores />} />

@@ -7,7 +7,6 @@ export const ROLES_FALLBACK = [
   { id: "vendedor", name: "vendedor", label: "Vendedor", description: "Vendas e atendimento." },
   { id: "caixa", name: "caixa", label: "Operador de Caixa", description: "Operações de caixa." },
   { id: "estoquista", name: "estoquista", label: "Estoquista", description: "Entrada e contagem de estoque." },
-  { id: "financeiro", name: "financeiro", label: "Financeiro", description: "Movimentações financeiras." },
 ];
 
 /** Converte role.label para valor usado em usuario.perfil (API atual). */
