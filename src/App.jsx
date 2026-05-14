@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import RecuperarSenha from "./pages/RecuperarSenha";
 import RedefinirSenha from "./pages/RedefinirSenha";
 import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
 import NovaMovimentacaoCaixa from "./pages/NovaMovimentacaoCaixa";
@@ -110,6 +111,7 @@ function AppContent() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="home" element={<Home />} />
           <Route path="vendas/nova-movimentacao" element={<Navigate to="/caixa/nova-movimentacao" replace />} />
           <Route path="vendas" element={<Caixa />} />
           <Route path="caixa/nova-movimentacao" element={<NovaMovimentacaoCaixa />} />
