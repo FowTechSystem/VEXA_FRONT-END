@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogActions,
   useTheme,
+  Tooltip,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import {
@@ -279,8 +280,8 @@ function Produtos() {
       precoCusto: num(p.precoCusto) ?? 0,
       precoVenda: num(p.precoVenda) ?? 0,
       estoqueMinimo: int(p.estoqueMinimo),
+      quantidadeEstoque: int(p.estoqueTotal),
     };
-    if (isCreate) payload.quantidadeEstoque = int(p.estoqueTotal);
     const optCodigo = str(p.codigoBarras);
     if (optCodigo) payload.codigoBarras = optCodigo;
 
@@ -411,6 +412,14 @@ function Produtos() {
       delete p.largura;
       delete p.altura;
       delete p.comprimento;
+      const qtdApi =
+        p.quantidadeEstoque ??
+        p.QuantidadeEstoque ??
+        p.estoqueTotal ??
+        p.estoque ??
+        "";
+      p.estoqueTotal =
+        qtdApi === "" || qtdApi == null ? "" : String(qtdApi);
       if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
         const found = listaFornecedores.find(
           (f) =>
@@ -564,9 +573,10 @@ function Produtos() {
     try {
       let fotoBase64 = null;
       let foto1Url = undefined;
+      let imagemUrlAposUpload = null;
 
       if (imagemProdutoFile) {
-        if (editMode) {
+        try {
           const uploadResult = await produtosService.uploadFoto(imagemProdutoFile);
           const novaUrl =
             uploadResult?.url ??
@@ -575,8 +585,9 @@ function Produtos() {
             uploadResult?.location ??
             (typeof uploadResult === "string" ? uploadResult : null);
           if (novaUrl) {
-            foto1Url = novaUrl;
-          } else {
+            imagemUrlAposUpload = novaUrl;
+            if (editMode) foto1Url = novaUrl;
+          } else if (editMode) {
             console.warn(
               "[Produtos] POST /produtos/upload-foto: resposta sem URL conhecida",
               uploadResult,
@@ -586,17 +597,32 @@ function Produtos() {
             );
             return;
           }
-        } else {
-          fotoBase64 = currentProduto.imagemPrincipal?.includes(",")
-            ? currentProduto.imagemPrincipal.split(",")[1]
-            : null;
+        } catch (uploadErr) {
+          if (editMode) {
+            console.error("[Produtos] Falha no upload da foto", uploadErr);
+            showError("Não foi possível enviar a imagem. Tente novamente.");
+            return;
+          }
+          console.warn("[Produtos] Upload na criação indisponível; usando base64 no JSON.", uploadErr);
         }
       }
+
+      if (imagemProdutoFile && !imagemUrlAposUpload) {
+        fotoBase64 = currentProduto.imagemPrincipal?.includes(",")
+          ? currentProduto.imagemPrincipal.split(",")[1]
+          : null;
+      }
+
+      const imagemPrincipalPayload =
+        imagemUrlAposUpload && !editMode
+          ? imagemUrlAposUpload
+          : currentProduto.imagemPrincipal;
 
       const produtoParaSalvar = toApiPayload(
         {
           ...currentProduto,
-          fotoBase64: editMode ? null : fotoBase64,
+          imagemPrincipal: imagemPrincipalPayload,
+          fotoBase64: editMode ? null : imagemUrlAposUpload ? null : fotoBase64,
           foto1Url: editMode ? foto1Url : undefined,
         },
         !editMode,
@@ -665,6 +691,15 @@ function Produtos() {
     setCurrentProduto((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleDigitsOnlyChange = (e) => {
+    const { name, value } = e.target;
+    const digits = String(value).replace(/\D/g, "");
+    setCurrentProduto((prev) => ({
+      ...prev,
+      [name]: digits,
     }));
   };
 
@@ -1040,13 +1075,22 @@ function Produtos() {
                         <Inventory sx={{ color: "primary.contrastText", fontSize: 24 }} />
                       </Avatar>
                       <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 500, color: "text.primary" }}
-                        >
-                          {produto.nome}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        <Tooltip title={produto.nome || ""} placement="top-start" enterDelay={400}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 500,
+                              color: "text.primary",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: { xs: 160, sm: 220, md: 280 },
+                            }}
+                          >
+                            {produto.nome}
+                          </Typography>
+                        </Tooltip>
+                        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: { xs: 200, sm: 260 } }}>
                           {nomeDe(produto.marca) || "—"} • SKU: {produto.sku || "—"}
                         </Typography>
                       </Box>
@@ -1122,21 +1166,38 @@ function Produtos() {
                   </TableCell>
                   <TableCell align="center">
                     <Chip
-                      label={produto.estoqueTotal || 0}
+                      label={
+                        produto.estoqueTotal ??
+                        produto.quantidadeEstoque ??
+                        produto.QuantidadeEstoque ??
+                        0
+                      }
                       size="small"
                       sx={{
                         bgcolor:
-                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueTotal ??
+                            produto.quantidadeEstoque ??
+                            produto.QuantidadeEstoque ??
+                            0) >
                           (produto.estoqueMinimo || 10)
                             ? (isDark ? "rgba(16, 185, 129, 0.2)" : "#dcfce7")
-                            : (produto.estoqueTotal || 0) > 0
+                            : (produto.estoqueTotal ??
+                                  produto.quantidadeEstoque ??
+                                  produto.QuantidadeEstoque ??
+                                  0) > 0
                               ? (isDark ? "rgba(245, 158, 11, 0.2)" : "#fef3c7")
                               : (isDark ? "rgba(239, 68, 68, 0.2)" : "#fee2e2"),
                         color:
-                          (produto.estoqueTotal || 0) >
+                          (produto.estoqueTotal ??
+                            produto.quantidadeEstoque ??
+                            produto.QuantidadeEstoque ??
+                            0) >
                           (produto.estoqueMinimo || 10)
                             ? (isDark ? "#34D399" : "#16a34a")
-                            : (produto.estoqueTotal || 0) > 0
+                            : (produto.estoqueTotal ??
+                                  produto.quantidadeEstoque ??
+                                  produto.QuantidadeEstoque ??
+                                  0) > 0
                               ? (isDark ? "#FBBF24" : "#d97706")
                               : (isDark ? "#F87171" : "#dc2626"),
                         fontWeight: 500,
@@ -1760,11 +1821,12 @@ function Produtos() {
                       fullWidth
                       name="codigoBarras"
                       value={currentProduto.codigoBarras}
-                      onChange={handleChange}
+                      onChange={handleDigitsOnlyChange}
                       size="small"
                       sx={modalFieldSx}
                       hiddenLabel
-                      placeholder="Opcional"
+                      placeholder="Opcional (apenas números)"
+                      inputProps={{ inputMode: "numeric", maxLength: 14 }}
                     />
                   </Box>
 
@@ -2009,10 +2071,11 @@ function Produtos() {
                       <TextField
                         fullWidth
                         name="estoqueTotal"
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={currentProduto.estoqueTotal}
-                        onChange={handleChange}
-                        inputProps={{ min: "0" }}
+                        onChange={handleDigitsOnlyChange}
+                        inputProps={{ min: "0", pattern: "[0-9]*" }}
                         size="small"
                         sx={modalFieldSx}
                         hiddenLabel
@@ -2024,10 +2087,11 @@ function Produtos() {
                       <TextField
                         fullWidth
                         name="estoqueMinimo"
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={currentProduto.estoqueMinimo}
-                        onChange={handleChange}
-                        inputProps={{ min: "0" }}
+                        onChange={handleDigitsOnlyChange}
+                        inputProps={{ min: "0", pattern: "[0-9]*" }}
                         size="small"
                         sx={modalFieldSx}
                         hiddenLabel

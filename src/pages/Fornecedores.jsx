@@ -318,8 +318,20 @@ function Fornecedores() {
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+  const handleDigitsOnlyChange = (e) => {
+    const { name, value } = e.target;
+    const digits = String(value).replace(/\D/g, "");
+    let lim = 15;
+    if (name === "cnpj") lim = 14;
+    else if (name === "cep") lim = 8;
+    else if (name === "telefone" || name === "whatsApp") lim = 11;
+    setCurrentFornecedor({
+      ...currentFornecedor,
+      [name]: digits.slice(0, lim),
+    });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: null });
+    }
   };
 
   const buscarCep = async () => {
@@ -726,15 +738,15 @@ function Fornecedores() {
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={4}><TextField fullWidth required label="Nome" name="nome" value={currentFornecedor.nome} onChange={handleChange} error={!!errors.nome} helperText={errors.nome} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Razão Social" name="razaoSocial" value={currentFornecedor.razaoSocial} onChange={handleChange} size="small" /></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth required label="CNPJ" name="cnpj" value={currentFornecedor.cnpj} onChange={handleChange} error={!!errors.cnpj} helperText={errors.cnpj} placeholder="00.000.000/0000-00" size="small" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth required label="CNPJ" name="cnpj" value={currentFornecedor.cnpj} onChange={handleDigitsOnlyChange} error={!!errors.cnpj} helperText={errors.cnpj || "Apenas números"} placeholder="00000000000000" inputProps={{ inputMode: "numeric" }} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Nome do Representante" name="nomeRepresentante" value={currentFornecedor.nomeRepresentante} onChange={handleChange} size="small" /></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentFornecedor.telefone} onChange={handleChange} placeholder="(00) 0000-0000" size="small" /></Grid>
-                <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentFornecedor.whatsApp} onChange={handleChange} placeholder="(00) 00000-0000" size="small" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentFornecedor.telefone} onChange={handleDigitsOnlyChange} placeholder="00000000000" inputProps={{ inputMode: "numeric" }} size="small" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentFornecedor.whatsApp} onChange={handleDigitsOnlyChange} placeholder="00000000000" inputProps={{ inputMode: "numeric" }} size="small" /></Grid>
                 <Grid item xs={12}><TextField fullWidth label="Email" name="email" type="email" value={currentFornecedor.email} onChange={handleChange} placeholder="fornecedor@exemplo.com" size="small" /></Grid>
               </Grid>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>Endereço</Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={4}><TextField fullWidth label="CEP" name="cep" value={currentFornecedor.cep} onChange={handleChange} onBlur={buscarCep} disabled={cepLoading} placeholder="00000-000" size="small" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="CEP" name="cep" value={currentFornecedor.cep} onChange={handleDigitsOnlyChange} onBlur={buscarCep} disabled={cepLoading} placeholder="00000000" inputProps={{ inputMode: "numeric", maxLength: 8 }} size="small" /></Grid>
                 <Grid item xs={12} md={8}><TextField fullWidth label="Rua" name="rua" value={currentFornecedor.rua} onChange={handleChange} disabled={cepLoading} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Número" name="numero" value={currentFornecedor.numero} onChange={handleChange} placeholder="Nº" size="small" /></Grid>
                 <Grid item xs={12} md={8}><TextField fullWidth label="Complemento" name="complemento" value={currentFornecedor.complemento} onChange={handleChange} placeholder="Apto, Sala, etc" size="small" /></Grid>

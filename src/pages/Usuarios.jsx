@@ -31,6 +31,7 @@ import {
   Divider,
   Autocomplete,
   useTheme,
+  CircularProgress,
 } from "@mui/material";
 import {
   Add,
@@ -161,7 +162,6 @@ function Usuarios() {
     "Vendas",
     "Marketing",
     "Suporte",
-    "Financeiro",
     "TI",
     "RH",
   ];
@@ -388,11 +388,13 @@ function Usuarios() {
 
   const handleEnderecoChange = (e) => {
     const { name, value } = e.target;
+    const nextVal =
+      name === "cep" ? String(value).replace(/\D/g, "").slice(0, 8) : value;
     setCurrentUsuario({
       ...currentUsuario,
       endereco: {
         ...currentUsuario.endereco,
-        [name]: value,
+        [name]: nextVal,
       },
     });
   };
@@ -1036,15 +1038,16 @@ function Usuarios() {
                     name="cpf"
                     value={currentUsuario.cpf}
                     onChange={(e) => {
-                      handleChange(e);
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      setCurrentUsuario({ ...currentUsuario, cpf: digits });
                       if (cpfError) setCpfError("");
                     }}
                     onBlur={handleCpfBlur}
-                    placeholder="000.000.000-00"
+                    placeholder="00000000000"
                     size="small"
                     error={!!cpfError}
-                    helperText={cpfError || "Validado ao sair do campo (11 dígitos)."}
-                    inputProps={{ maxLength: 14 }}
+                    helperText={cpfError || "Apenas números (11 dígitos)."}
+                    inputProps={{ inputMode: "numeric", maxLength: 11 }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -1054,7 +1057,19 @@ function Usuarios() {
                   <TextField fullWidth label="Data Nascimento" name="dataNascimento" type="date" value={currentUsuario.dataNascimento} onChange={handleChange} InputLabelProps={{ shrink: true }} size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="WhatsApp" name="whatsApp" value={currentUsuario.whatsApp ?? currentUsuario.telefone ?? ""} onChange={handleChange} placeholder="(00) 00000-0000" size="small" />
+                  <TextField
+                    fullWidth
+                    label="WhatsApp"
+                    name="whatsApp"
+                    value={currentUsuario.whatsApp ?? currentUsuario.telefone ?? ""}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      setCurrentUsuario({ ...currentUsuario, whatsApp: digits });
+                    }}
+                    placeholder="Somente números"
+                    size="small"
+                    inputProps={{ inputMode: "numeric" }}
+                  />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
@@ -1067,7 +1082,19 @@ function Usuarios() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="Telefone" name="telefone" value={currentUsuario.telefone ?? ""} onChange={handleChange} placeholder="(00) 0000-0000" size="small" />
+                  <TextField
+                    fullWidth
+                    label="Telefone"
+                    name="telefone"
+                    value={currentUsuario.telefone ?? ""}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                      setCurrentUsuario({ ...currentUsuario, telefone: digits });
+                    }}
+                    placeholder="Somente números"
+                    size="small"
+                    inputProps={{ inputMode: "numeric" }}
+                  />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>

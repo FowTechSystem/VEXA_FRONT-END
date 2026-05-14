@@ -42,7 +42,15 @@ function loadNotificacoesPersistidas() {
   try {
     const raw = localStorage.getItem(NOTIF_KEY);
     const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.map((n) => {
+      if (!n || typeof n !== "object") return n;
+      if (n.dataISO) return n;
+      if (typeof n.createdAt === "number" && !Number.isNaN(n.createdAt)) {
+        return { ...n, dataISO: new Date(n.createdAt).toISOString() };
+      }
+      return n;
+    });
   } catch {
     return [];
   }
@@ -50,22 +58,6 @@ function loadNotificacoesPersistidas() {
 
 function saveNotificacoes(arr) {
   localStorage.setItem(NOTIF_KEY, JSON.stringify(arr.slice(0, MAX_NOTIFICACOES)));
-}
-
-function formatDataLabel(iso) {
-  if (!iso) return "Agora";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Agora";
-  const diffMs = Date.now() - d.getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "Agora";
-  if (min < 60) return `Há ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `Há ${h} h`;
-  const days = Math.floor(h / 24);
-  if (days === 1) return "Ontem";
-  if (days < 7) return `Há ${days} dias`;
-  return d.toLocaleDateString("pt-BR");
 }
 
 const InAppNotificationContext = createContext(null);
@@ -84,11 +76,15 @@ export function InAppNotificationProvider({ children }) {
   const adicionarNotificacaoCaixa = useCallback(
     (texto, dataISO, chave) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const resolvedIso =
+        dataISO && String(dataISO).trim() !== ""
+          ? String(dataISO).trim()
+          : new Date().toISOString();
       const item = {
         id,
         titulo: TITULO_CAIXA,
         texto,
-        data: formatDataLabel(dataISO),
+        dataISO: resolvedIso,
         lida: false,
         chave,
         createdAt: Date.now(),

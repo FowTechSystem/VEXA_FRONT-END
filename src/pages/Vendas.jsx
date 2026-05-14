@@ -323,19 +323,19 @@ function Movimentacoes() {
                 color: theme.palette.text.primary,
               }}
             >
-              Movimentações
+              Caixa
             </Typography>
             <Typography
               variant="body2"
               sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
             >
-              Gerencie todas as movimentações financeiras do sistema
+              Movimentações, saldo e histórico do caixa da loja
             </Typography>
           </Box>
           <Button
             variant="contained"
             startIcon={<AttachMoney />}
-            onClick={() => navigate("/vendas/nova-movimentacao")}
+            onClick={() => navigate("/caixa/nova-movimentacao")}
             sx={{
               bgcolor: "primary.main",
               color: "primary.contrastText",

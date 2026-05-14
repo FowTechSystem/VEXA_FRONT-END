@@ -13,7 +13,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      port: 5173,
+      // Porta dedicada ao VEXA CRM para não conflitar com outros Vites (ex.: BarberPro na 5173).
+      port: 5188,
+      strictPort: true,
       host: true,
       proxy: {
         "/api": {
