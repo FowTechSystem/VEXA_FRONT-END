@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/Vendas.jsx — Caixa (movimentações)
+// Layout padronizado com o PDV/Condicional — fullscreen, grid, sem boxes coloridos.
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -14,20 +16,18 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Card,
-  CardContent,
   Grid,
   IconButton,
   Menu,
   MenuItem,
   Stack,
   Divider,
-  Container,
   Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
   useTheme,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
@@ -49,6 +49,7 @@ import {
   Person,
   Payment,
   FileDownload,
+  Add,
 } from "@mui/icons-material";
 import { caixaService } from "../api/caixaService";
 import { vendasService } from "../api/vendasService";
@@ -59,6 +60,10 @@ import {
   valorMovimentacaoAssinado,
 } from "../utils/movimentacaoCaixa";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
+import NovaMovimentacaoDialog from "../components/Caixa/NovaMovimentacaoDialog";
+
+const fmtBRL = (v) =>
+  `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function apiErrMessage(err) {
   const d = err?.response?.data;
@@ -67,12 +72,58 @@ function apiErrMessage(err) {
   return err?.message || "Operação não concluída.";
 }
 
+// ─── Helper: Summary card (sidebar) ─────────────────────────────────────────
+function SummaryCard({ label, value, color, accent, isDark }) {
+  return (
+    <Box
+      sx={{
+        p: 1.25,
+        borderRadius: 2,
+        border: accent ? "2px solid" : "1px solid",
+        borderColor: accent ? color : "divider",
+        bgcolor: "background.paper",
+        background: accent ? alpha(color, isDark ? 0.1 : 0.06) : undefined,
+        display: "flex",
+        flexDirection: "column",
+        gap: 0.25,
+        minHeight: 64,
+      }}
+    >
+      <Typography
+        sx={{
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          color: "text.secondary",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          fontWeight: 900,
+          fontSize: accent ? 22 : 18,
+          color: accent ? color : "text.primary",
+          lineHeight: 1.1,
+          mt: 0.25,
+          wordBreak: "break-word",
+        }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 function Movimentacoes() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isDark = theme.palette.mode === "dark";
   const { sincronizarMovimentacoesDoCaixa } = useInAppNotifications();
 
+  // ─── Estado ────────────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [anchorEl, setAnchorEl] = useState(null);
@@ -81,6 +132,7 @@ function Movimentacoes() {
   const [dialogExcluirOpen, setDialogExcluirOpen] = useState(false);
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [excluindo, setExcluindo] = useState(false);
+  const [novaMovOpen, setNovaMovOpen] = useState(false);
 
   const [totalEntradas, setTotalEntradas] = useState(0);
   const [totalSaidas, setTotalSaidas] = useState(0);
@@ -96,8 +148,33 @@ function Movimentacoes() {
     return new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString().split("T")[0];
   });
 
-  const totais = { entradas: totalEntradas, saidas: totalSaidas, saldo: saldoAtual };
+  // ─── Ticket colors (mesmo padrão do Caixa) ────────────────────────────────
+  const ticket = useMemo(() => {
+    if (isDark) {
+      return {
+        text: "#e0e0e0",
+        headerBg: alpha(theme.palette.primary.main, 0.08),
+        theadBg: alpha("#fff", 0.04),
+        rowStripe: alpha("#fff", 0.02),
+        rowBorder: alpha("#fff", 0.06),
+        emptyIcon: alpha("#fff", 0.15),
+      };
+    }
+    return {
+      text: "#1a1a1a",
+      headerBg: "#e3f2fd",
+      theadBg: "#f5f5f5",
+      rowStripe: "rgba(0,0,0,0.02)",
+      rowBorder: "rgba(0,0,0,0.06)",
+      emptyIcon: "#b0bec5",
+    };
+  }, [isDark, theme]);
 
+  const corEntrada = isDark ? "#22c55e" : "#16a34a";
+  const corSaida = isDark ? "#ef4444" : "#dc2626";
+  const corSaldo = theme.palette.primary.main;
+
+  // ─── Carregar dados ────────────────────────────────────────────────────────
   const carregarMovimentacoes = () => {
     setCarregandoMovimentacoes(true);
     caixaService
@@ -168,7 +245,19 @@ function Movimentacoes() {
 
   useEffect(() => {
     carregarMovimentacoes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataInicio, dataFim]);
+
+  // Abre o dialog automaticamente quando a URL tem ?novaMov=1 (atalhos da Home)
+  useEffect(() => {
+    if (searchParams.get("novaMov") === "1") {
+      setNovaMovOpen(true);
+      // Remove o param da URL após abrir
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("novaMov");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const movimentacoesFiltradas = movimentacoes.filter((mov) => {
     const matchSearch =
@@ -185,14 +274,13 @@ function Movimentacoes() {
     return matchSearch && matchTipo;
   });
 
+  // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleMenuOpen = (event, movimentacao) => {
     setAnchorEl(event.currentTarget);
     setMovimentacaoSelecionada(movimentacao);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleMenuClose = () => setAnchorEl(null);
 
   const handleVisualizarDetalhes = () => {
     setModalDetalhesAberto(true);
@@ -236,11 +324,7 @@ function Movimentacoes() {
       } else {
         await caixaService.excluirMovimentacaoManual(mov.id);
       }
-      showSuccess(
-        mov.exclusaoTipo === "venda"
-          ? "Venda cancelada."
-          : "Registro excluído.",
-      );
+      showSuccess(mov.exclusaoTipo === "venda" ? "Venda cancelada." : "Registro excluído.");
       setDialogExcluirOpen(false);
       setMovimentacaoSelecionada(null);
       carregarMovimentacoes();
@@ -255,1272 +339,714 @@ function Movimentacoes() {
     const configs = {
       venda: {
         label: "Venda",
-        color: isDark ? "#22c55e" : "#16a34a",
-        bgcolor: isDark ? "rgba(34, 197, 94, 0.15)" : "#dcfce7",
-        icon: <ShoppingCart />,
+        color: corEntrada,
+        bgcolor: alpha(corEntrada, isDark ? 0.18 : 0.12),
+        icon: <ShoppingCart sx={{ fontSize: 14 }} />,
       },
       compra: {
         label: "Compra",
-        color: isDark ? "#ef4444" : "#dc2626",
-        bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fee2e2",
-        icon: <Receipt />,
+        color: corSaida,
+        bgcolor: alpha(corSaida, isDark ? 0.18 : 0.12),
+        icon: <Receipt sx={{ fontSize: 14 }} />,
       },
       entrada: {
-        label: "Lucro",
-        color: isDark ? vexaColors.preto : vexaColors.azulEscuro,
-        bgcolor: isDark
-          ? alpha(vexaColors.amareloNeon, 0.42)
-          : alpha(vexaColors.amareloNeon, 0.22),
-        icon: <TrendingUp />,
+        label: "Entrada",
+        color: isDark ? vexaColors.amareloNeon : vexaColors.azulEscuro,
+        bgcolor: alpha(vexaColors.amareloNeon, isDark ? 0.22 : 0.28),
+        icon: <TrendingUp sx={{ fontSize: 14 }} />,
       },
       saida: {
         label: "Despesa",
         color: isDark ? "#f59e0b" : "#ea580c",
-        bgcolor: isDark ? "rgba(245, 158, 11, 0.15)" : "#fef3c7",
-        icon: <TrendingDown />,
+        bgcolor: alpha("#f59e0b", isDark ? 0.18 : 0.16),
+        icon: <TrendingDown sx={{ fontSize: 14 }} />,
       },
       outro: {
         label: "Movimentação",
         color: isDark ? vexaColors.cinzaAzulado : vexaColors.azulEscuro,
-        bgcolor: isDark
-          ? alpha(vexaColors.cinzaAzulado, 0.18)
-          : alpha(vexaColors.cinzaAzulado, 0.14),
-        icon: <Receipt />,
+        bgcolor: alpha(vexaColors.cinzaAzulado, 0.16),
+        icon: <Receipt sx={{ fontSize: 14 }} />,
       },
     };
     return configs[tipo] || configs.outro;
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
   return (
     <Box
       sx={{
-        bgcolor: theme.palette.background.default,
-        minHeight: "100vh",
-        color: theme.palette.text.primary,
+        flex: 1,
+        minHeight: "calc(100dvh - 64px)",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "background.default",
+        color: "text.primary",
+        overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* ═══ Header ═══ */}
       <Box
         sx={{
-          bgcolor: theme.palette.background.paper,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          px: 4,
-          py: 3,
+          px: { xs: 1.5, md: 2.5 },
+          py: 1.25,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <AttachMoney sx={{ fontSize: 26, color: "primary.main" }} />
           <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 700,
-                color: theme.palette.text.primary,
-              }}
-            >
+            <Typography sx={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
               Caixa
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, mt: 0.5 }}
-            >
-              Movimentações, saldo e histórico do caixa da loja
+            <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+              Movimentações, saldo e histórico
             </Typography>
           </Box>
+        </Box>
+        <Stack direction="row" spacing={1.25} alignItems="center">
+          <Chip
+            label={`${movimentacoesFiltradas.length} ${movimentacoesFiltradas.length === 1 ? "registro" : "registros"}`}
+            color={movimentacoesFiltradas.length > 0 ? "primary" : "default"}
+            sx={{ fontWeight: 800, height: 28 }}
+          />
           <Button
             variant="contained"
-            startIcon={<AttachMoney />}
-            onClick={() => navigate("/caixa/nova-movimentacao")}
-            sx={{
-              bgcolor: "primary.main",
-              color: "primary.contrastText",
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              "&:hover": {
-                bgcolor: "primary.dark",
-              },
-            }}
+            startIcon={<Add />}
+            onClick={() => setNovaMovOpen(true)}
+            sx={{ textTransform: "none", fontWeight: 700, height: 36 }}
           >
             Nova Movimentação
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Filtro de período */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            mb: 3,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper,
-          }}
-        >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Data Início"
-                type="date"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Data Fim"
-                type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {/* Cards de Resumo */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Card Entradas */}
-          <Grid item xs={12} md={4}>
-            <Card
-              elevation={0}
-              sx={{
-                border: `2px solid ${isDark ? "rgba(34, 197, 94, 0.3)" : "#dcfce7"}`,
-                borderRadius: 2,
-                bgcolor: isDark ? "rgba(34, 197, 94, 0.08)" : "#f0fdf4",
-              }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: isDark ? "#22c55e" : "#16a34a",
-                        fontWeight: 600,
-                        mb: 1,
-                      }}
-                    >
-                      Total de Entradas
-                    </Typography>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 700,
-                        color: isDark ? "#22c55e" : "#16a34a",
-                      }}
-                    >
-                      {carregandoMovimentacoes ? "..." : `R$ ${totais.entradas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    </Typography>
-                  </Box>
-                  <Avatar
-                    sx={{
-                      bgcolor: isDark ? "#22c55e" : "#16a34a",
-                      width: 40,
-                      height: 40,
-                    }}
-                  >
-                    <TrendingUp sx={{ fontSize: 22 }} />
-                  </Avatar>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card Saídas */}
-          <Grid item xs={12} md={4}>
-            <Card
-              elevation={0}
-              sx={{
-                border: `2px solid ${isDark ? "rgba(239, 68, 68, 0.3)" : "#fee2e2"}`,
-                borderRadius: 2,
-                bgcolor: isDark ? "rgba(239, 68, 68, 0.08)" : "#fef2f2",
-              }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: isDark ? "#ef4444" : "#dc2626",
-                        fontWeight: 600,
-                        mb: 1,
-                      }}
-                    >
-                      Total de Saídas
-                    </Typography>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 700,
-                        color: isDark ? "#ef4444" : "#dc2626",
-                      }}
-                    >
-                      {carregandoMovimentacoes ? "..." : `R$ ${totais.saidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    </Typography>
-                  </Box>
-                  <Avatar
-                    sx={{
-                      bgcolor: isDark ? "#ef4444" : "#dc2626",
-                      width: 40,
-                      height: 40,
-                    }}
-                  >
-                    <TrendingDown sx={{ fontSize: 22 }} />
-                  </Avatar>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card Saldo */}
-          <Grid item xs={12} md={4}>
-            <Card
-              elevation={0}
-              sx={{
-                border: `2px solid ${alpha(theme.palette.primary.main, isDark ? 0.45 : 0.4)}`,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.12 : 0.08),
-              }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "primary.main",
-                        fontWeight: 600,
-                        mb: 1,
-                      }}
-                    >
-                      Saldo Atual
-                    </Typography>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 700,
-                        color: "primary.main",
-                      }}
-                    >
-                      {carregandoMovimentacoes ? "..." : `R$ ${totais.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    </Typography>
-                  </Box>
-                  <Avatar
-                    sx={{
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      width: 40,
-                      height: 40,
-                    }}
-                  >
-                    <AttachMoney sx={{ fontSize: 22 }} />
-                  </Avatar>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Filtros e Busca */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            mb: 3,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper,
-          }}
-        >
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                placeholder="Buscar por descrição, cliente ou fornecedor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    color: theme.palette.text.primary,
-                    "& fieldset": {
-                      borderColor: theme.palette.divider,
-                    },
-                    "&:hover fieldset": {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: theme.palette.text.secondary }} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
-                <Button
-                  variant={filtroTipo === "todos" ? "contained" : "outlined"}
-                  onClick={() => setFiltroTipo("todos")}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    ...(filtroTipo === "todos" && {
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      "&:hover": {
-                        bgcolor: "primary.dark",
-                      },
-                    }),
-                    ...(filtroTipo !== "todos" && {
-                      borderColor: theme.palette.divider,
-                      color: theme.palette.text.primary,
-                      "&:hover": {
-                        borderColor: theme.palette.primary.main,
-                        bgcolor: theme.palette.action.hover,
-                      },
-                    }),
-                  }}
-                >
-                  Todos
-                </Button>
-                <Button
-                  variant={filtroTipo === "entradas" ? "contained" : "outlined"}
-                  onClick={() => setFiltroTipo("entradas")}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    ...(filtroTipo === "entradas" && {
-                      bgcolor: isDark ? "#22c55e" : "#16a34a",
-                      color: "primary.contrastText",
-                      "&:hover": {
-                        bgcolor: isDark ? "#16a34a" : "#15803d",
-                      },
-                    }),
-                    ...(filtroTipo !== "entradas" && {
-                      borderColor: theme.palette.divider,
-                      color: theme.palette.text.primary,
-                      "&:hover": {
-                        borderColor: "#22c55e",
-                        bgcolor: theme.palette.action.hover,
-                      },
-                    }),
-                  }}
-                >
-                  Entradas
-                </Button>
-                <Button
-                  variant={filtroTipo === "saidas" ? "contained" : "outlined"}
-                  onClick={() => setFiltroTipo("saidas")}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    ...(filtroTipo === "saidas" && {
-                      bgcolor: isDark ? "#ef4444" : "#dc2626",
-                      color: "primary.contrastText",
-                      "&:hover": {
-                        bgcolor: isDark ? "#dc2626" : "#b91c1c",
-                      },
-                    }),
-                    ...(filtroTipo !== "saidas" && {
-                      borderColor: theme.palette.divider,
-                      color: theme.palette.text.primary,
-                      "&:hover": {
-                        borderColor: "#ef4444",
-                        bgcolor: theme.palette.action.hover,
-                      },
-                    }),
-                  }}
-                >
-                  Saídas
-                </Button>
-                <Divider
-                  orientation="vertical"
-                  flexItem
-                  sx={{ borderColor: theme.palette.divider }}
+      {/* ═══ Conteúdo ═══ */}
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}>
+          {/* ── Coluna principal (9/12) ── */}
+          <Grid size={{ xs: 12, lg: 9 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* Linha de filtros: Datas + Busca + Tipos + Ações */}
+            <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
+              <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Data início"
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
                 />
-                <IconButton
-                  onClick={carregarMovimentacoes}
-                  disabled={carregandoMovimentacoes}
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    color: theme.palette.text.primary,
-                    "&:hover": {
-                      bgcolor: theme.palette.action.hover,
-                    },
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Data fim"
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Buscar"
+                  placeholder="Descrição, cliente ou fornecedor…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary", fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchTerm ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setSearchTerm("")}>
+                          <Close fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
                   }}
-                  title="Atualizar"
-                >
-                  <Refresh />
-                </IconButton>
-                <IconButton
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    color: theme.palette.text.primary,
-                    "&:hover": {
-                      bgcolor: theme.palette.action.hover,
-                    },
-                  }}
-                >
-                  <FileDownload />
-                </IconButton>
-              </Stack>
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack direction="row" spacing={0.75} sx={{ height: "100%" }}>
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={filtroTipo === "todos" ? "contained" : "outlined"}
+                    onClick={() => setFiltroTipo("todos")}
+                    sx={{ textTransform: "none", fontWeight: 700, height: 40 }}
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={filtroTipo === "entradas" ? "contained" : "outlined"}
+                    onClick={() => setFiltroTipo("entradas")}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 700,
+                      height: 40,
+                      ...(filtroTipo === "entradas" && {
+                        bgcolor: corEntrada,
+                        color: "#fff",
+                        "&:hover": { bgcolor: alpha(corEntrada, 0.85) },
+                      }),
+                      ...(filtroTipo !== "entradas" && {
+                        borderColor: alpha(corEntrada, 0.5),
+                        color: corEntrada,
+                        "&:hover": { borderColor: corEntrada, bgcolor: alpha(corEntrada, 0.06) },
+                      }),
+                    }}
+                  >
+                    Entradas
+                  </Button>
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={filtroTipo === "saidas" ? "contained" : "outlined"}
+                    onClick={() => setFiltroTipo("saidas")}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 700,
+                      height: 40,
+                      ...(filtroTipo === "saidas" && {
+                        bgcolor: corSaida,
+                        color: "#fff",
+                        "&:hover": { bgcolor: alpha(corSaida, 0.85) },
+                      }),
+                      ...(filtroTipo !== "saidas" && {
+                        borderColor: alpha(corSaida, 0.5),
+                        color: corSaida,
+                        "&:hover": { borderColor: corSaida, bgcolor: alpha(corSaida, 0.06) },
+                      }),
+                    }}
+                  >
+                    Saídas
+                  </Button>
+                  <Tooltip title="Atualizar">
+                    <span>
+                      <IconButton
+                        onClick={carregarMovimentacoes}
+                        disabled={carregandoMovimentacoes}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          height: 40,
+                          width: 40,
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Refresh fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Exportar">
+                    <IconButton
+                      sx={{
+                        border: "1px solid",
+                        borderColor: "divider",
+                        height: 40,
+                        width: 40,
+                        borderRadius: 1,
+                      }}
+                    >
+                      <FileDownload fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Grid>
             </Grid>
-          </Grid>
-        </Paper>
 
-        {/* Tabela de Movimentações */}
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper,
-            overflow: "hidden",
-          }}
-        >
-          <TableContainer sx={{ maxHeight: "70vh" }}>
-            <Table>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    bgcolor: "action.hover",
-                  }}
-                >
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
-                    Tipo
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
-                    Descrição
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
-                    Data
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                    align="right"
-                  >
-                    Valor
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
-                    Pagamento
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                  >
-                    Status
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: theme.palette.text.primary,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                    }}
-                    align="center"
-                  >
-                    Ações
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {carregandoMovimentacoes ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Carregando movimentações...
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : movimentacoesFiltradas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                      <Box sx={{ color: theme.palette.text.secondary }}>
-                        <Receipt sx={{ fontSize: 80, mb: 2, opacity: 0.3 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                          Nenhuma movimentação encontrada no período
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  movimentacoesFiltradas.map((mov) => {
-                    const tipoConfig = getTipoConfig(mov.tipo);
-                    return (
-                      <TableRow
-                        key={mov.id}
-                        hover
-                        sx={{
-                          "&:hover": {
-                            bgcolor: theme.palette.action.hover,
-                          },
-                          borderBottom: `1px solid ${theme.palette.divider}`,
-                        }}
-                      >
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Chip
-                            icon={tipoConfig.icon}
-                            label={tipoConfig.label}
-                            sx={{
-                              bgcolor: tipoConfig.bgcolor,
-                              color: tipoConfig.color,
-                              fontWeight: 600,
-                              "& .MuiChip-icon": {
-                                color: tipoConfig.color,
-                              },
-                            }}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 600,
-                              color: theme.palette.text.primary,
-                            }}
-                          >
-                            {mov.descricao}
-                          </Typography>
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 500,
-                              color: theme.palette.text.primary,
-                            }}
-                          >
-                            {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
-                          </Typography>
-                        </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              fontWeight: 700,
-                              color:
-                                mov.valor > 0
-                                  ? isDark
-                                    ? "#22c55e"
-                                    : "#16a34a"
-                                  : isDark
-                                    ? "#ef4444"
-                                    : "#dc2626",
-                            }}
-                          >
-                            {mov.valor > 0 ? "+ " : "- "}R${" "}
-                            {Math.abs(mov.valor).toFixed(2)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Chip
-                            label={mov.formaPagamento}
-                            size="small"
-                            sx={{
-                              bgcolor: isDark
-                                ? "rgba(255, 255, 255, 0.08)"
-                                : theme.palette.action.selected,
-                              color: theme.palette.text.secondary,
-                              fontWeight: 500,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <Chip
-                            label="Concluído"
-                            size="small"
-                            sx={(t) => ({
-                              fontWeight: 600,
-                              ...(t.palette.mode === "dark"
-                                ? {
-                                    bgcolor: "success.dark",
-                                    color: "common.white",
-                                    border: "1px solid",
-                                    borderColor: "success.main",
-                                  }
-                                : {
-                                    bgcolor: "success.light",
-                                    color: "success.dark",
-                                    border: "1px solid",
-                                    borderColor: "success.main",
-                                  }),
-                            })}
-                          />
-                        </TableCell>
-                        <TableCell
-                          align="center"
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuOpen(e, mov)}
-                            sx={{
-                              color: theme.palette.text.primary,
-                              "&:hover": {
-                                bgcolor: theme.palette.action.hover,
-                              },
-                            }}
-                          >
-                            <MoreVert />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* Menu de Ações */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              minWidth: 180,
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-            },
-          }}
-        >
-          <MenuItem
-            onClick={handleVisualizarDetalhes}
-            sx={{
-              py: 1.5,
-              "&:hover": {
-                bgcolor: theme.palette.action.hover,
-              },
-            }}
-          >
-            <Visibility
-              sx={{ mr: 1.5, color: "primary.main" }}
-            />
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 500,
-                color: theme.palette.text.primary,
-              }}
-            >
-              Visualizar
-            </Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={handleMenuClose}
-            sx={{
-              py: 1.5,
-              "&:hover": {
-                bgcolor: theme.palette.action.hover,
-              },
-            }}
-          >
-            <Edit sx={{ mr: 1.5, color: "#f59e0b" }} />
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 500,
-                color: theme.palette.text.primary,
-              }}
-            >
-              Editar
-            </Typography>
-          </MenuItem>
-          <Divider sx={{ borderColor: theme.palette.divider }} />
-          <MenuItem
-            onClick={handleAbrirExcluir}
-            disabled={!movimentacaoSelecionada?.exclusaoTipo}
-            sx={{
-              py: 1.5,
-              "&:hover": {
-                bgcolor: theme.palette.action.hover,
-              },
-            }}
-          >
-            <Delete sx={{ mr: 1.5, color: isDark ? "#ef4444" : "#dc2626" }} />
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 500,
-                color: isDark ? "#ef4444" : "#dc2626",
-              }}
-            >
-              Excluir
-            </Typography>
-          </MenuItem>
-        </Menu>
-
-        <Dialog
-          open={dialogExcluirOpen}
-          onClose={handleFecharDialogExcluir}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-            },
-          }}
-        >
-          <DialogTitle sx={{ fontWeight: 600, color: "text.primary" }}>
-            {movimentacaoSelecionada?.exclusaoTipo === "venda"
-              ? "Cancelar esta venda?"
-              : movimentacaoSelecionada?.exclusaoTipo === "compra"
-                ? "Excluir esta compra?"
-                : "Excluir esta movimentação?"}
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {movimentacaoSelecionada?.exclusaoTipo === "venda"
-                ? "A venda será cancelada no sistema (estorno de estoque e totais dependem do backend)."
-                : movimentacaoSelecionada?.exclusaoTipo === "compra"
-                  ? "A compra será removida permanentemente, se o servidor permitir."
-                  : "A movimentação manual será removida do caixa."}
-            </Typography>
-            {movimentacaoSelecionada?.exclusaoTipo === "venda" && (
-              <TextField
-                fullWidth
-                size="small"
-                label="Motivo (opcional)"
-                value={motivoCancelamento}
-                onChange={(e) => setMotivoCancelamento(e.target.value)}
-                placeholder="Ex.: erro no lançamento"
-                sx={{ mt: 1 }}
-              />
-            )}
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-            <Button onClick={handleFecharDialogExcluir} disabled={excluindo} sx={{ textTransform: "none" }}>
-              Voltar
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleConfirmarExclusao}
-              disabled={excluindo}
-              sx={{ textTransform: "none" }}
-            >
-              {excluindo ? "Processando…" : "Confirmar"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Modal de Detalhes */}
-        <Dialog
-          open={modalDetalhesAberto}
-          onClose={handleFecharModal}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${theme.palette.divider}`,
-            },
-          }}
-        >
-          <DialogTitle
-            sx={{
-              bgcolor: "action.hover",
-              borderBottom: `1px solid ${theme.palette.divider}`,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              py: 2.5,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Avatar
-                sx={{
-                  bgcolor: getTipoConfig(movimentacaoSelecionada?.tipo).color,
-                  width: 48,
-                  height: 48,
-                }}
-              >
-                {getTipoConfig(movimentacaoSelecionada?.tipo).icon}
-              </Avatar>
-              <Box>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: theme.palette.text.primary,
-                  }}
-                >
-                  Detalhes da Movimentação
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ color: theme.palette.text.secondary }}
-                >
-                  {movimentacaoSelecionada?.descricao}
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton
-              onClick={handleFecharModal}
-              size="small"
-              sx={{
-                color: theme.palette.text.primary,
-                "&:hover": {
-                  bgcolor: theme.palette.action.hover,
-                },
-              }}
-            >
-              <Close />
-            </IconButton>
-          </DialogTitle>
-
-          <DialogContent sx={{ p: 4, bgcolor: theme.palette.background.paper }}>
-            {movimentacaoSelecionada && (
-              <Stack spacing={3}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 4,
-                    textAlign: "center",
-                    bgcolor:
-                      movimentacaoSelecionada.valor > 0
-                        ? isDark
-                          ? "rgba(34, 197, 94, 0.15)"
-                          : "#dcfce7"
-                        : isDark
-                          ? "rgba(239, 68, 68, 0.15)"
-                          : "#fee2e2",
-                    border: `2px solid ${
-                      movimentacaoSelecionada.valor > 0
-                        ? isDark
-                          ? "#22c55e"
-                          : "#16a34a"
-                        : isDark
-                          ? "#ef4444"
-                          : "#dc2626"
-                    }`,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color:
-                        movimentacaoSelecionada.valor > 0
-                          ? isDark
-                            ? "#22c55e"
-                            : "#16a34a"
-                          : isDark
-                            ? "#ef4444"
-                            : "#dc2626",
-                      fontWeight: 600,
-                      mb: 1,
-                    }}
-                  >
-                    VALOR DA MOVIMENTAÇÃO
-                  </Typography>
-                  <Typography
-                    variant="h3"
-                    sx={{
-                      fontWeight: 700,
-                      color:
-                        movimentacaoSelecionada.valor > 0
-                          ? isDark
-                            ? "#22c55e"
-                            : "#16a34a"
-                          : isDark
-                            ? "#ef4444"
-                            : "#dc2626",
-                    }}
-                  >
-                    {movimentacaoSelecionada.valor > 0 ? "+ " : "- "}R${" "}
-                    {Math.abs(movimentacaoSelecionada.valor).toFixed(2)}
-                  </Typography>
-                </Paper>
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2.5,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 2,
-                        bgcolor: theme.palette.background.paper,
-                      }}
-                    >
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", mb: 1 }}
-                      >
-                        <CalendarToday
-                          sx={{
-                            fontSize: 20,
-                            color: theme.palette.text.secondary,
-                            mr: 1,
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: theme.palette.text.secondary,
-                            fontWeight: 600,
-                          }}
-                        >
-                          DATA E HORA
-                        </Typography>
-                      </Box>
-                      <Typography
-                        variant="body1"
-                        sx={{
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        {new Date(
-                          movimentacaoSelecionada.data,
-                        ).toLocaleDateString("pt-BR")}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{ color: theme.palette.text.secondary }}
-                      >
-                        {movimentacaoSelecionada.hora}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2.5,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 2,
-                        bgcolor: theme.palette.background.paper,
-                      }}
-                    >
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", mb: 1 }}
-                      >
-                        <Payment
-                          sx={{
-                            fontSize: 20,
-                            color: theme.palette.text.secondary,
-                            mr: 1,
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: theme.palette.text.secondary,
-                            fontWeight: 600,
-                          }}
-                        >
-                          FORMA DE PAGAMENTO
-                        </Typography>
-                      </Box>
-                      <Typography
-                        variant="body1"
-                        sx={{
-                          fontWeight: 600,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        {movimentacaoSelecionada.formaPagamento}
-                      </Typography>
-                    </Paper>
-                  </Grid>
-
-                  {(movimentacaoSelecionada.cliente ||
-                    movimentacaoSelecionada.fornecedor) && (
-                    <Grid item xs={12}>
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          p: 2.5,
-                          border: `1px solid ${theme.palette.divider}`,
-                          borderRadius: 2,
-                          bgcolor: theme.palette.background.paper,
-                        }}
-                      >
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", mb: 1 }}
-                        >
-                          <Person
-                            sx={{
-                              fontSize: 20,
-                              color: theme.palette.text.secondary,
-                              mr: 1,
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: theme.palette.text.secondary,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {movimentacaoSelecionada.cliente
-                              ? "CLIENTE"
-                              : "FORNECEDOR"}
-                          </Typography>
-                        </Box>
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            fontWeight: 600,
-                            color: theme.palette.text.primary,
-                          }}
-                        >
-                          {movimentacaoSelecionada.cliente ||
-                            movimentacaoSelecionada.fornecedor}
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                  )}
-                </Grid>
-
-                {movimentacaoSelecionada.observacoes && (
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 3,
-                      bgcolor: isDark ? "rgba(245, 158, 11, 0.1)" : "#fefce8",
-                      border: `1px solid ${
-                        isDark ? "rgba(245, 158, 11, 0.3)" : "#fde047"
-                      }`,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: isDark ? "#fbbf24" : "#854d0e",
-                        fontWeight: 600,
-                        mb: 1,
-                        display: "block",
-                      }}
-                    >
-                      OBSERVAÇÕES
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: theme.palette.text.primary, mt: 1 }}
-                    >
-                      {movimentacaoSelecionada.observacoes}
-                    </Typography>
-                  </Paper>
-                )}
-
-                {movimentacaoSelecionada.itens && (
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 3,
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: 2,
-                      bgcolor: theme.palette.background.paper,
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 700,
-                        mb: 2,
-                        color: theme.palette.text.primary,
-                      }}
-                    >
-                      ITENS DA VENDA
-                    </Typography>
-                    <Stack spacing={1.5}>
-                      {movimentacaoSelecionada.itens.map((item, index) => (
-                        <Box
-                          key={index}
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            p: 2,
-                            bgcolor: isDark
-                              ? "rgba(255, 255, 255, 0.05)"
-                              : theme.palette.action.hover,
-                            borderRadius: 1,
-                          }}
-                        >
-                          <Box>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 600,
-                                color: theme.palette.text.primary,
-                              }}
-                            >
-                              {item.nome}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: theme.palette.text.secondary }}
-                            >
-                              {item.quantidade}x R${" "}
-                              {item.valorUnitario.toFixed(2)}
-                            </Typography>
-                          </Box>
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              fontWeight: 700,
-                              color: theme.palette.text.primary,
-                            }}
-                          >
-                            R${" "}
-                            {(item.quantidade * item.valorUnitario).toFixed(2)}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Paper>
-                )}
-              </Stack>
-            )}
-          </DialogContent>
-
-          <DialogActions
-            sx={{
-              p: 3,
-              bgcolor: "action.hover",
-              borderTop: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <Button
-              onClick={handleFecharModal}
+            {/* Tabela de movimentações */}
+            <Paper
               variant="outlined"
               sx={{
-                textTransform: "none",
-                fontWeight: 600,
-                borderColor: theme.palette.divider,
-                color: theme.palette.text.primary,
-                "&:hover": {
-                  borderColor: theme.palette.primary.main,
-                  bgcolor: theme.palette.action.hover,
-                },
+                flex: 1,
+                minHeight: 280,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                bgcolor: "background.paper",
               }}
             >
-              Fechar
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Edit />}
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  bgcolor: ticket.headerBg,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: 13,
+                    color: isDark ? "primary.light" : "#1565c0",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Movimentações do período
+                </Typography>
+                {movimentacoesFiltradas.length > 0 && (
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary" }}>
+                    {movimentacoesFiltradas.length} {movimentacoesFiltradas.length === 1 ? "item" : "itens"}
+                  </Typography>
+                )}
+              </Box>
+
+              <TableContainer sx={{ flex: 1, minHeight: 0 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        "& th": {
+                          bgcolor: ticket.theadBg,
+                          color: ticket.text,
+                          fontWeight: 700,
+                          fontSize: 11,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        },
+                      }}
+                    >
+                      <TableCell width={120}>Tipo</TableCell>
+                      <TableCell>Descrição</TableCell>
+                      <TableCell width={120}>Data</TableCell>
+                      <TableCell width={140} align="right">Valor</TableCell>
+                      <TableCell width={140}>Pagamento</TableCell>
+                      <TableCell width={110}>Status</TableCell>
+                      <TableCell width={56} align="center">Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {carregandoMovimentacoes ? (
+                      <TableRow>
+                        <TableCell colSpan={7} sx={{ borderBottom: "none" }}>
+                          <Typography sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
+                            Carregando movimentações…
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : movimentacoesFiltradas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} sx={{ borderBottom: "none" }}>
+                          <Box
+                            sx={{
+                              py: 4,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 1,
+                              color: "text.secondary",
+                            }}
+                          >
+                            <Receipt sx={{ fontSize: 56, color: ticket.emptyIcon }} />
+                            <Typography sx={{ fontWeight: 700, color: ticket.text }}>
+                              Nenhuma movimentação encontrada
+                            </Typography>
+                            <Typography variant="body2" sx={{ textAlign: "center", maxWidth: 360 }}>
+                              Ajuste o período ou os filtros para ver mais resultados.
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      movimentacoesFiltradas.map((mov) => {
+                        const tipoConfig = getTipoConfig(mov.tipo);
+                        const positivo = mov.valor > 0;
+                        return (
+                          <TableRow
+                            key={mov.id}
+                            hover
+                            sx={{
+                              "&:nth-of-type(even) td": { bgcolor: ticket.rowStripe },
+                              "& td": { borderColor: ticket.rowBorder, color: ticket.text },
+                            }}
+                          >
+                            <TableCell>
+                              <Chip
+                                icon={tipoConfig.icon}
+                                label={tipoConfig.label}
+                                size="small"
+                                sx={{
+                                  bgcolor: tipoConfig.bgcolor,
+                                  color: tipoConfig.color,
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                  height: 22,
+                                  "& .MuiChip-icon": { color: tipoConfig.color },
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>{mov.descricao}</TableCell>
+                            <TableCell sx={{ fontSize: 12 }}>
+                              {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{
+                                fontWeight: 800,
+                                whiteSpace: "nowrap",
+                                color: positivo ? corEntrada : corSaida,
+                              }}
+                            >
+                              {positivo ? "+ " : "- "}
+                              {fmtBRL(Math.abs(mov.valor))}
+                            </TableCell>
+                            <TableCell>
+                              <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>
+                                {mov.formaPagamento}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label="Concluído"
+                                size="small"
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: 10,
+                                  height: 20,
+                                  bgcolor: alpha(corEntrada, isDark ? 0.18 : 0.14),
+                                  color: corEntrada,
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleMenuOpen(e, mov)}
+                                aria-label="Ações"
+                              >
+                                <MoreVert fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+
+          {/* ── Sidebar direita (3/12) ── */}
+          <Grid size={{ xs: 12, lg: 3 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0 }}>
+              <SummaryCard
+                label="Total de Entradas"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(totalEntradas)}
+                color={corEntrada}
+                isDark={isDark}
+              />
+              <SummaryCard
+                label="Total de Saídas"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(totalSaidas)}
+                color={corSaida}
+                isDark={isDark}
+              />
+              <SummaryCard
+                label="Saldo Atual"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(saldoAtual)}
+                color={corSaldo}
+                accent
+                isDark={isDark}
+              />
+
+              <Box sx={{ flex: 1 }} />
+
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                <Typography
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: "text.secondary",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    mb: 1,
+                  }}
+                >
+                  Período
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: "text.primary", fontWeight: 600 }}>
+                  {dataInicio ? new Date(dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                  {" → "}
+                  {dataFim ? new Date(dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.5 }}>
+                  Filtros: {filtroTipo === "todos" ? "Todos os tipos" : filtroTipo === "entradas" ? "Apenas entradas" : "Apenas saídas"}
+                </Typography>
+              </Paper>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* ═══ Menu de Ações ═══ */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        PaperProps={{ sx: { borderRadius: 1.5, minWidth: 180 } }}
+      >
+        <MenuItem onClick={handleVisualizarDetalhes} sx={{ py: 1.25 }}>
+          <Visibility sx={{ mr: 1.5, color: "primary.main", fontSize: 20 }} />
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>Visualizar</Typography>
+        </MenuItem>
+        <MenuItem onClick={handleMenuClose} sx={{ py: 1.25 }}>
+          <Edit sx={{ mr: 1.5, color: "warning.main", fontSize: 20 }} />
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>Editar</Typography>
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={handleAbrirExcluir}
+          disabled={!movimentacaoSelecionada?.exclusaoTipo}
+          sx={{ py: 1.25 }}
+        >
+          <Delete sx={{ mr: 1.5, color: corSaida, fontSize: 20 }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: corSaida }}>
+            Excluir
+          </Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* ═══ Dialog: Confirmar Exclusão ═══ */}
+      <Dialog
+        open={dialogExcluirOpen}
+        onClose={handleFecharDialogExcluir}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {movimentacaoSelecionada?.exclusaoTipo === "venda"
+            ? "Cancelar esta venda?"
+            : movimentacaoSelecionada?.exclusaoTipo === "compra"
+              ? "Excluir esta compra?"
+              : "Excluir esta movimentação?"}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {movimentacaoSelecionada?.exclusaoTipo === "venda"
+              ? "A venda será cancelada no sistema (estorno de estoque e totais dependem do backend)."
+              : movimentacaoSelecionada?.exclusaoTipo === "compra"
+                ? "A compra será removida permanentemente, se o servidor permitir."
+                : "A movimentação manual será removida do caixa."}
+          </Typography>
+          {movimentacaoSelecionada?.exclusaoTipo === "venda" && (
+            <TextField
+              fullWidth
+              size="small"
+              label="Motivo (opcional)"
+              value={motivoCancelamento}
+              onChange={(e) => setMotivoCancelamento(e.target.value)}
+              placeholder="Ex.: erro no lançamento"
+              sx={{ mt: 1 }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={handleFecharDialogExcluir} disabled={excluindo} sx={{ textTransform: "none" }}>
+            Voltar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmarExclusao}
+            disabled={excluindo}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            {excluindo ? "Processando…" : "Confirmar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ═══ Dialog: Detalhes ═══ */}
+      <Dialog
+        open={modalDetalhesAberto}
+        onClose={handleFecharModal}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle
+          sx={{
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Avatar
               sx={{
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                textTransform: "none",
-                fontWeight: 600,
-                "&:hover": {
-                  bgcolor: "primary.dark",
-                },
+                bgcolor: getTipoConfig(movimentacaoSelecionada?.tipo).color,
+                width: 44,
+                height: 44,
               }}
             >
-              Editar Movimentação
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
+              {getTipoConfig(movimentacaoSelecionada?.tipo).icon}
+            </Avatar>
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: 18 }}>
+                Detalhes da Movimentação
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                {movimentacaoSelecionada?.descricao}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleFecharModal} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 3 }}>
+          {movimentacaoSelecionada && (
+            <Stack spacing={2}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 3,
+                  textAlign: "center",
+                  bgcolor: alpha(
+                    movimentacaoSelecionada.valor > 0 ? corEntrada : corSaida,
+                    isDark ? 0.1 : 0.06,
+                  ),
+                  border: "2px solid",
+                  borderColor: movimentacaoSelecionada.valor > 0 ? corEntrada : corSaida,
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    color: movimentacaoSelecionada.valor > 0 ? corEntrada : corSaida,
+                    textTransform: "uppercase",
+                    mb: 0.5,
+                  }}
+                >
+                  Valor da Movimentação
+                </Typography>
+                <Typography
+                  sx={{
+                    fontWeight: 900,
+                    fontSize: 32,
+                    color: movimentacaoSelecionada.valor > 0 ? corEntrada : corSaida,
+                  }}
+                >
+                  {movimentacaoSelecionada.valor > 0 ? "+ " : "- "}
+                  {fmtBRL(Math.abs(movimentacaoSelecionada.valor))}
+                </Typography>
+              </Paper>
+
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                      <CalendarToday sx={{ fontSize: 16, color: "text.secondary", mr: 1 }} />
+                      <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: "text.secondary", textTransform: "uppercase" }}>
+                        Data e Hora
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {movimentacaoSelecionada.data
+                        ? new Date(movimentacaoSelecionada.data).toLocaleDateString("pt-BR")
+                        : "—"}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      {movimentacaoSelecionada.hora}
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                      <Payment sx={{ fontSize: 16, color: "text.secondary", mr: 1 }} />
+                      <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: "text.secondary", textTransform: "uppercase" }}>
+                        Forma de Pagamento
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontWeight: 700 }}>
+                      {movimentacaoSelecionada.formaPagamento}
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                {(movimentacaoSelecionada.cliente || movimentacaoSelecionada.fornecedor) && (
+                  <Grid size={{ xs: 12 }}>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                        <Person sx={{ fontSize: 16, color: "text.secondary", mr: 1 }} />
+                        <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: "text.secondary", textTransform: "uppercase" }}>
+                          {movimentacaoSelecionada.cliente ? "Cliente" : "Fornecedor"}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {movimentacaoSelecionada.cliente || movimentacaoSelecionada.fornecedor}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, borderTop: "1px solid", borderColor: "divider", gap: 1 }}>
+          <Button onClick={handleFecharModal} variant="outlined" sx={{ textTransform: "none", fontWeight: 700 }}>
+            Fechar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Edit />}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            Editar Movimentação
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ═══ Dialog: Nova Movimentação ═══ */}
+      <NovaMovimentacaoDialog
+        open={novaMovOpen}
+        onClose={() => setNovaMovOpen(false)}
+        onSaved={() => carregarMovimentacoes()}
+      />
     </Box>
   );
 }

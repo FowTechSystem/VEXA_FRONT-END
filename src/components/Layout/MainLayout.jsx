@@ -9,7 +9,9 @@ import { InAppNotificationProvider } from "../../contexts/InAppNotificationConte
 function MainLayout() {
   const theme = useTheme();
   const location = useLocation();
-  const isVendasPos = location.pathname === "/vendas";
+  // Rotas fullscreen sem padding lateral (PDV/operacionais)
+  const fullscreenRoutes = ["/vendas", "/condicional", "/caixa", "/catalogo-digital"];
+  const isFullscreen = fullscreenRoutes.includes(location.pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
@@ -40,7 +42,7 @@ function MainLayout() {
         sx={{
           flex: 1,
           minHeight: 0,
-          p: isVendasPos ? 0 : 3,
+          p: isFullscreen ? 0 : 3,
           mt: 8,
           display: "flex",
           flexDirection: "column",

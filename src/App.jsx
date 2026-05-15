@@ -11,11 +11,9 @@ import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
 import RecuperarSenha from "./pages/RecuperarSenha";
 import RedefinirSenha from "./pages/RedefinirSenha";
-import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
-import NovaMovimentacaoCaixa from "./pages/NovaMovimentacaoCaixa";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
 import Estoque from "./pages/Estoque";
@@ -110,11 +108,12 @@ function AppContent() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="home" element={<Home />} />
-          <Route path="vendas/nova-movimentacao" element={<Navigate to="/caixa/nova-movimentacao" replace />} />
+          <Route index element={<Home />} />
+          <Route path="home" element={<Navigate to="/" replace />} />
+          <Route path="dashboard" element={<Navigate to="/" replace />} />
+          <Route path="vendas/nova-movimentacao" element={<Navigate to="/caixa?novaMov=1" replace />} />
           <Route path="vendas" element={<Caixa />} />
-          <Route path="caixa/nova-movimentacao" element={<NovaMovimentacaoCaixa />} />
+          <Route path="caixa/nova-movimentacao" element={<Navigate to="/caixa?novaMov=1" replace />} />
           <Route path="caixa" element={<Vendas />} />
           <Route path="produtos" element={<Produtos />} />
           <Route path="estoque" element={<Estoque />} />
