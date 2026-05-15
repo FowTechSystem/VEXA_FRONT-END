@@ -22,6 +22,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   useTheme,
   Slide,
 } from "@mui/material";
@@ -45,6 +49,8 @@ import {
   Person,
   PersonSearch,
   Close,
+  ArrowBack,
+  QrCode2,
 } from "@mui/icons-material";
 
 const CatalogoProdutosTransition = React.forwardRef(function CatalogoProdutosTransition(props, ref) {
@@ -67,8 +73,10 @@ function Caixa() {
   const [searchProduto, setSearchProduto] = useState("");
   const [listaProdutos, setListaProdutos] = useState([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState(false);
+  const [etapaPdv, setEtapaPdv] = useState("itens");
   const [formaPagamento, setFormaPagamento] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
+  const [parcelas, setParcelas] = useState(1);
   const [desconto, setDesconto] = useState("");
 
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
@@ -160,7 +168,9 @@ function Caixa() {
     return 0;
   };
 
-  const podeFinalizarVenda = () => {
+  const podeIrParaPagamento = () => carrinho.length > 0;
+
+  const podeConfirmarPagamento = () => {
     if (carrinho.length === 0) return false;
     if (!formaPagamento) return false;
     if (formaPagamento === "dinheiro") {
@@ -168,11 +178,26 @@ function Caixa() {
       if (!Number.isFinite(vr) || vr <= 0) return false;
       return calcularTroco() >= 0;
     }
+    if (formaPagamento === "credito" || formaPagamento === "debito") {
+      return parcelas >= 1 && parcelas <= 12;
+    }
     return true;
   };
 
-  const finalizarVenda = async () => {
-    if (!podeFinalizarVenda()) return;
+  const irParaPagamento = () => {
+    if (!podeIrParaPagamento()) return;
+    setFormaPagamento("");
+    setValorRecebido("");
+    setParcelas(1);
+    setEtapaPdv("pagamento");
+  };
+
+  const voltarDePagamento = () => {
+    setEtapaPdv("itens");
+  };
+
+  const confirmarPagamento = async () => {
+    if (!podeConfirmarPagamento()) return;
     const total = calcularTotal();
     const descontoVal = Math.max(0, Number(String(desconto).replace(",", ".")) || 0);
     const nomeClienteVenda = clienteSelecionado?.nome;
@@ -186,6 +211,9 @@ function Caixa() {
       formaPagamento: String(formaPagamento || "credito"),
       desconto: descontoVal ?? 0,
       ...(clienteSelecionado?.id != null ? { clienteId: Number(clienteSelecionado.id) } : {}),
+      ...(formaPagamento === "credito" || formaPagamento === "debito"
+        ? { parcelas: Number(parcelas) || 1 }
+        : {}),
     };
     try {
       const criada = await vendasService.create(payload);
@@ -214,7 +242,9 @@ function Caixa() {
     setDesconto("");
     setValorRecebido("");
     setFormaPagamento("");
+    setParcelas(1);
     setClienteSelecionado(null);
+    setEtapaPdv("itens");
     showSuccess("Venda realizada com sucesso!");
   };
 
@@ -224,7 +254,9 @@ function Caixa() {
       setDesconto("");
       setValorRecebido("");
       setFormaPagamento("");
+      setParcelas(1);
       setClienteSelecionado(null);
+      setEtapaPdv("itens");
     }
   };
 
@@ -360,6 +392,67 @@ function Caixa() {
           color: ticket.text,
         }}
       >
+        {etapaPdv === "itens" ? (
+          <>
+            <Box
+              sx={{
+                px: 2,
+                py: 1.25,
+                borderTop: "none",
+                borderColor: ticket.border,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                flexWrap: "wrap",
+                bgcolor: "background.default",
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.muted }}>
+                Buscar produto
+              </Typography>
+              <TextField
+                size="small"
+                placeholder="Nome, SKU ou código…"
+                value={searchProduto}
+                onChange={(e) => setSearchProduto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") abrirCatalogoProdutos();
+                }}
+                sx={{
+                  flex: "1 1 200px",
+                  minWidth: 0,
+                  "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: ticket.muted, fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" aria-label="Código de barras" edge="end">
+                        <QrCodeScanner color="primary" sx={isDark ? { color: "primary.light" } : undefined} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                onClick={abrirCatalogoProdutos}
+                startIcon={<Search />}
+                sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
+              >
+                Pesquisar
+              </Button>
+            </Box>
+
+            <Divider sx={{ borderColor: ticket.border }} />
+
             <Box
               sx={{
                 px: 2,
@@ -445,7 +538,7 @@ function Caixa() {
                     <ShoppingCart sx={{ fontSize: 48, color: ticket.emptyIcon, mb: 1 }} />
                     <Typography sx={{ fontWeight: 700, color: ticket.text }}>Nenhum item ainda</Typography>
                     <Typography variant="body2" sx={{ color: ticket.muted, mt: 0.5, maxWidth: 420 }}>
-                      Use o campo abaixo e o botão Pesquisar para abrir o catálogo e adicionar produtos.
+                      Use o campo acima e o botão Pesquisar para abrir o catálogo e adicionar produtos.
                     </Typography>
                   </Box>
                 </>
@@ -544,170 +637,220 @@ function Caixa() {
               )}
             </TableContainer>
 
-            {carrinho.length > 0 && (
-              <Box sx={{ borderTop: "2px solid", borderColor: ticket.totalsBorder, bgcolor: ticket.totalsBg, px: 2, py: 1.5, flexShrink: 0 }}>
-                <Stack spacing={1.25}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="body2" sx={{ color: ticket.muted }}>
-                      Subtotal
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.text }}>
-                      R$ {calcularSubtotal().toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Desconto (R$)"
-                    type="number"
-                    value={desconto}
-                    onChange={(e) => setDesconto(e.target.value)}
-                    InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
-                    inputProps={{ step: "0.01", min: "0" }}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg } }}
-                  />
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", pt: 0.5 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: ticket.totalLabel }}>
-                      Total
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 900, color: ticket.totalValue }}>
-                      R$ {calcularTotal().toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Box>
-            )}
-
-            <Box
-              sx={{
-                px: 2,
-                py: 1.25,
-                borderTop: "1px solid",
-                borderColor: ticket.border,
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                flexWrap: "wrap",
-                bgcolor: "background.default",
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.muted }}>
-                Buscar produto
-              </Typography>
-              <TextField
-                size="small"
-                placeholder="Nome, SKU ou código…"
-                value={searchProduto}
-                onChange={(e) => setSearchProduto(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") abrirCatalogoProdutos();
-                }}
-                sx={{
-                  flex: "1 1 200px",
-                  minWidth: 0,
-                  "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg },
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: ticket.muted, fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton size="small" aria-label="Código de barras" edge="end">
-                        <QrCodeScanner color="primary" sx={isDark ? { color: "primary.light" } : undefined} />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                onClick={abrirCatalogoProdutos}
-                startIcon={<Search />}
-                sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
-              >
-                Pesquisar
-              </Button>
-            </Box>
-
-            <Box
-              sx={{
-                px: 2,
-                py: 1.25,
-                borderTop: "1px solid",
-                borderColor: ticket.border,
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                flexWrap: "wrap",
-                bgcolor: "background.default",
-              }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.muted }}>
-                Cliente
-              </Typography>
-              <TextField
-                size="small"
-                placeholder={clienteSelecionado ? "" : "Nome ou CPF — opcional"}
-                value={clienteSelecionado ? clienteSelecionado.nome : searchClienteBusca}
-                onChange={(e) => {
-                  if (!clienteSelecionado) setSearchClienteBusca(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") abrirDialogCliente();
-                }}
-                readOnly={!!clienteSelecionado}
-                sx={{
-                  flex: "1 1 200px",
-                  minWidth: 0,
-                  "& .MuiOutlinedInput-root": {
-                    bgcolor: ticket.clienteInputBg,
-                    ...(!clienteSelecionado ? {} : { cursor: "default" }),
-                  },
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Person sx={{ color: ticket.muted, fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: clienteSelecionado ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setClienteSelecionado(null);
-                        }}
-                        aria-label="Limpar cliente"
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null,
-                }}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                onClick={abrirDialogCliente}
-                startIcon={<PersonSearch />}
-                sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
-              >
-                Pesquisar
-              </Button>
-            </Box>
-
             <Divider sx={{ borderColor: ticket.border }} />
 
-            <Box sx={{ px: 2, py: 2, bgcolor: ticket.paymentBg, flexShrink: 0 }}>
+            <Box
+              sx={{
+                px: 2,
+                py: 2,
+                bgcolor: ticket.paymentBg,
+                flexShrink: 0,
+                borderTop: "1px solid",
+                borderColor: ticket.border,
+              }}
+            >
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="large"
+                  onClick={cancelarVenda}
+                  disabled={carrinho.length === 0}
+                  sx={{ textTransform: "none", fontWeight: 700, flex: { sm: "0 0 auto" } }}
+                >
+                  Limpar venda
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={irParaPagamento}
+                  disabled={!podeIrParaPagamento()}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 800,
+                    flex: { sm: 1 },
+                    py: 1.25,
+                    "&.Mui-disabled": { opacity: 0.55 },
+                  }}
+                >
+                  Ir para finalização da venda
+                </Button>
+              </Stack>
+            </Box>
+          </>
+        ) : (
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              bgcolor: "background.default",
+              color: ticket.text,
+            }}
+          >
+            <Box
+              sx={{
+                px: 1,
+                py: 1,
+                borderBottom: "1px solid",
+                borderColor: ticket.border,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                bgcolor: ticket.headerBg,
+              }}
+            >
+              <Button
+                type="button"
+                variant="text"
+                size="medium"
+                onClick={voltarDePagamento}
+                startIcon={<ArrowBack />}
+                sx={{
+                  color: ticket.text,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                Voltar
+              </Button>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: isDark ? "primary.light" : "#1565c0", flex: 1 }}>
+                Pagamento
+              </Typography>
+            </Box>
+
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25, color: ticket.muted }}>
+                Resumo do pedido
+              </Typography>
+              <Stack spacing={1.25} sx={{ mb: 2 }}>
+                {carrinho.map((item) => {
+                  const sub = item.precoVenda * item.quantidade;
+                  return (
+                    <Box key={item.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.text, lineHeight: 1.35 }}>
+                          {item.nome}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: ticket.muted }}>
+                          {item.quantidade} × R$ {item.precoVenda.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 800, flexShrink: 0, color: isDark ? "primary.light" : "primary.main" }}
+                      >
+                        R$ {sub.toFixed(2)}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Stack>
+
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, mt: 0.5 }}>
+                <Typography variant="body2" sx={{ color: ticket.muted }}>
+                  Subtotal
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: ticket.text }}>
+                  R$ {calcularSubtotal().toFixed(2)}
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                label="Desconto (R$)"
+                type="number"
+                value={desconto}
+                onChange={(e) => setDesconto(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
+                inputProps={{ step: "0.01", min: "0" }}
+                sx={{ mb: 2, "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg } }}
+              />
+
+              <Divider sx={{ my: 2, borderColor: ticket.border }} />
+
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: ticket.text }}>
+                  Total
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 900, color: isDark ? "primary.main" : "primary.dark" }}>
+                  R$ {calcularTotal().toFixed(2)}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ flexShrink: 0, borderTop: "1px solid", borderColor: ticket.border, px: 2, py: 2, bgcolor: ticket.paymentBg }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25, color: "text.primary" }}>
+                Cliente (opcional)
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  mb: 2.5,
+                }}
+              >
+                <TextField
+                  size="small"
+                  placeholder={clienteSelecionado ? "" : "Nome ou CPF…"}
+                  value={clienteSelecionado ? clienteSelecionado.nome : searchClienteBusca}
+                  onChange={(e) => {
+                    if (!clienteSelecionado) setSearchClienteBusca(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") abrirDialogCliente();
+                  }}
+                  readOnly={!!clienteSelecionado}
+                  sx={{
+                    flex: "1 1 200px",
+                    minWidth: 0,
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: ticket.clienteInputBg,
+                      ...(!clienteSelecionado ? {} : { cursor: "default" }),
+                    },
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person sx={{ color: ticket.muted, fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: clienteSelecionado ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClienteSelecionado(null);
+                          }}
+                          aria-label="Limpar cliente"
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={abrirDialogCliente}
+                  startIcon={<PersonSearch />}
+                  sx={{ textTransform: "none", fontWeight: 700, flexShrink: 0 }}
+                >
+                  Pesquisar
+                </Button>
+              </Box>
+
               <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: "text.primary" }}>
                 Forma de pagamento
               </Typography>
@@ -718,7 +861,11 @@ function Caixa() {
                       fullWidth
                       variant={formaPagamento === forma.id ? "contained" : "outlined"}
                       color={formaPagamento === forma.id ? "primary" : "inherit"}
-                      onClick={() => setFormaPagamento(forma.id)}
+                      onClick={() => {
+                        setFormaPagamento(forma.id);
+                        if (forma.id !== "dinheiro") setValorRecebido("");
+                        if (forma.id !== "credito" && forma.id !== "debito") setParcelas(1);
+                      }}
                       startIcon={forma.icon}
                       sx={{
                         py: 1.25,
@@ -771,28 +918,57 @@ function Caixa() {
                 </Stack>
               )}
 
-              {formaPagamento && formaPagamento !== "dinheiro" && (
-                <Alert severity="info" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
-                  Pagamento em <strong>{FORMAS_PAGAMENTO.find((f) => f.id === formaPagamento)?.label}</strong> — confira o total e finalize.
-                </Alert>
+              {(formaPagamento === "credito" || formaPagamento === "debito") && (
+                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                  <InputLabel id="pdv-parcelas-label">Parcelas</InputLabel>
+                  <Select
+                    labelId="pdv-parcelas-label"
+                    label="Parcelas"
+                    value={parcelas}
+                    onChange={(e) => setParcelas(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                      <MenuItem key={n} value={n}>
+                        {n}×
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               )}
 
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 1 }}>
+              {formaPagamento === "pix" && (
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    border: "2px dashed",
+                    borderColor: "divider",
+                    textAlign: "center",
+                    bgcolor: ticket.clienteInputBg,
+                  }}
+                >
+                  <QrCode2 sx={{ fontSize: 100, color: isDark ? alpha(theme.palette.common.white, 0.25) : "action.disabled" }} />
+                  <Typography variant="body2" sx={{ color: ticket.muted, mt: 1.5, maxWidth: 360, mx: "auto" }}>
+                    QR Code PIX (demonstração). Confirme o recebimento no app do banco ou use a chave PIX da loja antes de concluir.
+                  </Typography>
+                </Box>
+              )}
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
                 <Button
                   variant="outlined"
-                  color="error"
                   size="large"
-                  onClick={cancelarVenda}
-                  disabled={carrinho.length === 0}
+                  onClick={voltarDePagamento}
                   sx={{ textTransform: "none", fontWeight: 700, flex: { sm: "0 0 auto" } }}
                 >
-                  Limpar venda
+                  Cancelar
                 </Button>
                 <Button
                   variant="contained"
                   size="large"
-                  onClick={finalizarVenda}
-                  disabled={!podeFinalizarVenda()}
+                  onClick={confirmarPagamento}
+                  disabled={!podeConfirmarPagamento()}
                   startIcon={<CheckCircle />}
                   sx={{
                     textTransform: "none",
@@ -805,11 +981,13 @@ function Caixa() {
                     "&.Mui-disabled": { opacity: 0.55 },
                   }}
                 >
-                  Finalizar venda
+                  Confirmar pagamento
                 </Button>
               </Stack>
             </Box>
           </Box>
+        )}
+      </Box>
 
       <Dialog
         fullScreen
