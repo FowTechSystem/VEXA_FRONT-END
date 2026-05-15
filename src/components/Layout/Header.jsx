@@ -132,7 +132,7 @@ function Header({ onMenuClick }) {
             aria-label="Ir para início"
             sx={{
               flexGrow: 1,
-              fontWeight: 700,x
+              fontWeight: 700,
               letterSpacing: 1,
               color: isDark ? "primary.main" : "inherit",
               cursor: "pointer",
