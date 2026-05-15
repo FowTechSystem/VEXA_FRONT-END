@@ -1,13 +1,15 @@
 // src/components/Layout/MainLayout.jsx
 import React, { useState } from "react";
 import { Box, useTheme } from "@mui/material";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { InAppNotificationProvider } from "../../contexts/InAppNotificationContext";
 
 function MainLayout() {
   const theme = useTheme();
+  const location = useLocation();
+  const isVendasPos = location.pathname === "/vendas";
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
@@ -38,8 +40,10 @@ function MainLayout() {
         sx={{
           flex: 1,
           minHeight: 0,
-          p: 3,
+          p: isVendasPos ? 0 : 3,
           mt: 8,
+          display: "flex",
+          flexDirection: "column",
           bgcolor: theme.palette.background.default,
           overflowY: "auto",
           overflowX: "hidden",

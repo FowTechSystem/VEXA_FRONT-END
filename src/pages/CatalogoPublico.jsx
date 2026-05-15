@@ -104,7 +104,7 @@ function CatalogoPublico() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.mode === "dark" ? "#2B2D42" : "#F0F1F5", pb: 10 }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", pb: 10 }}>
       <AppBar
         position="sticky"
         sx={{

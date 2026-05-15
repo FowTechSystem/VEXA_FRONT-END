@@ -1,6 +1,6 @@
 // src/components/Layout/Header.jsx
 import React, { useState, useContext, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   AppBar,
   Toolbar,
@@ -47,7 +47,16 @@ function Header({ onMenuClick }) {
   const { mode, toggleTheme } = useContext(ThemeContext);
   const { empresaAtiva, empresas, setEmpresaAtiva, sairEmpresa, isDev } = useEmpresa();
   const navigate = useNavigate();
+  const location = useLocation();
   const qtdNaoLidas = notificacoes.filter((n) => !n.lida).length;
+
+  const handleIrInicio = () => {
+    if (location.pathname === "/home") {
+      window.location.reload();
+      return;
+    }
+    navigate("/home");
+  };
 
   const [, setRelogioNotificacoes] = useState(0);
   useEffect(() => {
@@ -117,12 +126,26 @@ function Header({ onMenuClick }) {
           <Typography
             variant="h6"
             noWrap
-            component="div"
+            component="button"
+            type="button"
+            onClick={handleIrInicio}
+            aria-label="Ir para início"
             sx={{
               flexGrow: 1,
               fontWeight: 700,
               letterSpacing: 1,
               color: isDark ? "primary.main" : "inherit",
+              cursor: "pointer",
+              textAlign: "left",
+              border: "none",
+              background: "none",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              lineHeight: "inherit",
+              padding: 0,
+              "&:hover": {
+                opacity: 0.92,
+              },
             }}
           >
             VEXA

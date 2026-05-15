@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import {
+  HomeRounded,
   Dashboard,
   People,
   ShoppingCart,
@@ -70,9 +71,10 @@ function sortMenuItemsByLabel(items) {
 const menuSectionsBase = [
   {
     title: "Visão Geral",
-    items: sortMenuItemsByLabel([
+    items: [
+      { text: "Início", icon: <HomeRounded />, path: "home" },
       { text: "Dashboard", icon: <Dashboard />, path: "/" },
-    ]),
+    ],
   },
   {
     title: "Operação",
