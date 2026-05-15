@@ -158,6 +158,134 @@ function desenharCabecalho(doc, empresaNome, pageW) {
   doc.text("NOSSOS PRODUTOS", pillX + pillW / 2, pillY + pillH / 2 + 2.4, { align: "center" });
 }
 
+/**
+ * Capa profissional do catálogo — primeira página em A4 portrait.
+ * Layout: faixa navy no topo (1/3 da página), título centralizado embaixo,
+ * info da loja, contagem de produtos, data, faixa amarela inferior.
+ */
+function desenharCapa(doc, empresaNome, totalProdutos, pageW, pageH) {
+  // ── Fundo geral (creme claro)
+  doc.setFillColor(...FUNDO_PAGINA);
+  doc.rect(0, 0, pageW, pageH, "F");
+
+  // ── Bloco superior NAVY (ocupa ~45% da página)
+  const heroH = pageH * 0.45;
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageW, heroH, "F");
+
+  // Faixa amarela fina logo abaixo do hero
+  doc.setFillColor(...AMARELO);
+  doc.rect(0, heroH, pageW, 3.2, "F");
+
+  // Selo VEXA no topo direito
+  doc.setTextColor(...AMARELO);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("VEXA", pageW - MM.margem, 14, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(200, 203, 220);
+  doc.text("CATÁLOGO DIGITAL", pageW - MM.margem, 19, { align: "right" });
+
+  // Linha decorativa esquerda
+  doc.setDrawColor(...AMARELO);
+  doc.setLineWidth(0.8);
+  doc.line(MM.margem, 14, MM.margem + 18, 14);
+
+  // ── Centralizar conteúdo do hero (nome da empresa)
+  const centroHero = heroH / 2 + 4;
+
+  doc.setTextColor(...BRANCO);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text("APRESENTAMOS NOSSO", pageW / 2, centroHero - 22, { align: "center" });
+
+  // Linha decorativa abaixo do "apresentamos"
+  const linhaW = 30;
+  doc.setDrawColor(...AMARELO);
+  doc.setLineWidth(0.6);
+  doc.line(pageW / 2 - linhaW / 2, centroHero - 18, pageW / 2 + linhaW / 2, centroHero - 18);
+
+  // Título grande "CATÁLOGO"
+  doc.setTextColor(...AMARELO);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(48);
+  doc.text("CATÁLOGO", pageW / 2, centroHero - 2, { align: "center" });
+
+  // Nome da empresa
+  doc.setTextColor(...BRANCO);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  const nomeEmp = String(empresaNome || "Loja").slice(0, 48);
+  doc.text(nomeEmp, pageW / 2, centroHero + 14, { align: "center" });
+
+  // ── Área inferior: cards de informação
+  const infoY = heroH + 25;
+
+  // Card "Produtos"
+  const cardW = (pageW - 2 * MM.margem - 8) / 2;
+  doc.setFillColor(...BRANCO);
+  doc.setDrawColor(...BORDA_CARD);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MM.margem, infoY, cardW, 32, 3, 3, "FD");
+
+  doc.setTextColor(...TEXTO_MUDO);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("PRODUTOS NESTE CATÁLOGO", MM.margem + 6, infoY + 9);
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.text(String(totalProdutos), MM.margem + 6, infoY + 24);
+
+  // Card "Data"
+  doc.setFillColor(...BRANCO);
+  doc.setDrawColor(...BORDA_CARD);
+  doc.roundedRect(MM.margem + cardW + 8, infoY, cardW, 32, 3, 3, "FD");
+  doc.setTextColor(...TEXTO_MUDO);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("EMITIDO EM", MM.margem + cardW + 14, infoY + 9);
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(dataCatalogoLegivel(), MM.margem + cardW + 14, infoY + 20);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...TEXTO_MUDO);
+  doc.text("Preços e disponibilidade sujeitos à loja", MM.margem + cardW + 14, infoY + 27);
+
+  // ── Texto inspiracional
+  doc.setTextColor(...TEXTO);
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(10);
+  const frase = "Explore nossa seleção cuidadosamente preparada para você.";
+  doc.text(frase, pageW / 2, infoY + 50, { align: "center" });
+
+  // Linha divisora
+  doc.setDrawColor(...BORDA_CARD);
+  doc.setLineWidth(0.3);
+  doc.line(pageW / 2 - 30, infoY + 56, pageW / 2 + 30, infoY + 56);
+
+  doc.setTextColor(...TEXTO_MUDO);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Para fazer um pedido, entre em contato pelo WhatsApp.", pageW / 2, infoY + 62, { align: "center" });
+
+  // ── Rodapé da capa: faixa amarela com texto navy
+  const rodapeH = 14;
+  doc.setFillColor(...AMARELO);
+  doc.rect(0, pageH - rodapeH, pageW, rodapeH, "F");
+
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(String(empresaNome || "Loja").toUpperCase(), MM.margem, pageH - 5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Gerado por VEXA · vexa.app", pageW - MM.margem, pageH - 5, { align: "right" });
+}
+
 function desenharRodapePagina(doc, pageIndex, totalPaginas, pageW, pageH) {
   doc.setFillColor(...NAVY);
   doc.rect(0, pageH - MM.footerH, pageW, MM.footerH, "F");
@@ -279,8 +407,15 @@ export async function montarDocumentoCatalogoPdf({ itens, empresaNome }) {
   const maxRows = Math.max(1, Math.floor((contentBottom - contentTop) / rowH));
   const perPage = maxRows * 2;
 
-  desenharCabecalho(doc, empresaNome, pageW);
-  desenharFundoConteudo(doc, pageW, pageH);
+  // ── Página 1: CAPA
+  desenharCapa(doc, empresaNome, lista.length, pageW, pageH);
+
+  // ── Página 2 em diante: produtos
+  if (lista.length > 0) {
+    doc.addPage();
+    desenharCabecalho(doc, empresaNome, pageW);
+    desenharFundoConteudo(doc, pageW, pageH);
+  }
 
   let y0 = contentTop;
 
@@ -301,10 +436,11 @@ export async function montarDocumentoCatalogoPdf({ itens, empresaNome }) {
     desenharCelulaProduto(doc, x, cardY, colW, lista[i], imagensData[i]);
   }
 
+  // ── Rodapé apenas nas páginas de produtos (capa fica sem rodapé numerado)
   const totalPaginas = doc.internal.getNumberOfPages();
-  for (let p = 1; p <= totalPaginas; p++) {
+  for (let p = 2; p <= totalPaginas; p++) {
     doc.setPage(p);
-    desenharRodapePagina(doc, p, totalPaginas, pageW, pageH);
+    desenharRodapePagina(doc, p - 1, totalPaginas - 1, pageW, pageH);
   }
 
   return doc;

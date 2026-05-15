@@ -20,7 +20,6 @@ import {
 import { alpha } from "@mui/material/styles";
 import {
   HomeRounded,
-  Dashboard,
   People,
   ShoppingCart,
   Inventory,
@@ -72,8 +71,7 @@ const menuSectionsBase = [
   {
     title: "Visão Geral",
     items: [
-      { text: "Início", icon: <HomeRounded />, path: "home" },
-      { text: "Dashboard", icon: <Dashboard />, path: "/" },
+      { text: "Início", icon: <HomeRounded />, path: "/" },
     ],
   },
   {

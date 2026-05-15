@@ -2065,39 +2065,7 @@ function Produtos() {
                     </Box>
                   </Box>
 
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
-                      {modalLabel("Estoque total")}
-                      <TextField
-                        fullWidth
-                        name="estoqueTotal"
-                        type="text"
-                        inputMode="numeric"
-                        value={currentProduto.estoqueTotal}
-                        onChange={handleDigitsOnlyChange}
-                        inputProps={{ min: "0", pattern: "[0-9]*" }}
-                        size="small"
-                        sx={modalFieldSx}
-                        hiddenLabel
-                        placeholder={editMode ? undefined : "0"}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      {modalLabel("Estoque mínimo")}
-                      <TextField
-                        fullWidth
-                        name="estoqueMinimo"
-                        type="text"
-                        inputMode="numeric"
-                        value={currentProduto.estoqueMinimo}
-                        onChange={handleDigitsOnlyChange}
-                        inputProps={{ min: "0", pattern: "[0-9]*" }}
-                        size="small"
-                        sx={modalFieldSx}
-                        hiddenLabel
-                      />
-                    </Grid>
-                  </Grid>
+                  {/* Estoque total / mínimo removidos do cadastro — gerencie em Estoque */}
 
                   <Box
                     sx={{
