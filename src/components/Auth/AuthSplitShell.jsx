@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Paper, Typography } from "@mui/material";
 import { useTheme, alpha } from "@mui/material/styles";
-import { vexaColors } from "../../theme";
+import { vexaColors, vexaSurfaces } from "../../theme";
 
 export default function AuthSplitShell({ title, subtitle, children, logoSrc = "/logo.png" }) {
   const theme = useTheme();
@@ -21,8 +21,8 @@ export default function AuthSplitShell({ title, subtitle, children, logoSrc = "/
         overflow: "hidden",
         bgcolor: "background.default",
         background: isLight
-          ? "linear-gradient(135deg, #f3f5fb 0%, #eceff8 55%, #f8f9fc 100%)"
-          : `linear-gradient(130deg, #171a29 0%, ${vexaColors.azulEscuro} 45%, #121526 100%)`,
+          ? "linear-gradient(135deg, #e9ecf4 0%, #e4e8f1 52%, #eef1f7 100%)"
+          : `linear-gradient(130deg, ${vexaSurfaces.darkCanvas} 0%, ${alpha(azul, 0.42)} 42%, #0a0b12 100%)`,
         "&::before": {
           content: '""',
           position: "fixed",

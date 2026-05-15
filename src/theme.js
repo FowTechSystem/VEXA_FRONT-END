@@ -9,16 +9,30 @@ export const vexaColors = {
   amareloNeon: "#F8F32B",
 };
 
-/** Superfície elevada no tema escuro (derivada do azul escuro) */
+/**
+ * Modo escuro “profundo” — fundo mais escuro que o azul institucional (#2B2D42),
+ * com papel elevado discretamente mais claro para hierarquia visual.
+ */
 export const vexaSurfaces = {
-  /** Cartões / sidebar — levemente mais claro que o fundo para contraste suave */
-  darkPaper: "#3A3D56",
+  /** Tela base (main, body, canvas) */
+  darkCanvas: "#12131c",
+  /** Sidebar, cards, AppBar, inputs — superfície elevada */
+  darkPaper: "#1c1e2c",
+  /**
+   * Modo claro suave — evita branco puro (#FFF) e cinza muito seco (#F0F1F5).
+   * Canvas mais frio; papel “off-white” para cartões e chrome.
+   */
+  lightCanvas: "#E6E9F0",
+  lightPaper: "#F0F2F7",
 };
 
 const getTheme = (mode) => {
   const isDark = mode === "dark";
   const v = vexaColors;
+  const canvasDark = vexaSurfaces.darkCanvas;
   const paperDark = vexaSurfaces.darkPaper;
+  const canvasLight = vexaSurfaces.lightCanvas;
+  const paperLight = vexaSurfaces.lightPaper;
 
   return createTheme({
     palette: {
@@ -36,19 +50,19 @@ const getTheme = (mode) => {
         contrastText: isDark ? "#FFFFFF" : v.preto,
       },
       background: {
-        default: isDark ? v.azulEscuro : "#F0F1F5",
-        paper: isDark ? paperDark : "#FFFFFF",
+        default: isDark ? canvasDark : canvasLight,
+        paper: isDark ? paperDark : paperLight,
       },
       text: {
-        primary: isDark ? "#E8EAEF" : v.azulEscuro,
-        secondary: isDark ? v.cinzaAzulado : alpha(v.azulEscuro, 0.72),
-        disabled: isDark ? alpha(v.cinzaAzulado, 0.5) : alpha(v.azulEscuro, 0.38),
+        primary: isDark ? "#ECEEF4" : v.azulEscuro,
+        secondary: isDark ? alpha(v.cinzaAzulado, 0.92) : alpha(v.azulEscuro, 0.72),
+        disabled: isDark ? alpha(v.cinzaAzulado, 0.45) : alpha(v.azulEscuro, 0.38),
       },
-      divider: isDark ? alpha(v.cinzaAzulado, 0.28) : alpha(v.preto, 0.1),
+      divider: isDark ? alpha(v.cinzaAzulado, 0.22) : alpha(v.azulEscuro, 0.09),
       action: {
         active: isDark ? v.cinzaAzulado : alpha(v.azulEscuro, 0.65),
-        hover: isDark ? alpha(v.cinzaAzulado, 0.14) : alpha(v.preto, 0.05),
-        selected: isDark ? alpha(v.amareloNeon, 0.14) : alpha(v.amareloNeon, 0.24),
+        hover: isDark ? alpha(v.cinzaAzulado, 0.12) : alpha(v.preto, 0.05),
+        selected: isDark ? alpha(v.amareloNeon, 0.12) : alpha(v.amareloNeon, 0.24),
         disabled: isDark ? alpha(v.cinzaAzulado, 0.35) : alpha(v.preto, 0.26),
         disabledBackground: isDark
           ? alpha(v.cinzaAzulado, 0.12)
@@ -91,11 +105,11 @@ const getTheme = (mode) => {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            backgroundColor: isDark ? v.azulEscuro : "#F0F1F5",
-            color: isDark ? "#E8EAEF" : v.azulEscuro,
+            backgroundColor: isDark ? canvasDark : canvasLight,
+            color: isDark ? "#ECEEF4" : v.azulEscuro,
             scrollbarColor: isDark
-              ? `${alpha(v.cinzaAzulado, 0.55)} ${paperDark}`
-              : `${alpha(v.cinzaAzulado, 0.8)} #E8EAEF`,
+              ? `${alpha(v.cinzaAzulado, 0.5)} ${canvasDark}`
+              : `${alpha(v.cinzaAzulado, 0.75)} ${alpha(v.azulEscuro, 0.06)}`,
             "&::-webkit-scrollbar, & *::-webkit-scrollbar": {
               width: 8,
               height: 8,
@@ -114,7 +128,7 @@ const getTheme = (mode) => {
                   : alpha(v.azulEscuro, 0.35),
               },
             "&::-webkit-scrollbar-track, & *::-webkit-scrollbar-track": {
-              backgroundColor: isDark ? paperDark : "#E8EAEF",
+              backgroundColor: isDark ? canvasDark : alpha(v.azulEscuro, 0.05),
             },
           },
         },
@@ -183,11 +197,11 @@ const getTheme = (mode) => {
             borderRadius: 12,
             backgroundImage: "none",
             boxShadow: isDark
-              ? "0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -1px rgba(0, 0, 0, 0.28)"
+              ? "0 4px 14px -2px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4)"
               : "0 1px 3px 0 rgba(43, 45, 66, 0.08), 0 1px 2px 0 rgba(43, 45, 66, 0.06)",
             border: isDark
-              ? `1px solid ${alpha(v.cinzaAzulado, 0.2)}`
-              : `1px solid ${alpha(v.cinzaAzulado, 0.25)}`,
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.16)}`
+              : `1px solid ${alpha(v.azulEscuro, 0.12)}`,
           },
         },
       },
@@ -203,8 +217,8 @@ const getTheme = (mode) => {
           paper: {
             backgroundImage: "none",
             borderRight: isDark
-              ? `1px solid ${alpha(v.cinzaAzulado, 0.22)}`
-              : `1px solid ${alpha(v.preto, 0.1)}`,
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.18)}`
+              : `1px solid ${alpha(v.azulEscuro, 0.1)}`,
           },
         },
       },
@@ -290,9 +304,14 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             ...(isDark && {
-              backgroundColor: alpha(v.azulEscuro, 0.65),
-              "&:hover": { backgroundColor: alpha(paperDark, 0.95) },
+              backgroundColor: alpha(paperDark, 0.55),
+              "&:hover": { backgroundColor: alpha(paperDark, 0.85) },
               "&.Mui-focused": { backgroundColor: alpha(paperDark, 1) },
+            }),
+            ...(!isDark && {
+              backgroundColor: alpha("#ffffff", 0.45),
+              "&:hover": { backgroundColor: alpha("#ffffff", 0.72) },
+              "&.Mui-focused": { backgroundColor: alpha("#ffffff", 0.92) },
             }),
           },
         },
@@ -308,8 +327,8 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             borderBottom: isDark
-              ? `1px solid ${alpha(v.cinzaAzulado, 0.18)}`
-              : `1px solid ${alpha(v.cinzaAzulado, 0.35)}`,
+              ? `1px solid ${alpha(v.cinzaAzulado, 0.14)}`
+              : `1px solid ${alpha(v.azulEscuro, 0.1)}`,
           },
         },
       },
@@ -317,8 +336,8 @@ const getTheme = (mode) => {
         styleOverrides: {
           root: {
             borderColor: isDark
-              ? alpha(v.cinzaAzulado, 0.22)
-              : alpha(v.preto, 0.1),
+              ? alpha(v.cinzaAzulado, 0.18)
+              : alpha(v.azulEscuro, 0.1),
           },
         },
       },

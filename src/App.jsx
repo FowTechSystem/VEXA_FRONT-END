@@ -56,8 +56,8 @@ function AppContent() {
             fontSize: "14px",
             maxWidth: "500px",
             background:
-              mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
-            color: mode === "dark" ? "#E8EAEF" : vexaColors.azulEscuro,
+              mode === "dark" ? vexaSurfaces.darkPaper : vexaSurfaces.lightPaper,
+            color: mode === "dark" ? "#ECEEF4" : vexaColors.azulEscuro,
             border:
               mode === "dark"
                 ? `1px solid rgba(141, 153, 174, 0.22)`
@@ -67,7 +67,7 @@ function AppContent() {
             duration: 2500,
             style: {
               background:
-                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
+                mode === "dark" ? vexaSurfaces.darkPaper : vexaSurfaces.lightPaper,
             },
             iconTheme: {
               primary: "#10b981",
@@ -78,7 +78,7 @@ function AppContent() {
             duration: 3500,
             style: {
               background:
-                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
+                mode === "dark" ? vexaSurfaces.darkPaper : vexaSurfaces.lightPaper,
             },
             iconTheme: {
               primary: "#ef4444",
@@ -88,7 +88,7 @@ function AppContent() {
           loading: {
             style: {
               background:
-                mode === "dark" ? vexaSurfaces.darkPaper : "#ffffff",
+                mode === "dark" ? vexaSurfaces.darkPaper : vexaSurfaces.lightPaper,
             },
           },
         }}
