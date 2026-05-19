@@ -50,6 +50,7 @@ import {
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { FotoPerfilPicker } from "../components/FotoPerfilPicker";
+import AppDatePicker from "../components/AppDatePicker";
 import api from "../api/axiosConfig";
 import { usuariosService } from "../api/usuariosService";
 import { listarPermissoes } from "../api/permissoesService";
@@ -1054,7 +1055,7 @@ function Usuarios() {
                   <TextField fullWidth label="RG" name="rg" value={currentUsuario.rg || ""} onChange={handleChange} placeholder="RG" size="small" />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="Data Nascimento" name="dataNascimento" type="date" value={currentUsuario.dataNascimento} onChange={handleChange} InputLabelProps={{ shrink: true }} size="small" />
+                  <AppDatePicker label="Data Nascimento" value={currentUsuario.dataNascimento} onChange={(v) => handleChange({ target: { name: "dataNascimento", value: v } })} />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
