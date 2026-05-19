@@ -95,9 +95,77 @@ const CORES = [
 const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
 
 const MAX_IMAGEM_PRODUTO_BYTES = 5 * 1024 * 1024;
+const JPEG_QUALITY_UPLOAD = 0.92;
 
 function isHttpImageUrl(s) {
   return typeof s === "string" && /^https?:\/\//i.test(s.trim());
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Não foi possível decodificar a imagem."));
+    img.src = src;
+  });
+}
+
+function canvasFromImg(img) {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas indisponível.");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+function canvasToJpegBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error("Falha ao gerar JPEG."));
+        else resolve(blob);
+      },
+      "image/jpeg",
+      JPEG_QUALITY_UPLOAD,
+    );
+  });
+}
+
+function fileBaseName(file, fallback = "imagem") {
+  const raw = (file?.name || fallback).replace(/\.[^.]+$/, "");
+  return raw || fallback;
+}
+
+/** Garante que o arquivo seja JPEG. Aceita File ou data URL; retorna File JPEG. */
+async function ensureJpegFile(input, fallbackName = "imagem") {
+  if (input instanceof File && input.type === "image/jpeg") return input;
+
+  let dataUrl;
+  let baseName = fallbackName;
+  if (typeof input === "string") {
+    if (!input.startsWith("data:image/")) return null;
+    dataUrl = input;
+  } else if (input instanceof Blob) {
+    baseName = fileBaseName(input, fallbackName);
+    dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+      r.onerror = () => reject(new Error("Falha ao ler arquivo."));
+      r.readAsDataURL(input);
+    });
+  } else {
+    return null;
+  }
+  if (!dataUrl) return null;
+
+  const img = await loadImage(dataUrl);
+  const canvas = canvasFromImg(img);
+  const blob = await canvasToJpegBlob(canvas);
+  return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
 }
 
 // Extrai nome de string ou objeto { id, nome } retornado pela API
@@ -582,9 +650,36 @@ function Produtos() {
       let foto1Url = undefined;
       let imagemUrlAposUpload = null;
 
-      if (imagemProdutoFile) {
+      // Em edição, se a imagem ainda é uma data URL (vinda do backend antigo
+      // ou colada no campo URL), converte para File JPEG e sobe via upload-foto.
+      let arquivoParaUpload = imagemProdutoFile;
+      if (
+        !arquivoParaUpload &&
+        editMode &&
+        typeof currentProduto.imagemPrincipal === "string" &&
+        currentProduto.imagemPrincipal.startsWith("data:image/")
+      ) {
         try {
-          const uploadResult = await produtosService.uploadFoto(imagemProdutoFile);
+          arquivoParaUpload = await ensureJpegFile(
+            currentProduto.imagemPrincipal,
+            `produto-${currentProduto.id ?? "novo"}`,
+          );
+        } catch (convErr) {
+          console.warn("[Produtos] Falha ao converter data URL existente para JPEG", convErr);
+        }
+      }
+
+      if (arquivoParaUpload) {
+        // Garantia extra de JPEG (caso o arquivo venha de outro fluxo)
+        try {
+          const jpeg = await ensureJpegFile(arquivoParaUpload, fileBaseName(arquivoParaUpload, "produto"));
+          if (jpeg) arquivoParaUpload = jpeg;
+        } catch {
+          /* mantém o arquivo original se conversão falhar */
+        }
+
+        try {
+          const uploadResult = await produtosService.uploadFoto(arquivoParaUpload);
           const novaUrl =
             uploadResult?.url ??
             uploadResult?.fotoUrl ??
@@ -614,16 +709,21 @@ function Produtos() {
         }
       }
 
-      if (imagemProdutoFile && !imagemUrlAposUpload) {
+      if (arquivoParaUpload && !imagemUrlAposUpload) {
         fotoBase64 = currentProduto.imagemPrincipal?.includes(",")
           ? currentProduto.imagemPrincipal.split(",")[1]
           : null;
       }
 
-      const imagemPrincipalPayload =
-        imagemUrlAposUpload && !editMode
-          ? imagemUrlAposUpload
+      // Se a imagem atual ainda é data URL e não conseguimos subir, evita enviar
+      // o blob gigante de volta no payload — substitui por "" para não estourar 400.
+      const imagemPrincipalAtual =
+        typeof currentProduto.imagemPrincipal === "string" &&
+        currentProduto.imagemPrincipal.startsWith("data:image/")
+          ? ""
           : currentProduto.imagemPrincipal;
+
+      const imagemPrincipalPayload = imagemUrlAposUpload || imagemPrincipalAtual;
 
       const produtoParaSalvar = toApiPayload(
         {
@@ -726,26 +826,37 @@ function Produtos() {
     produtoImagemFileRef.current?.click();
   };
 
-  const handleProdutoImagemFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const handleProdutoImagemFileChange = async (e) => {
+    const original = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!original) return;
+    if (!original.type.startsWith("image/")) {
       showError("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+    if (original.size > MAX_IMAGEM_PRODUTO_BYTES) {
       showError("Imagem deve ter no máximo 5 MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") return;
-      setImagemProdutoFile(file);
+    try {
+      const jpeg = await ensureJpegFile(original, fileBaseName(original, "produto"));
+      if (!jpeg) {
+        showError("Não foi possível processar a imagem. Use JPG/PNG.");
+        return;
+      }
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+        r.onerror = () => reject(new Error("Falha ao ler imagem."));
+        r.readAsDataURL(jpeg);
+      });
+      if (!dataUrl) return;
+      setImagemProdutoFile(jpeg);
       setCurrentProduto((prev) => ({ ...prev, imagemPrincipal: dataUrl }));
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[Produtos] Falha ao converter imagem para JPEG", err);
+      showError("Não foi possível processar a imagem. Tente outra.");
+    }
   };
 
   const handleProdutoImagemAjustado = ({ dataUrl, file }) => {
@@ -758,30 +869,41 @@ function Produtos() {
     imagemAdicionalFileRefs.current[index]?.click();
   };
 
-  const handleImagemAdicionalFileChange = (index) => (e) => {
-    const file = e.target.files?.[0];
+  const handleImagemAdicionalFileChange = (index) => async (e) => {
+    const original = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!original) return;
+    if (!original.type.startsWith("image/")) {
       showError("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+    if (original.size > MAX_IMAGEM_PRODUTO_BYTES) {
       showError("Imagem deve ter no máximo 5 MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") return;
+    try {
+      const jpeg = await ensureJpegFile(original, fileBaseName(original, `produto-extra-${index + 1}`));
+      if (!jpeg) {
+        showError("Não foi possível processar a imagem. Use JPG/PNG.");
+        return;
+      }
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+        r.onerror = () => reject(new Error("Falha ao ler imagem."));
+        r.readAsDataURL(jpeg);
+      });
+      if (!dataUrl) return;
       setCurrentProduto((prev) => {
         const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
         while (arr.length < 2) arr.push("");
         arr[index] = dataUrl;
         return { ...prev, imagensAdicionais: arr };
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[Produtos] Falha ao converter imagem adicional para JPEG", err);
+      showError("Não foi possível processar a imagem. Tente outra.");
+    }
   };
 
   const limparImagemAdicional = (index) => (e) => {
