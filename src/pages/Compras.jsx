@@ -45,6 +45,7 @@ import { LoadingBox } from "../components/LoadingBox";
 import { comprasService } from "../api/comprasService";
 import { FornecedorService } from "../api/fornecedorService";
 import { produtosService } from "../api/produtosService";
+import AppDatePicker from "../components/AppDatePicker";
 
 const STATUS_COMPRA = {
   pendente: { label: "Pendente", color: "#d97706", bgcolor: "#fef3c7" },
@@ -723,27 +724,21 @@ function Compras() {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField
-                    fullWidth
+                  <AppDatePicker
                     label="Data do Pedido"
-                    name="dataPedido"
-                    type="date"
                     value={currentCompra.dataPedido}
-                    onChange={handleChange}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
+                    onChange={(v) =>
+                      setCurrentCompra({ ...currentCompra, dataPedido: v })
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField
-                    fullWidth
+                  <AppDatePicker
                     label="Data Entrega Prevista"
-                    name="dataEntregaPrevista"
-                    type="date"
                     value={currentCompra.dataEntregaPrevista}
-                    onChange={handleChange}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
+                    onChange={(v) =>
+                      setCurrentCompra({ ...currentCompra, dataEntregaPrevista: v })
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>

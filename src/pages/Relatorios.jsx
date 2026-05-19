@@ -26,6 +26,7 @@ import { PieChart } from "@mui/x-charts/PieChart";
 import { showSuccess } from "../utils/notifications";
 import { vendasService } from "../api/vendasService";
 import { produtosService } from "../api/produtosService";
+import AppDatePicker from "../components/AppDatePicker";
 import {
   downloadPdf,
   gerarPdfEstoque,
@@ -432,22 +433,16 @@ function Relatorios() {
           <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, mb: 3 }}>
             {tabSelecionada.precisaPeriodo && (
               <>
-                <TextField
+                <AppDatePicker
                   label="Data início"
-                  type="date"
                   value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  size="small"
+                  onChange={setDataInicio}
                   sx={{ minWidth: 170 }}
                 />
-                <TextField
+                <AppDatePicker
                   label="Data fim"
-                  type="date"
                   value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  size="small"
+                  onChange={setDataFim}
                   sx={{ minWidth: 170 }}
                 />
               </>

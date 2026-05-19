@@ -32,6 +32,7 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { vexaColors } from "../theme";
+import AppDatePicker from "../components/AppDatePicker";
 import {
   Search,
   Refresh,
@@ -520,25 +521,17 @@ function Movimentacoes() {
             {/* Linha de filtros: Datas + Busca + Tipos + Ações */}
             <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
               <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                <TextField
-                  fullWidth
-                  size="small"
+                <AppDatePicker
                   label="Data início"
-                  type="date"
                   value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  onChange={setDataInicio}
                 />
               </Grid>
               <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                <TextField
-                  fullWidth
-                  size="small"
+                <AppDatePicker
                   label="Data fim"
-                  type="date"
                   value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  onChange={setDataFim}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4 }}>
