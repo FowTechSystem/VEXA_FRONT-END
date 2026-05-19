@@ -20,6 +20,7 @@ import {
   Grid,
   InputAdornment,
   Paper,
+  CircularProgress,
 } from "@mui/material";
 import {
   Add,
@@ -343,17 +344,21 @@ function Fornecedores() {
     if (name === "cnpj") lim = 14;
     else if (name === "cep") lim = 8;
     else if (name === "telefone" || name === "whatsApp") lim = 11;
+    const truncado = digits.slice(0, lim);
     setCurrentFornecedor({
       ...currentFornecedor,
-      [name]: digits.slice(0, lim),
+      [name]: truncado,
     });
     if (errors[name]) {
       setErrors({ ...errors, [name]: null });
     }
+    if (name === "cep" && truncado.length === 8) {
+      buscarCep(truncado);
+    }
   };
 
-  const buscarCep = async () => {
-    const cep = currentFornecedor.cep.replace(/\D/g, "");
+  const buscarCep = async (cepRaw) => {
+    const cep = String(cepRaw ?? currentFornecedor.cep ?? "").replace(/\D/g, "");
     if (cep.length !== 8) return;
 
     setCepLoading(true);
@@ -366,13 +371,14 @@ function Fornecedores() {
         return;
       }
 
-      setCurrentFornecedor({
-        ...currentFornecedor,
+      setCurrentFornecedor((prev) => ({
+        ...prev,
+        cep,
         rua: data.logradouro || "",
         bairro: data.bairro || "",
         cidade: data.localidade || "",
-        complemento: data.complemento || "",
-      });
+        complemento: data.complemento || prev.complemento || "",
+      }));
       showSuccess("Endereço carregado com sucesso!");
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
@@ -764,7 +770,7 @@ function Fornecedores() {
               </Grid>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: "text.primary", mb: 2 }}>Endereço</Typography>
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={4}><TextField fullWidth label="CEP" name="cep" value={currentFornecedor.cep} onChange={handleDigitsOnlyChange} onBlur={buscarCep} disabled={cepLoading} placeholder="00000000" inputProps={{ inputMode: "numeric", maxLength: 8 }} size="small" /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="CEP" name="cep" value={currentFornecedor.cep} onChange={handleDigitsOnlyChange} onBlur={() => buscarCep()} disabled={cepLoading} placeholder="00000000" inputProps={{ inputMode: "numeric", maxLength: 8 }} size="small" InputProps={{ endAdornment: cepLoading && <CircularProgress size={20} /> }} /></Grid>
                 <Grid item xs={12} md={8}><TextField fullWidth label="Rua" name="rua" value={currentFornecedor.rua} onChange={handleChange} disabled={cepLoading} size="small" /></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Número" name="numero" value={currentFornecedor.numero} onChange={handleChange} placeholder="Nº" size="small" /></Grid>
                 <Grid item xs={12} md={8}><TextField fullWidth label="Complemento" name="complemento" value={currentFornecedor.complemento} onChange={handleChange} placeholder="Apto, Sala, etc" size="small" /></Grid>
