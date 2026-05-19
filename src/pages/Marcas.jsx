@@ -20,6 +20,8 @@ import { Add, Edit, Delete, Search, ArrowBack } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { MarcaService } from "../api/marcaService";
 import { showError, showSuccess } from "../utils/notifications";
+import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
+import { confirmMessages, entityNames } from "../utils/entityMessages";
 
 const getInitials = (nome) => {
   if (!nome) return "?";
@@ -56,6 +58,8 @@ function Marcas() {
   const [editMode, setEditMode] = useState(false);
   const [errors, setErrors] = useState({});
   const [carregando, setCarregando] = useState(false);
+  const [marcaParaExcluir, setMarcaParaExcluir] = useState(null);
+  const [excluindoMarca, setExcluindoMarca] = useState(false);
 
   const fetchMarcas = async () => {
     setCarregando(true);
@@ -133,16 +137,28 @@ function Marcas() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir esta marca?")) {
-      try {
-        await MarcaService.delete(id);
-        showSuccess("Marca excluída.");
-        fetchMarcas();
-      } catch (error) {
-        console.error("Erro ao excluir marca:", error);
-        showError("Erro ao excluir marca.");
-      }
+  const handleAbrirConfirmExcluir = (marca) => {
+    setMarcaParaExcluir({ id: marca.id, nome: marca.nome || "" });
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoMarca) return;
+    setMarcaParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!marcaParaExcluir?.id) return;
+    setExcluindoMarca(true);
+    try {
+      await MarcaService.delete(marcaParaExcluir.id);
+      showSuccess("Marca excluída.");
+      setMarcaParaExcluir(null);
+      fetchMarcas();
+    } catch (error) {
+      console.error("Erro ao excluir marca:", error);
+      showError("Erro ao excluir marca.");
+    } finally {
+      setExcluindoMarca(false);
     }
   };
 
@@ -232,7 +248,7 @@ function Marcas() {
                     <IconButton size="small" onClick={() => handleOpenDialog(marca)} sx={{ color: "text.secondary", "&:hover": { bgcolor: "action.hover", color: "primary.main" } }}>
                       <Edit fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(marca.id)} sx={{ color: "text.secondary", "&:hover": { bgcolor: "error.light", color: "error.main" } }}>
+                    <IconButton size="small" onClick={() => handleAbrirConfirmExcluir(marca)} sx={{ color: "text.secondary", "&:hover": { bgcolor: "error.light", color: "error.main" } }}>
                       <Delete fontSize="small" />
                     </IconButton>
                   </TableCell>
@@ -281,6 +297,16 @@ function Marcas() {
           </Box>
         </Box>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!marcaParaExcluir}
+        onClose={handleFecharConfirmExcluir}
+        onConfirm={handleConfirmarExcluir}
+        title="Excluir marca"
+        message={confirmMessages.delete(entityNames.marca)}
+        itemLabel={marcaParaExcluir?.nome}
+        loading={excluindoMarca}
+      />
     </Box>
   );
 }

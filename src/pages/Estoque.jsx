@@ -18,7 +18,11 @@ import {
   Grid,
   InputAdornment,
   Alert,
+  Divider,
+  Stack,
+  useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import {
   Inventory,
   TrendingUp,
@@ -187,16 +191,19 @@ const PaginationControls = ({
 };
 
 function Estoque() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [tabAtual, setTabAtual] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [carregando, setCarregando] = useState(true);
 
   // Estados para paginação
-  const [paginaAtualProdutos, setPaginaAtualProdutos] = useState(1);
+  const [paginaAtualEntradas, setPaginaAtualEntradas] = useState(1);
   const [paginaAtualMovimentacoes, setPaginaAtualMovimentacoes] = useState(1);
   const itensPorPagina = 10;
 
   const [produtos, setProdutos] = useState([]);
+  const [entradas, setEntradas] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
 
   useEffect(() => {
@@ -283,9 +290,56 @@ function Estoque() {
 
         setProdutos(produtosEstoque);
 
-        // Movimentações: todas as vendas (cada item = uma saída)
-        const movs = [];
-        let movId = 1;
+        // ─── Entradas (compras recebidas) — cada item é uma entrada ──────────
+        const entradasList = [];
+        let entradaId = 1;
+        const comprasOrdenadas = [...comprasRecebidas].sort(
+          (a, b) =>
+            new Date(b.dataPedido || b.data || b.createdAt || 0) -
+            new Date(a.dataPedido || a.data || a.createdAt || 0)
+        );
+
+        for (const compra of comprasOrdenadas) {
+          const itens = compra.itens ?? compra.items ?? [];
+          const dataCompra = compra.dataPedido ?? compra.data ?? compra.createdAt ?? new Date().toISOString();
+          const fornecedor =
+            compra.fornecedor?.razaoSocial ??
+            compra.fornecedor?.nome ??
+            compra.fornecedorNome ??
+            (typeof compra.fornecedor === "string" ? compra.fornecedor : "") ??
+            "—";
+          const compraNumero = compra.id ?? entradaId;
+
+          for (const item of itens) {
+            const produto = item.produto ?? {};
+            const produtoNome = produto.nome ?? item.nomeProduto ?? item.produtoNome ?? item.nome ?? "Produto";
+            const produtoSku = produto.sku ?? item.produtoSku ?? item.sku ?? "";
+            const quantidade = Number(item.quantidade) || 0;
+            const precoUnitario = Number(item.precoUnitario ?? produto.precoCusto ?? produto.precoVenda ?? 0) || 0;
+            if (quantidade <= 0) continue;
+
+            entradasList.push({
+              id: entradaId++,
+              timestamp: dataCompra,
+              tipo: "entrada",
+              origem: "compra",
+              origemLabel: `Compra #${compraNumero}`,
+              produtoNome,
+              produtoSku,
+              quantidade,
+              precoUnitario,
+              subtotal: quantidade * precoUnitario,
+              motivo: `Compra #${compraNumero}`,
+              observacoes: fornecedor ? `Fornecedor: ${fornecedor}` : "—",
+            });
+          }
+        }
+
+        setEntradas(entradasList);
+
+        // ─── Saídas (vendas) — cada item é uma saída ─────────────────────────
+        const saidasList = [];
+        let saidaId = 1;
         const vendasOrdenadas = [...vendasList]
           .filter((v) => (v.status || "").toLowerCase() !== "cancelada")
           .sort((a, b) => new Date(b.dataVenda || b.data || b.createdAt || 0) - new Date(a.dataVenda || a.data || a.createdAt || 0));
@@ -293,7 +347,7 @@ function Estoque() {
         for (const venda of vendasOrdenadas) {
           const itens = venda.itens ?? venda.items ?? [];
           const dataVenda = venda.dataVenda ?? venda.data ?? venda.createdAt ?? new Date().toISOString();
-          const motivo = `Venda #${venda.id ?? movId}`;
+          const vendaNumero = venda.id ?? saidaId;
 
           for (const item of itens) {
             const produto = item.produto ?? {};
@@ -302,24 +356,33 @@ function Estoque() {
             const quantidade = Number(item.quantidade) || 0;
             if (quantidade <= 0) continue;
 
-            movs.push({
-              id: movId++,
+            saidasList.push({
+              id: `saida-${saidaId++}`,
               timestamp: dataVenda,
               tipo: "saida",
+              origem: "venda",
+              origemLabel: `Venda #${vendaNumero}`,
               produtoNome,
               produtoSku,
               quantidade,
-              motivo,
+              motivo: `Venda #${vendaNumero}`,
               observacoes: venda.observacoes ?? ((venda.nomeCliente || venda.cliente) ? `Cliente: ${venda.nomeCliente || venda.cliente}` : "—"),
             });
           }
         }
 
-        setMovimentacoes(movs);
+        // ─── Movimentações = Entradas + Saídas (ordenado por data desc) ──────
+        const todasMovs = [
+          ...entradasList.map((e) => ({ ...e, id: `entrada-${e.id}` })),
+          ...saidasList,
+        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        setMovimentacoes(todasMovs);
       } catch (err) {
         if (!cancelled) {
           console.error("Erro ao carregar estoque:", err);
           setProdutos([]);
+          setEntradas([]);
           setMovimentacoes([]);
         }
       } finally {
@@ -331,15 +394,6 @@ function Estoque() {
     return () => { cancelled = true; };
   }, []);
 
-  const getProdutoStatus = (produto) => {
-    if (produto.estoqueAtual <= produto.estoqueMinimo) {
-      return { label: "Crítico", color: "error.main", bgcolor: "error.light" };
-    } else if (produto.estoqueAtual <= produto.estoqueMinimo * 1.5) {
-      return { label: "Baixo", color: "#d97706", bgcolor: "#fef3c7" };
-    }
-    return { label: "Normal", color: "success.main", bgcolor: "success.light" };
-  };
-
   const calcularValorEstoque = () => {
     return produtos.reduce(
       (acc, p) => acc + p.estoqueAtual * p.valorUnitario,
@@ -347,21 +401,26 @@ function Estoque() {
     );
   };
 
-  const produtosFiltrados = produtos.filter(
-    (p) =>
-      p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // Filtro de entradas (busca por nome do produto, SKU ou origem)
+  const entradasFiltradas = entradas.filter((e) => {
+    const t = searchTerm.toLowerCase();
+    if (!t) return true;
+    return (
+      (e.produtoNome || "").toLowerCase().includes(t) ||
+      (e.produtoSku || "").toLowerCase().includes(t) ||
+      (e.origemLabel || "").toLowerCase().includes(t)
+    );
+  });
 
-  // Cálculos de paginação para produtos
-  const totalPaginasProdutos = Math.ceil(
-    produtosFiltrados.length / itensPorPagina,
+  // Cálculos de paginação para entradas
+  const totalPaginasEntradas = Math.ceil(
+    entradasFiltradas.length / itensPorPagina,
   );
-  const indiceInicialProdutos = (paginaAtualProdutos - 1) * itensPorPagina;
-  const indiceFinalProdutos = indiceInicialProdutos + itensPorPagina;
-  const produtosPaginados = produtosFiltrados.slice(
-    indiceInicialProdutos,
-    indiceFinalProdutos,
+  const indiceInicialEntradas = (paginaAtualEntradas - 1) * itensPorPagina;
+  const indiceFinalEntradas = indiceInicialEntradas + itensPorPagina;
+  const entradasPaginadas = entradasFiltradas.slice(
+    indiceInicialEntradas,
+    indiceFinalEntradas,
   );
 
   // Cálculos de paginação para movimentações
@@ -376,14 +435,14 @@ function Estoque() {
     indiceFinalMovimentacoes,
   );
 
-  // Funções de navegação - Produtos
-  const irParaPrimeiraPaginaProdutos = () => setPaginaAtualProdutos(1);
-  const irParaUltimaPaginaProdutos = () =>
-    setPaginaAtualProdutos(totalPaginasProdutos);
-  const irParaPaginaAnteriorProdutos = () =>
-    setPaginaAtualProdutos((prev) => Math.max(prev - 1, 1));
-  const irParaProximaPaginaProdutos = () =>
-    setPaginaAtualProdutos((prev) => Math.min(prev + 1, totalPaginasProdutos));
+  // Funções de navegação - Entradas
+  const irParaPrimeiraPaginaEntradas = () => setPaginaAtualEntradas(1);
+  const irParaUltimaPaginaEntradas = () =>
+    setPaginaAtualEntradas(totalPaginasEntradas);
+  const irParaPaginaAnteriorEntradas = () =>
+    setPaginaAtualEntradas((prev) => Math.max(prev - 1, 1));
+  const irParaProximaPaginaEntradas = () =>
+    setPaginaAtualEntradas((prev) => Math.min(prev + 1, totalPaginasEntradas));
 
   // Funções de navegação - Movimentações
   const irParaPrimeiraPaginaMovimentacoes = () =>
@@ -399,7 +458,7 @@ function Estoque() {
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    setPaginaAtualProdutos(1); // Volta para a primeira página ao buscar
+    setPaginaAtualEntradas(1);
   };
 
   const handleTabChange = (e, newValue) => {
@@ -440,101 +499,96 @@ function Estoque() {
           </Box>
         </Box>
 
-        {/* Cards de resumo */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <Paper
-              elevation={0}
+        {/* Stats inline — sem boxes */}
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={{ xs: 2, md: 0 }}
+          divider={<Divider orientation="vertical" flexItem sx={{ borderColor: "divider" }} />}
+          sx={{
+            mb: 3,
+            py: 2,
+            px: { xs: 0, md: 1 },
+            alignItems: { xs: "flex-start", md: "stretch" },
+          }}
+        >
+          {[
+            {
+              icon: <Inventory sx={{ fontSize: 20 }} />,
+              color: theme.palette.primary.main,
+              label: "Total de Produtos",
+              value: produtos.length.toString(),
+            },
+            {
+              icon: <Warning sx={{ fontSize: 20 }} />,
+              color: "#f59e0b",
+              label: "Estoque Baixo",
+              value: produtos.filter((p) => p.estoqueAtual <= p.estoqueMinimo).length.toString(),
+            },
+            {
+              icon: <CheckCircle sx={{ fontSize: 20 }} />,
+              color: isDark ? "#22c55e" : "#16a34a",
+              label: "Itens em Estoque",
+              value: produtos.reduce((acc, p) => acc + p.estoqueAtual, 0).toString(),
+            },
+            {
+              icon: <TrendingUp sx={{ fontSize: 20 }} />,
+              color: isDark ? "#22c55e" : "#16a34a",
+              label: "Valor Total",
+              value: `R$ ${calcularValorEstoque().toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              accent: true,
+            },
+          ].map((s) => (
+            <Box
+              key={s.label}
               sx={{
-                p: 3,
-                borderRadius: "12px",
-                border: "1px solid",
-                borderColor: "divider",
+                flex: 1,
+                px: { xs: 0, md: 3 },
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.5,
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <Inventory sx={{ color: "primary.main", mr: 1 }} />
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Total de Produtos
-                </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {produtos.length}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: "12px",
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <Warning sx={{ color: "#d97706", mr: 1 }} />
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Estoque Baixo
-                </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {
-                  produtos.filter((p) => p.estoqueAtual <= p.estoqueMinimo)
-                    .length
-                }
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: "12px",
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <CheckCircle sx={{ color: "success.main", mr: 1 }} />
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Itens em Estoque
-                </Typography>
-              </Box>
-              <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                {produtos.reduce((acc, p) => acc + p.estoqueAtual, 0)}
-              </Typography>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: "12px",
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Valor Total
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: alpha(s.color, isDark ? 0.18 : 0.12),
+                    color: s.color,
+                  }}
+                >
+                  {s.icon}
+                </Box>
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "text.secondary",
+                  }}
+                >
+                  {s.label}
                 </Typography>
               </Box>
               <Typography
-                variant="h4"
-                sx={{ fontWeight: 600, color: "success.main" }}
+                sx={{
+                  fontWeight: 800,
+                  fontSize: 28,
+                  lineHeight: 1.1,
+                  color: s.accent ? s.color : "text.primary",
+                  wordBreak: "break-word",
+                }}
               >
-                R$ {calcularValorEstoque().toFixed(2)}
+                {s.value}
               </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
+            </Box>
+          ))}
+        </Stack>
       </Box>
 
       {/* Tabs */}
@@ -567,19 +621,18 @@ function Estoque() {
               },
             }}
           >
-            <Tab label="Visão Geral" />
+            <Tab label="Entradas" />
             <Tab label="Movimentações" />
-            <Tab label="Inventário" />
           </Tabs>
         </Box>
 
         <Box sx={{ p: 3 }}>
-          {/* Tab Visão Geral */}
+          {/* Tab Entradas (compras + devoluções de compra) */}
           {tabAtual === 0 && (
             <Box>
               <TextField
                 fullWidth
-                placeholder="Buscar produto por nome ou SKU..."
+                placeholder="Buscar entrada por produto, SKU ou origem..."
                 value={searchTerm}
                 onChange={handleSearchChange}
                 InputProps={{
@@ -604,211 +657,127 @@ function Estoque() {
                 }}
               />
 
-              {produtos.filter((p) => p.estoqueAtual <= p.estoqueMinimo)
-                .length > 0 && (
-                <Alert severity="warning" sx={{ mb: 3 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Existem{" "}
-                    {
-                      produtos.filter((p) => p.estoqueAtual <= p.estoqueMinimo)
-                        .length
-                    }{" "}
-                    produtos com estoque baixo ou crítico
-                  </Typography>
-                </Alert>
-              )}
-
               <TableContainer
-                sx={{ border: "1px solid",
-                borderColor: "divider", borderRadius: "8px" }}
+                sx={{ border: "1px solid", borderColor: "divider", borderRadius: "8px" }}
               >
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: "action.hover" }}>
-                      <TableCell
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                          py: 2,
-                        }}
-                      >
+                      <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px", py: 2 }}>
+                        DATA
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                         PRODUTO
                       </TableCell>
-                      <TableCell
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
+                      <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                         SKU
                       </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
-                        ESTOQUE ATUAL
+                      <TableCell align="center" sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
+                        QUANTIDADE
                       </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
-                        ESTOQUE MÍN/MÁX
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
+                      <TableCell align="right" sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
                         VALOR UNIT.
                       </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
-                        VALOR TOTAL
+                      <TableCell align="right" sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
+                        SUBTOTAL
                       </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{
-                          fontWeight: 600,
-                          color: "text.primary",
-                          fontSize: "13px",
-                        }}
-                      >
-                        STATUS
+                      <TableCell sx={{ fontWeight: 600, color: "text.primary", fontSize: "13px" }}>
+                        ORIGEM
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {produtosPaginados.length === 0 ? (
+                    {entradasPaginadas.length === 0 ? (
                       <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          align="center"
-                          sx={{ py: 8, color: "text.secondary" }}
-                        >
-                          <Inventory
-                            sx={{ fontSize: 48, mb: 2, opacity: 0.5 }}
-                          />
+                        <TableCell colSpan={7} align="center" sx={{ py: 8, color: "text.secondary" }}>
+                          <TrendingUp sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
                           <Typography variant="body1">
-                            Nenhum produto encontrado
+                            Nenhuma entrada registrada
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            As entradas vêm das compras recebidas e devoluções de compra.
                           </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      produtosPaginados.map((produto, index) => {
-                        const status = getProdutoStatus(produto);
-                        return (
-                          <TableRow
-                            key={produto.id}
-                            sx={{
-                              "&:hover": { bgcolor: "action.hover" },
-                              borderBottom:
-                                index === produtosPaginados.length - 1
-                                  ? "none"
-                                  : "1px solid",
-                                  borderColor: "divider",
-                            }}
-                          >
-                            <TableCell sx={{ py: 2.5 }}>
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 500, color: "text.primary" }}
-                              >
-                                {produto.nome}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={produto.sku}
-                                size="small"
-                                sx={{
-                                  bgcolor: "action.hover",
-                                  fontSize: "11px",
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 600, fontSize: "16px" }}
-                              >
-                                {produto.estoqueAtual}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography
-                                variant="caption"
-                                sx={{ color: "text.secondary" }}
-                              >
-                                {produto.estoqueMinimo} /{" "}
-                                {produto.estoqueMaximo}
-                              </Typography>
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ fontWeight: 500, fontSize: "14px" }}
-                            >
-                              R$ {produto.valorUnitario.toFixed(2)}
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              sx={{ fontWeight: 500, fontSize: "14px" }}
-                            >
-                              R${" "}
-                              {(
-                                produto.estoqueAtual * produto.valorUnitario
-                              ).toFixed(2)}
-                            </TableCell>
-                            <TableCell align="center">
-                              <Chip
-                                label={status.label}
-                                size="small"
-                                sx={{
-                                  bgcolor: status.bgcolor,
-                                  color: status.color,
-                                  fontWeight: 500,
-                                  fontSize: "12px",
-                                }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                      entradasPaginadas.map((entrada, index) => (
+                        <TableRow
+                          key={entrada.id}
+                          sx={{
+                            "&:hover": { bgcolor: "action.hover" },
+                            borderBottom:
+                              index === entradasPaginadas.length - 1
+                                ? "none"
+                                : "1px solid",
+                            borderColor: "divider",
+                          }}
+                        >
+                          <TableCell sx={{ py: 2.5 }}>
+                            <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 500 }}>
+                              {new Date(entrada.timestamp).toLocaleDateString("pt-BR")}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                              {new Date(entrada.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: "text.primary" }}>
+                              {entrada.produtoNome}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={entrada.produtoSku || "—"}
+                              size="small"
+                              sx={{ bgcolor: "action.hover", fontSize: "11px" }}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main", fontSize: "15px" }}>
+                              + {entrada.quantidade}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 500, fontSize: "14px" }}>
+                            R$ {entrada.precoUnitario.toFixed(2)}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600, fontSize: "14px", color: "primary.main" }}>
+                            R$ {entrada.subtotal.toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={<TrendingUp sx={{ fontSize: 14 }} />}
+                              label={entrada.origemLabel}
+                              size="small"
+                              sx={{
+                                bgcolor: alpha("#16a34a", isDark ? 0.18 : 0.12),
+                                color: isDark ? "#22c55e" : "#16a34a",
+                                fontWeight: 600,
+                                fontSize: "11px",
+                                "& .MuiChip-icon": { color: "inherit" },
+                              }}
+                            />
+                            <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.5 }}>
+                              {entrada.observacoes}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
 
-                {/* Paginação - Produtos */}
                 <PaginationControls
-                  paginaAtual={paginaAtualProdutos}
-                  totalPaginas={totalPaginasProdutos}
-                  indiceInicial={indiceInicialProdutos}
-                  indiceFinal={indiceFinalProdutos}
-                  totalItens={produtosFiltrados.length}
-                  itemLabel="produto"
-                  onPrimeira={irParaPrimeiraPaginaProdutos}
-                  onAnterior={irParaPaginaAnteriorProdutos}
-                  onProxima={irParaProximaPaginaProdutos}
-                  onUltima={irParaUltimaPaginaProdutos}
-                  onPagina={setPaginaAtualProdutos}
+                  paginaAtual={paginaAtualEntradas}
+                  totalPaginas={totalPaginasEntradas}
+                  indiceInicial={indiceInicialEntradas}
+                  indiceFinal={indiceFinalEntradas}
+                  totalItens={entradasFiltradas.length}
+                  itemLabel="entrada"
+                  onPrimeira={irParaPrimeiraPaginaEntradas}
+                  onAnterior={irParaPaginaAnteriorEntradas}
+                  onProxima={irParaProximaPaginaEntradas}
+                  onUltima={irParaUltimaPaginaEntradas}
+                  onPagina={setPaginaAtualEntradas}
                 />
               </TableContainer>
             </Box>
@@ -897,7 +866,7 @@ function Estoque() {
                             Nenhuma movimentação registrada
                           </Typography>
                           <Typography variant="body2" sx={{ mt: 1 }}>
-                            As movimentações de saída são exibidas a partir das vendas realizadas.
+                            Aqui aparecem todas as movimentações do sistema (entradas de compras e saídas de vendas).
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -1003,19 +972,6 @@ function Estoque() {
                   onPagina={setPaginaAtualMovimentacoes}
                 />
               </TableContainer>
-            </Box>
-          )}
-
-          {/* Tab Inventário */}
-          {tabAtual === 2 && (
-            <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
-              <Inventory sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                Inventário em desenvolvimento
-              </Typography>
-              <Typography variant="body2">
-                Aqui você poderá realizar contagens de estoque
-              </Typography>
             </Box>
           )}
         </Box>

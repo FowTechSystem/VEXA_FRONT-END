@@ -689,7 +689,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Autocomplete
                     fullWidth
                     options={listaFornecedores}
@@ -722,7 +722,7 @@ function Compras() {
                     disablePortal
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <TextField
                     fullWidth
                     label="Data do Pedido"
@@ -734,7 +734,7 @@ function Compras() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <TextField
                     fullWidth
                     label="Data Entrega Prevista"
@@ -746,7 +746,7 @@ function Compras() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -906,7 +906,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mt: 2 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
                     label="Observações"
