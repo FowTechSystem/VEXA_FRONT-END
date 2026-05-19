@@ -50,11 +50,19 @@ import {
   Payment,
   FileDownload,
   Add,
+  LockOpen,
+  Lock,
 } from "@mui/icons-material";
 import { caixaService } from "../api/caixaService";
 import { vendasService } from "../api/vendasService";
 import { comprasService } from "../api/comprasService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
+import {
+  getCaixaStatus,
+  isCaixaAberto,
+  abrirCaixa as abrirCaixaStorage,
+  fecharCaixa as fecharCaixaStorage,
+} from "../utils/caixaStatus";
 import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
@@ -139,14 +147,46 @@ function Movimentacoes() {
   const [saldoAtual, setSaldoAtual] = useState(0);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [carregandoMovimentacoes, setCarregandoMovimentacoes] = useState(true);
-  const [dataInicio, setDataInicio] = useState(() => {
+  const hojeISO = () => {
     const h = new Date();
-    return new Date(h.getFullYear(), h.getMonth(), 1).toISOString().split("T")[0];
-  });
-  const [dataFim, setDataFim] = useState(() => {
-    const h = new Date();
-    return new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString().split("T")[0];
-  });
+    const y = h.getFullYear();
+    const m = String(h.getMonth() + 1).padStart(2, "0");
+    const d = String(h.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+  const [dataInicio, setDataInicio] = useState(() => hojeISO());
+  const [dataFim, setDataFim] = useState(() => hojeISO());
+
+  // ─── Estado do Caixa (abertura/fechamento) ─────────────────────────────────
+  const [caixaStatus, setCaixaStatus] = useState(() => getCaixaStatus());
+  const [openAbrirCaixa, setOpenAbrirCaixa] = useState(false);
+  const [openFecharCaixa, setOpenFecharCaixa] = useState(false);
+  const [valorInicialInput, setValorInicialInput] = useState("");
+
+  const handleAbrirCaixa = () => {
+    const valor = parseFloat(String(valorInicialInput).replace(",", ".")) || 0;
+    const novo = abrirCaixaStorage({ valorInicial: valor });
+    setCaixaStatus(novo);
+    setOpenAbrirCaixa(false);
+    setValorInicialInput("");
+    showSuccess("Caixa aberto com sucesso.");
+  };
+
+  const handleFecharCaixa = () => {
+    const novo = fecharCaixaStorage();
+    setCaixaStatus(novo);
+    setOpenFecharCaixa(false);
+    showSuccess("Caixa fechado.");
+  };
+
+  const handleClickNovaMov = () => {
+    if (!isCaixaAberto()) {
+      showWarning("O caixa precisa estar aberto para registrar movimentações.");
+      setOpenAbrirCaixa(true);
+      return;
+    }
+    setNovaMovOpen(true);
+  };
 
   // ─── Ticket colors (mesmo padrão do Caixa) ────────────────────────────────
   const ticket = useMemo(() => {
@@ -412,7 +452,40 @@ function Movimentacoes() {
             </Typography>
           </Box>
         </Box>
-        <Stack direction="row" spacing={1.25} alignItems="center">
+        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Chip
+            icon={caixaStatus.aberto ? <LockOpen sx={{ fontSize: 16 }} /> : <Lock sx={{ fontSize: 16 }} />}
+            label={caixaStatus.aberto ? "Caixa aberto" : "Caixa fechado"}
+            color={caixaStatus.aberto ? "success" : "default"}
+            sx={{
+              fontWeight: 800,
+              height: 28,
+              ...(caixaStatus.aberto
+                ? {}
+                : { bgcolor: alpha(corSaida, isDark ? 0.18 : 0.12), color: corSaida }),
+              "& .MuiChip-icon": { color: caixaStatus.aberto ? "#fff" : corSaida },
+            }}
+          />
+          {caixaStatus.aberto ? (
+            <Button
+              variant="outlined"
+              startIcon={<Lock />}
+              onClick={() => setOpenFecharCaixa(true)}
+              sx={{ textTransform: "none", fontWeight: 700, height: 36 }}
+            >
+              Fechar Caixa
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<LockOpen />}
+              onClick={() => setOpenAbrirCaixa(true)}
+              sx={{ textTransform: "none", fontWeight: 700, height: 36 }}
+            >
+              Abrir Caixa
+            </Button>
+          )}
           <Chip
             label={`${movimentacoesFiltradas.length} ${movimentacoesFiltradas.length === 1 ? "registro" : "registros"}`}
             color={movimentacoesFiltradas.length > 0 ? "primary" : "default"}
@@ -421,7 +494,8 @@ function Movimentacoes() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => setNovaMovOpen(true)}
+            onClick={handleClickNovaMov}
+            disabled={!caixaStatus.aberto}
             sx={{ textTransform: "none", fontWeight: 700, height: 36 }}
           >
             Nova Movimentação
@@ -1047,6 +1121,98 @@ function Movimentacoes() {
         onClose={() => setNovaMovOpen(false)}
         onSaved={() => carregarMovimentacoes()}
       />
+
+      {/* ═══ Dialog: Abrir Caixa ═══ */}
+      <Dialog
+        open={openAbrirCaixa}
+        onClose={() => setOpenAbrirCaixa(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+          <LockOpen color="success" /> Abrir Caixa
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Informe o valor inicial em dinheiro disponível no caixa.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            type="number"
+            label="Valor inicial"
+            value={valorInicialInput}
+            onChange={(e) => setValorInicialInput(e.target.value)}
+            placeholder="0,00"
+            inputProps={{ min: 0, step: "0.01" }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Typography sx={{ fontWeight: 700 }}>R$</Typography>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setOpenAbrirCaixa(false)} sx={{ textTransform: "none" }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleAbrirCaixa}
+            startIcon={<LockOpen />}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            Abrir Caixa
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ═══ Dialog: Fechar Caixa ═══ */}
+      <Dialog
+        open={openFecharCaixa}
+        onClose={() => setOpenFecharCaixa(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+          <Lock /> Fechar Caixa
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Tem certeza que deseja fechar o caixa? Após fechado, novas vendas e movimentações ficarão bloqueadas até a próxima abertura.
+          </Typography>
+          {caixaStatus.dataAbertura && (
+            <Typography variant="body2" sx={{ mt: 1.5, fontSize: 12 }}>
+              Aberto em: <strong>{new Date(caixaStatus.dataAbertura).toLocaleString("pt-BR")}</strong>
+            </Typography>
+          )}
+          {caixaStatus.valorInicial != null && (
+            <Typography variant="body2" sx={{ fontSize: 12 }}>
+              Valor inicial: <strong>{fmtBRL(caixaStatus.valorInicial)}</strong>
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setOpenFecharCaixa(false)} sx={{ textTransform: "none" }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleFecharCaixa}
+            startIcon={<Lock />}
+            sx={{ textTransform: "none", fontWeight: 700 }}
+          >
+            Fechar Caixa
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

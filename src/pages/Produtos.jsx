@@ -63,6 +63,7 @@ import {
   entityNames,
 } from "../utils/entityMessages";
 import { validateRequired } from "../utils/validators";
+import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -136,6 +137,8 @@ function Produtos() {
   const produtosPorPagina = 10;
   const [carregando, setCarregando] = useState(false);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
+  const [produtoParaExcluir, setProdutoParaExcluir] = useState(null);
+  const [excluindoProduto, setExcluindoProduto] = useState(false);
   /** Arquivo escolhido na galeria — usado para upload na edição e base64 na criação (como clientes/usuários). */
   const [imagemProdutoFile, setImagemProdutoFile] = useState(null);
   const imagemAdicionalFileRefs = useRef([]);
@@ -441,9 +444,13 @@ function Produtos() {
       p.tipoTamanho = p.tipoTamanho || inferirTipoTamanho(p.tamanhos);
       p.imagemPrincipal =
         p.foto1 ||
+        p.Foto1 ||
         p.imagemPrincipal ||
+        p.ImagemPrincipal ||
         p.urlImagem ||
+        p.UrlImagem ||
         p.imagemUrl ||
+        p.ImagemUrl ||
         "";
       const f2 = p.foto2 ?? p.Foto2 ?? "";
       const f3 = p.foto3 ?? p.Foto3 ?? "";
@@ -670,16 +677,28 @@ function Produtos() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm(confirmMessages.delete(entityNames.produto))) {
-      try {
-        await produtosService.delete(id);
-        showSuccess(successMessages.delete(entityNames.produto));
-        fetchProdutos();
-      } catch (error) {
-        console.error("Erro ao excluir produto:", error);
-        showError(errorMessages.delete(entityNames.produto));
-      }
+  const handleAbrirConfirmExcluir = (produto) => {
+    setProdutoParaExcluir({ id: produto.id, nome: produto.nome || "" });
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoProduto) return;
+    setProdutoParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!produtoParaExcluir?.id) return;
+    setExcluindoProduto(true);
+    try {
+      await produtosService.delete(produtoParaExcluir.id);
+      showSuccess(successMessages.delete(entityNames.produto));
+      setProdutoParaExcluir(null);
+      fetchProdutos();
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      showError(errorMessages.delete(entityNames.produto));
+    } finally {
+      setExcluindoProduto(false);
     }
   };
 
@@ -1062,7 +1081,15 @@ function Produtos() {
                       sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                     >
                       <Avatar
-                        src={produto.foto1 || produto.imagemPrincipal || undefined}
+                        src={
+                          produto.foto1 ||
+                          produto.Foto1 ||
+                          produto.imagemPrincipal ||
+                          produto.ImagemPrincipal ||
+                          produto.urlImagem ||
+                          produto.imagemUrl ||
+                          undefined
+                        }
                         sx={{
                           bgcolor: (t) =>
                             alpha(t.palette.primary.main, isDark ? 0.2 : 0.12),
@@ -1218,7 +1245,7 @@ function Produtos() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(produto.id)}
+                      onClick={() => handleAbrirConfirmExcluir(produto)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2", color: "error.main" },
@@ -1464,9 +1491,7 @@ function Produtos() {
             <Grid container spacing={0}>
               {/* Coluna imagens */}
               <Grid
-                item
-                xs={12}
-                md={5}
+                size={{ xs: 12, md: 5 }}
                 sx={{
                   p: { xs: 2, sm: 3 },
                   borderRight: { md: "1px solid" },
@@ -1644,7 +1669,7 @@ function Produtos() {
               </Grid>
 
               {/* Coluna formulário */}
-              <Grid item xs={12} md={7} sx={{ p: { xs: 2, sm: 3 } }}>
+              <Grid size={{ xs: 12, md: 7 }} sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack spacing={2.25}>
                   <Box>
                     {modalLabel("Nome do produto")}
@@ -1663,7 +1688,7 @@ function Produtos() {
                   </Box>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço de custo R$")}
                       <TextField
                         fullWidth
@@ -1688,7 +1713,7 @@ function Produtos() {
                         inputProps={{ step: "0.01", min: "0" }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço de venda R$")}
                       <TextField
                         fullWidth
@@ -1715,8 +1740,8 @@ function Produtos() {
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Categoria")}
                       <Autocomplete
                         fullWidth
@@ -1746,7 +1771,7 @@ function Produtos() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Marca")}
                       <Autocomplete
                         fullWidth
@@ -1778,7 +1803,7 @@ function Produtos() {
                   </Grid>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Gênero")}
                       <FormControl fullWidth size="small" sx={modalFieldSx}>
                         <Select
@@ -1799,7 +1824,7 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("SKU")}
                       <TextField
                         fullWidth
@@ -1964,7 +1989,7 @@ function Produtos() {
                   </Box>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço promocional R$")}
                       <TextField
                         fullWidth
@@ -1988,7 +2013,7 @@ function Produtos() {
                         placeholder="Opcional"
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Margem de lucro")}
                       <TextField
                         fullWidth
@@ -2177,6 +2202,16 @@ function Produtos() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!produtoParaExcluir}
+        onClose={handleFecharConfirmExcluir}
+        onConfirm={handleConfirmarExcluir}
+        title="Excluir produto"
+        message={confirmMessages.delete(entityNames.produto)}
+        itemLabel={produtoParaExcluir?.nome}
+        loading={excluindoProduto}
+      />
     </Box>
   );
 }

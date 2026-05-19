@@ -41,6 +41,7 @@ import {
   confirmMessages,
   entityNames,
 } from "../utils/entityMessages";
+import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 
 const getInitials = (nome) => {
   if (!nome) return "?";
@@ -100,6 +101,8 @@ function Fornecedores() {
   const [cepLoading, setCepLoading] = useState(false);
   const [openValidacaoModal, setOpenValidacaoModal] = useState(false);
   const [mensagemValidacao, setMensagemValidacao] = useState("");
+  const [fornecedorParaExcluir, setFornecedorParaExcluir] = useState(null);
+  const [excluindoFornecedor, setExcluindoFornecedor] = useState(false);
 
   // Cálculos de paginação
   const totalPaginas = Math.ceil(
@@ -294,16 +297,31 @@ function Fornecedores() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm(confirmMessages.delete(entityNames.fornecedor))) {
-      try {
-        await FornecedorService.delete(id);
-        showSuccess(successMessages.delete(entityNames.fornecedor));
-        fetchFornecedores();
-      } catch (error) {
-        console.error("Erro ao excluir fornecedor:", error);
-        showError(errorMessages.delete(entityNames.fornecedor));
-      }
+  const handleAbrirConfirmExcluir = (fornecedor) => {
+    setFornecedorParaExcluir({
+      id: fornecedor.id,
+      nome: fornecedor.razaoSocial || fornecedor.nome || "",
+    });
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoFornecedor) return;
+    setFornecedorParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!fornecedorParaExcluir?.id) return;
+    setExcluindoFornecedor(true);
+    try {
+      await FornecedorService.delete(fornecedorParaExcluir.id);
+      showSuccess(successMessages.delete(entityNames.fornecedor));
+      setFornecedorParaExcluir(null);
+      fetchFornecedores();
+    } catch (error) {
+      console.error("Erro ao excluir fornecedor:", error);
+      showError(errorMessages.delete(entityNames.fornecedor));
+    } finally {
+      setExcluindoFornecedor(false);
     }
   };
 
@@ -559,7 +577,7 @@ function Fornecedores() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(fornecedor.id)}
+                      onClick={() => handleAbrirConfirmExcluir(fornecedor)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { bgcolor: "error.light", color: "error.main" },
@@ -770,6 +788,16 @@ function Fornecedores() {
         <DialogContent><Typography variant="body2" sx={{ color: "text.primary", fontSize: "14px" }}>{mensagemValidacao}</Typography></DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}><Button variant="contained" autoFocus onClick={() => setOpenValidacaoModal(false)} sx={{ textTransform: "none", minWidth: 100 }}>OK</Button></DialogActions>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!fornecedorParaExcluir}
+        onClose={handleFecharConfirmExcluir}
+        onConfirm={handleConfirmarExcluir}
+        title="Excluir fornecedor"
+        message={confirmMessages.delete(entityNames.fornecedor)}
+        itemLabel={fornecedorParaExcluir?.nome}
+        loading={excluindoFornecedor}
+      />
     </Box>
   );
 }
