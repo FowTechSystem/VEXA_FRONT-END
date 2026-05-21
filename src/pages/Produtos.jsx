@@ -63,6 +63,7 @@ import {
   entityNames,
 } from "../utils/entityMessages";
 import { validateRequired } from "../utils/validators";
+import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -94,9 +95,77 @@ const CORES = [
 const GENEROS = ["Feminino", "Masculino", "Unissex", "Infantil"];
 
 const MAX_IMAGEM_PRODUTO_BYTES = 5 * 1024 * 1024;
+const JPEG_QUALITY_UPLOAD = 0.92;
 
 function isHttpImageUrl(s) {
   return typeof s === "string" && /^https?:\/\//i.test(s.trim());
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Não foi possível decodificar a imagem."));
+    img.src = src;
+  });
+}
+
+function canvasFromImg(img) {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas indisponível.");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+function canvasToJpegBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error("Falha ao gerar JPEG."));
+        else resolve(blob);
+      },
+      "image/jpeg",
+      JPEG_QUALITY_UPLOAD,
+    );
+  });
+}
+
+function fileBaseName(file, fallback = "imagem") {
+  const raw = (file?.name || fallback).replace(/\.[^.]+$/, "");
+  return raw || fallback;
+}
+
+/** Garante que o arquivo seja JPEG. Aceita File ou data URL; retorna File JPEG. */
+async function ensureJpegFile(input, fallbackName = "imagem") {
+  if (input instanceof File && input.type === "image/jpeg") return input;
+
+  let dataUrl;
+  let baseName = fallbackName;
+  if (typeof input === "string") {
+    if (!input.startsWith("data:image/")) return null;
+    dataUrl = input;
+  } else if (input instanceof Blob) {
+    baseName = fileBaseName(input, fallbackName);
+    dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+      r.onerror = () => reject(new Error("Falha ao ler arquivo."));
+      r.readAsDataURL(input);
+    });
+  } else {
+    return null;
+  }
+  if (!dataUrl) return null;
+
+  const img = await loadImage(dataUrl);
+  const canvas = canvasFromImg(img);
+  const blob = await canvasToJpegBlob(canvas);
+  return new File([blob], `${baseName}.jpg`, { type: "image/jpeg" });
 }
 
 // Extrai nome de string ou objeto { id, nome } retornado pela API
@@ -136,6 +205,8 @@ function Produtos() {
   const produtosPorPagina = 10;
   const [carregando, setCarregando] = useState(false);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
+  const [produtoParaExcluir, setProdutoParaExcluir] = useState(null);
+  const [excluindoProduto, setExcluindoProduto] = useState(false);
   /** Arquivo escolhido na galeria — usado para upload na edição e base64 na criação (como clientes/usuários). */
   const [imagemProdutoFile, setImagemProdutoFile] = useState(null);
   const imagemAdicionalFileRefs = useRef([]);
@@ -441,9 +512,13 @@ function Produtos() {
       p.tipoTamanho = p.tipoTamanho || inferirTipoTamanho(p.tamanhos);
       p.imagemPrincipal =
         p.foto1 ||
+        p.Foto1 ||
         p.imagemPrincipal ||
+        p.ImagemPrincipal ||
         p.urlImagem ||
+        p.UrlImagem ||
         p.imagemUrl ||
+        p.ImagemUrl ||
         "";
       const f2 = p.foto2 ?? p.Foto2 ?? "";
       const f3 = p.foto3 ?? p.Foto3 ?? "";
@@ -575,9 +650,36 @@ function Produtos() {
       let foto1Url = undefined;
       let imagemUrlAposUpload = null;
 
-      if (imagemProdutoFile) {
+      // Em edição, se a imagem ainda é uma data URL (vinda do backend antigo
+      // ou colada no campo URL), converte para File JPEG e sobe via upload-foto.
+      let arquivoParaUpload = imagemProdutoFile;
+      if (
+        !arquivoParaUpload &&
+        editMode &&
+        typeof currentProduto.imagemPrincipal === "string" &&
+        currentProduto.imagemPrincipal.startsWith("data:image/")
+      ) {
         try {
-          const uploadResult = await produtosService.uploadFoto(imagemProdutoFile);
+          arquivoParaUpload = await ensureJpegFile(
+            currentProduto.imagemPrincipal,
+            `produto-${currentProduto.id ?? "novo"}`,
+          );
+        } catch (convErr) {
+          console.warn("[Produtos] Falha ao converter data URL existente para JPEG", convErr);
+        }
+      }
+
+      if (arquivoParaUpload) {
+        // Garantia extra de JPEG (caso o arquivo venha de outro fluxo)
+        try {
+          const jpeg = await ensureJpegFile(arquivoParaUpload, fileBaseName(arquivoParaUpload, "produto"));
+          if (jpeg) arquivoParaUpload = jpeg;
+        } catch {
+          /* mantém o arquivo original se conversão falhar */
+        }
+
+        try {
+          const uploadResult = await produtosService.uploadFoto(arquivoParaUpload);
           const novaUrl =
             uploadResult?.url ??
             uploadResult?.fotoUrl ??
@@ -607,16 +709,21 @@ function Produtos() {
         }
       }
 
-      if (imagemProdutoFile && !imagemUrlAposUpload) {
+      if (arquivoParaUpload && !imagemUrlAposUpload) {
         fotoBase64 = currentProduto.imagemPrincipal?.includes(",")
           ? currentProduto.imagemPrincipal.split(",")[1]
           : null;
       }
 
-      const imagemPrincipalPayload =
-        imagemUrlAposUpload && !editMode
-          ? imagemUrlAposUpload
+      // Se a imagem atual ainda é data URL e não conseguimos subir, evita enviar
+      // o blob gigante de volta no payload — substitui por "" para não estourar 400.
+      const imagemPrincipalAtual =
+        typeof currentProduto.imagemPrincipal === "string" &&
+        currentProduto.imagemPrincipal.startsWith("data:image/")
+          ? ""
           : currentProduto.imagemPrincipal;
+
+      const imagemPrincipalPayload = imagemUrlAposUpload || imagemPrincipalAtual;
 
       const produtoParaSalvar = toApiPayload(
         {
@@ -670,16 +777,28 @@ function Produtos() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm(confirmMessages.delete(entityNames.produto))) {
-      try {
-        await produtosService.delete(id);
-        showSuccess(successMessages.delete(entityNames.produto));
-        fetchProdutos();
-      } catch (error) {
-        console.error("Erro ao excluir produto:", error);
-        showError(errorMessages.delete(entityNames.produto));
-      }
+  const handleAbrirConfirmExcluir = (produto) => {
+    setProdutoParaExcluir({ id: produto.id, nome: produto.nome || "" });
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoProduto) return;
+    setProdutoParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!produtoParaExcluir?.id) return;
+    setExcluindoProduto(true);
+    try {
+      await produtosService.delete(produtoParaExcluir.id);
+      showSuccess(successMessages.delete(entityNames.produto));
+      setProdutoParaExcluir(null);
+      fetchProdutos();
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      showError(errorMessages.delete(entityNames.produto));
+    } finally {
+      setExcluindoProduto(false);
     }
   };
 
@@ -707,26 +826,37 @@ function Produtos() {
     produtoImagemFileRef.current?.click();
   };
 
-  const handleProdutoImagemFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const handleProdutoImagemFileChange = async (e) => {
+    const original = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!original) return;
+    if (!original.type.startsWith("image/")) {
       showError("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+    if (original.size > MAX_IMAGEM_PRODUTO_BYTES) {
       showError("Imagem deve ter no máximo 5 MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") return;
-      setImagemProdutoFile(file);
+    try {
+      const jpeg = await ensureJpegFile(original, fileBaseName(original, "produto"));
+      if (!jpeg) {
+        showError("Não foi possível processar a imagem. Use JPG/PNG.");
+        return;
+      }
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+        r.onerror = () => reject(new Error("Falha ao ler imagem."));
+        r.readAsDataURL(jpeg);
+      });
+      if (!dataUrl) return;
+      setImagemProdutoFile(jpeg);
       setCurrentProduto((prev) => ({ ...prev, imagemPrincipal: dataUrl }));
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[Produtos] Falha ao converter imagem para JPEG", err);
+      showError("Não foi possível processar a imagem. Tente outra.");
+    }
   };
 
   const handleProdutoImagemAjustado = ({ dataUrl, file }) => {
@@ -739,30 +869,41 @@ function Produtos() {
     imagemAdicionalFileRefs.current[index]?.click();
   };
 
-  const handleImagemAdicionalFileChange = (index) => (e) => {
-    const file = e.target.files?.[0];
+  const handleImagemAdicionalFileChange = (index) => async (e) => {
+    const original = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!original) return;
+    if (!original.type.startsWith("image/")) {
       showError("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > MAX_IMAGEM_PRODUTO_BYTES) {
+    if (original.size > MAX_IMAGEM_PRODUTO_BYTES) {
       showError("Imagem deve ter no máximo 5 MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") return;
+    try {
+      const jpeg = await ensureJpegFile(original, fileBaseName(original, `produto-extra-${index + 1}`));
+      if (!jpeg) {
+        showError("Não foi possível processar a imagem. Use JPG/PNG.");
+        return;
+      }
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+        r.onerror = () => reject(new Error("Falha ao ler imagem."));
+        r.readAsDataURL(jpeg);
+      });
+      if (!dataUrl) return;
       setCurrentProduto((prev) => {
         const arr = Array.isArray(prev.imagensAdicionais) ? [...prev.imagensAdicionais] : [];
         while (arr.length < 2) arr.push("");
         arr[index] = dataUrl;
         return { ...prev, imagensAdicionais: arr };
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[Produtos] Falha ao converter imagem adicional para JPEG", err);
+      showError("Não foi possível processar a imagem. Tente outra.");
+    }
   };
 
   const limparImagemAdicional = (index) => (e) => {
@@ -1062,7 +1203,15 @@ function Produtos() {
                       sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                     >
                       <Avatar
-                        src={produto.foto1 || produto.imagemPrincipal || undefined}
+                        src={
+                          produto.foto1 ||
+                          produto.Foto1 ||
+                          produto.imagemPrincipal ||
+                          produto.ImagemPrincipal ||
+                          produto.urlImagem ||
+                          produto.imagemUrl ||
+                          undefined
+                        }
                         sx={{
                           bgcolor: (t) =>
                             alpha(t.palette.primary.main, isDark ? 0.2 : 0.12),
@@ -1218,7 +1367,7 @@ function Produtos() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(produto.id)}
+                      onClick={() => handleAbrirConfirmExcluir(produto)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { bgcolor: isDark ? "rgba(239, 68, 68, 0.15)" : "#fef2f2", color: "error.main" },
@@ -1464,9 +1613,7 @@ function Produtos() {
             <Grid container spacing={0}>
               {/* Coluna imagens */}
               <Grid
-                item
-                xs={12}
-                md={5}
+                size={{ xs: 12, md: 5 }}
                 sx={{
                   p: { xs: 2, sm: 3 },
                   borderRight: { md: "1px solid" },
@@ -1644,7 +1791,7 @@ function Produtos() {
               </Grid>
 
               {/* Coluna formulário */}
-              <Grid item xs={12} md={7} sx={{ p: { xs: 2, sm: 3 } }}>
+              <Grid size={{ xs: 12, md: 7 }} sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack spacing={2.25}>
                   <Box>
                     {modalLabel("Nome do produto")}
@@ -1663,7 +1810,7 @@ function Produtos() {
                   </Box>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço de custo R$")}
                       <TextField
                         fullWidth
@@ -1688,7 +1835,7 @@ function Produtos() {
                         inputProps={{ step: "0.01", min: "0" }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço de venda R$")}
                       <TextField
                         fullWidth
@@ -1715,8 +1862,8 @@ function Produtos() {
                     </Grid>
                   </Grid>
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Categoria")}
                       <Autocomplete
                         fullWidth
@@ -1746,7 +1893,7 @@ function Produtos() {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Marca")}
                       <Autocomplete
                         fullWidth
@@ -1778,7 +1925,7 @@ function Produtos() {
                   </Grid>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Gênero")}
                       <FormControl fullWidth size="small" sx={modalFieldSx}>
                         <Select
@@ -1799,7 +1946,7 @@ function Produtos() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("SKU")}
                       <TextField
                         fullWidth
@@ -1964,7 +2111,7 @@ function Produtos() {
                   </Box>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Preço promocional R$")}
                       <TextField
                         fullWidth
@@ -1988,7 +2135,7 @@ function Produtos() {
                         placeholder="Opcional"
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {modalLabel("Margem de lucro")}
                       <TextField
                         fullWidth
@@ -2177,6 +2324,16 @@ function Produtos() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!produtoParaExcluir}
+        onClose={handleFecharConfirmExcluir}
+        onConfirm={handleConfirmarExcluir}
+        title="Excluir produto"
+        message={confirmMessages.delete(entityNames.produto)}
+        itemLabel={produtoParaExcluir?.nome}
+        loading={excluindoProduto}
+      />
     </Box>
   );
 }

@@ -64,4 +64,10 @@ export const entityNames = {
   vendas: "Vendas",
   usuario: "Usuário",
   usuarios: "Usuários",
+  categoria: "Categoria",
+  categorias: "Categorias",
+  marca: "Marca",
+  marcas: "Marcas",
+  compra: "Compra",
+  compras: "Compras",
 };

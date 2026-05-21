@@ -736,6 +736,15 @@ function Usuarios() {
                   <TableCell sx={{ py: 2.5 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <Avatar
+                        src={
+                          usuario.fotoUrl ||
+                          usuario.FotoUrl ||
+                          usuario.foto ||
+                          usuario.Foto ||
+                          usuario.fotoPerfilUrl ||
+                          usuario.FotoPerfilUrl ||
+                          undefined
+                        }
                         sx={{
                           bgcolor: getAvatarColor(usuario.nome),
                           width: 40,
@@ -1271,24 +1280,6 @@ function Usuarios() {
                     </Box>
                   }
                 />
-                <Divider sx={{ my: 3 }} />
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 2, color: "text.primary" }}>Permissões de Acesso</Typography>
-                {permissoes.map((p) => (
-                  <FormControlLabel
-                    key={p.id}
-                    control={
-                      <Switch
-                        size="small"
-                        checked={(currentUsuario.permissaoIds || []).includes(p.id)}
-                        onChange={() => togglePermissao(p.id)}
-                      />
-                    }
-                    label={p.nome || p.codigo}
-                  />
-                ))}
-                {permissoes.length === 0 && (
-                  <Typography variant="caption" color="text.secondary">Carregando permissões...</Typography>
-                )}
               </Box>
             </Paper>
 

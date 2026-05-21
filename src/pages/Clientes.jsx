@@ -736,6 +736,15 @@ function Clientes() {
                   <TableCell sx={{ py: 2.5 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <Avatar
+                        src={
+                          cliente.fotoUrl ||
+                          cliente.FotoUrl ||
+                          cliente.foto ||
+                          cliente.Foto ||
+                          cliente.fotoPerfilUrl ||
+                          cliente.FotoPerfilUrl ||
+                          undefined
+                        }
                         sx={{
                           bgcolor: getAvatarColor(cliente.nomeCompleto),
                           width: 40,

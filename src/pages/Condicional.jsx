@@ -47,6 +47,7 @@ import {
   CheckCircle,
   History,
   Close,
+  Lock,
 } from "@mui/icons-material";
 import { showSuccess, showError } from "../utils/notifications";
 import { produtosService } from "../api/produtosService";
@@ -477,6 +478,7 @@ function Condicional() {
   return (
     <Box
       sx={{
+        position: "relative",
         flex: 1,
         minHeight: "calc(100dvh - 64px)",
         display: "flex",
@@ -1482,6 +1484,42 @@ function Condicional() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Overlay bloqueado - tela existe mas função indisponível */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          backgroundColor: "rgba(0,0,0,0.25)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            maxWidth: 400,
+            textAlign: "center",
+            borderRadius: 2,
+          }}
+        >
+          <Lock sx={{ fontSize: 56, color: "action.disabled", mb: 2 }} />
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            Função em processo de integração
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Contate o suporte para maiores detalhes.
+          </Typography>
+        </Paper>
+      </Box>
     </Box>
   );
 }
