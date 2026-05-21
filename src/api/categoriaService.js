@@ -12,8 +12,12 @@ export const CategoriaService = {
     return response.data;
   },
 
-  getAll: async () => {
-    const response = await api.get("/categorias");
+  getAll: async (params = {}) => {
+    const pagina = params.pagina ?? 1;
+    const tamanho = Math.min(Number(params.tamanho ?? 500) || 500, 500);
+    const response = await api.get(
+      `/categorias?pagina=${pagina}&tamanho=${tamanho}`,
+    );
     return response.data;
   },
 

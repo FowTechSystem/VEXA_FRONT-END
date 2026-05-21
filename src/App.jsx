@@ -41,9 +41,6 @@ import BazarRepasses from "./pages/BazarRepasses";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
 import { vexaColors, vexaSurfaces } from "./theme";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import "dayjs/locale/pt-br";
 
 function AppContent() {
   const { mode } = useContext(ThemeContext);

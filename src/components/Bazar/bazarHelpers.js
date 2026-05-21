@@ -42,3 +42,16 @@ export const getInitials = (nome) => {
   }
   return nome.substring(0, 2).toUpperCase();
 };
+
+/** Peças do bazar são sempre quantidade 1 (não fracionam estoque). */
+export const QUANTIDADE_PRODUTO_BAZAR = 1;
+
+/** Identifica produto/peça originada do módulo Bazar (consignado). */
+export const isProdutoBazar = (produto) => {
+  if (!produto) return false;
+  const tipo = String(produto.tipo ?? produto.Tipo ?? "").trim().toLowerCase();
+  if (tipo === "bazar") return true;
+  if (produto.bazarProdutoId != null || produto.bazarPecaId != null) return true;
+  if (produto.ehBazar === true || produto.EhBazar === true) return true;
+  return false;
+};
