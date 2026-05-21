@@ -189,7 +189,9 @@ function Condicional() {
       const nome = (p.nome || "").toLowerCase();
       const sku = (p.sku || "").toLowerCase();
       const codigo = String(p.id || "").toLowerCase();
-      return nome.includes(termo) || sku.includes(termo) || codigo.includes(termo);
+      return (
+        nome.includes(termo) || sku.includes(termo) || codigo.includes(termo)
+      );
     });
   }, [listaProdutos, searchProduto]);
 
@@ -206,13 +208,22 @@ function Condicional() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleAdicionarAoCarrinho = (produto) => {
-    const precoVenda = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+    const precoVenda =
+      Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+    const tipo = produto.tipo ?? "normal";
     const item = {
       id: produto.id,
+      produtoId: produto.id,
+      bazarProdutoId: tipo === "bazar" ? produto.id : null,
+      tipo,
       nome: produto.nome || "Produto",
-      sku: produto.sku != null && String(produto.sku).trim() !== "" ? String(produto.sku) : null,
+      sku:
+        produto.sku != null && String(produto.sku).trim() !== ""
+          ? String(produto.sku)
+          : null,
       precoVenda,
       quantidade: 1,
+      consignanteNome: produto.consignanteNome ?? null,
     };
     const jaNoCarrinho = carrinho.find((c) => c.id === produto.id);
     if (jaNoCarrinho) {
@@ -234,8 +245,8 @@ function Condicional() {
     }
     setCarrinho(
       carrinho.map((item) =>
-        item.id === id ? { ...item, quantidade: novaQuantidade } : item
-      )
+        item.id === id ? { ...item, quantidade: novaQuantidade } : item,
+      ),
     );
   };
 
@@ -248,6 +259,7 @@ function Condicional() {
         clienteId: Number(clienteSelecionado.id),
         itens: carrinho.map((item) => ({
           produtoId: Number(item.id),
+          tipo: item.tipo ?? "normal",
           quantidade: Number(item.quantidade) || 1,
           precoUnitario: Number(item.precoVenda) || 0,
         })),
@@ -256,7 +268,11 @@ function Condicional() {
       const criado = await condicionalService.criar(payload);
       const cond = {
         id: criado?.id ?? criado?.Id ?? Date.now(),
-        data: criado?.data ?? criado?.Data ?? criado?.dataCriacao ?? new Date().toISOString(),
+        data:
+          criado?.data ??
+          criado?.Data ??
+          criado?.dataCriacao ??
+          new Date().toISOString(),
         clienteNome: clienteSelecionado.nome,
         clienteId: clienteSelecionado.id,
         valorTotal: total,
@@ -267,28 +283,42 @@ function Condicional() {
       setCarrinho([]);
       setClienteSelecionado(null);
       setItemSelecionadoId(null);
-      showSuccess("Condicional registrado! Produto reservado do estoque e contabilizado como venda.");
+      showSuccess(
+        "Condicional registrado! Produto reservado do estoque e contabilizado como venda.",
+      );
       setTabAtual(1);
     } catch (err) {
       const data = err?.response?.data;
       const status = err?.response?.status;
       let msg =
-        data?.mensagem ?? data?.message ?? data?.Message ?? data?.detail ?? data?.Detail ?? data?.title ?? data?.Title;
+        data?.mensagem ??
+        data?.message ??
+        data?.Message ??
+        data?.detail ??
+        data?.Detail ??
+        data?.title ??
+        data?.Title;
       if (!msg && data?.errors) {
-        const errs = typeof data.errors === "object"
-          ? Object.values(data.errors).flat().filter(Boolean)
-          : (Array.isArray(data.errors) ? data.errors : []);
+        const errs =
+          typeof data.errors === "object"
+            ? Object.values(data.errors).flat().filter(Boolean)
+            : Array.isArray(data.errors)
+              ? data.errors
+              : [];
         msg = errs[0] || null;
       }
       if (!msg) {
-        msg = status === 404
-          ? "Endpoint /api/condicional não encontrado. Implemente no backend."
-          : status === 400
-          ? "Requisição inválida (400). Verifique o formato do payload."
-          : "Erro ao registrar condicional.";
+        msg =
+          status === 404
+            ? "Endpoint /api/condicional não encontrado. Implemente no backend."
+            : status === 400
+              ? "Requisição inválida (400). Verifique o formato do payload."
+              : "Erro ao registrar condicional.";
       }
       console.error("Condicional create error:", status, data);
-      showError(typeof msg === "string" ? msg : "Erro ao registrar condicional.");
+      showError(
+        typeof msg === "string" ? msg : "Erro ao registrar condicional.",
+      );
     } finally {
       setSalvando(false);
     }
@@ -309,10 +339,13 @@ function Condicional() {
     try {
       await condicionalService.devolver(cond.id);
       setCondicionaisPendentes((prev) => prev.filter((c) => c.id !== cond.id));
-      showSuccess("Condicional devolvido. Produtos voltaram ao estoque e valor removido das vendas.");
+      showSuccess(
+        "Condicional devolvido. Produtos voltaram ao estoque e valor removido das vendas.",
+      );
     } catch (err) {
       const data = err?.response?.data;
-      const msg = data?.mensagem ?? data?.message ?? "Erro ao devolver condicional.";
+      const msg =
+        data?.mensagem ?? data?.message ?? "Erro ao devolver condicional.";
       showError(msg);
     } finally {
       setDevolvendo(null);
@@ -327,7 +360,9 @@ function Condicional() {
       try {
         const data = await produtosService.getAll();
         if (!cancelled) {
-          const prods = Array.isArray(data) ? data : data?.produtos ?? data?.items ?? [];
+          const prods = Array.isArray(data)
+            ? data
+            : (data?.produtos ?? data?.items ?? []);
           setListaProdutos(Array.isArray(prods) ? prods : []);
         }
       } catch {
@@ -340,7 +375,9 @@ function Condicional() {
       }
     }
     carregarProdutos();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -351,11 +388,19 @@ function Condicional() {
       .listar({ pendente: true, tamanho: 100 })
       .then((data) => {
         if (cancelled) return;
-        const list = data?.condicionais ?? data?.Condicionais ?? data?.items ?? (Array.isArray(data) ? data : []);
+        const list =
+          data?.condicionais ??
+          data?.Condicionais ??
+          data?.items ??
+          (Array.isArray(data) ? data : []);
         const norm = (Array.isArray(list) ? list : []).map((c) => ({
           id: c.id ?? c.Id,
           data: c.data ?? c.Data ?? c.dataCriacao ?? "",
-          clienteNome: c.clienteNome ?? c.ClienteNome ?? c.cliente?.nomeCompleto ?? "Cliente",
+          clienteNome:
+            c.clienteNome ??
+            c.ClienteNome ??
+            c.cliente?.nomeCompleto ??
+            "Cliente",
           clienteId: c.clienteId ?? c.ClienteId,
           valorTotal: Number(c.valorTotal ?? c.ValorTotal ?? 0) || 0,
           itens: c.itens?.length ?? c.Itens?.length ?? 0,
@@ -369,42 +414,57 @@ function Condicional() {
       .finally(() => {
         if (!cancelled) setCarregandoPendentes(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [tabAtual]);
 
   useEffect(() => {
     if (!openDialogCliente) return;
     let cancelled = false;
-    const t = setTimeout(async () => {
-      setCarregandoClientesBusca(true);
-      try {
-        let data;
-        if (searchClienteBusca.trim()) {
-          data = await clientesService.listarPaginado({
-            filtro: "nome",
-            valor: searchClienteBusca.trim(),
-            pagina: 1,
-            tamanho: 50,
-          });
-        } else {
-          data = await clientesService.getAll({ pagina: 1, tamanho: 100 });
+    const t = setTimeout(
+      async () => {
+        setCarregandoClientesBusca(true);
+        try {
+          let data;
+          if (searchClienteBusca.trim()) {
+            data = await clientesService.listarPaginado({
+              filtro: "nome",
+              valor: searchClienteBusca.trim(),
+              pagina: 1,
+              tamanho: 50,
+            });
+          } else {
+            data = await clientesService.getAll({ pagina: 1, tamanho: 100 });
+          }
+          if (cancelled) return;
+          const list =
+            data?.clientes ??
+            data?.Clientes ??
+            (Array.isArray(data) ? data : (data?.items ?? []));
+          setClientesBusca(Array.isArray(list) ? list : []);
+        } catch {
+          if (!cancelled) setClientesBusca([]);
+        } finally {
+          if (!cancelled) setCarregandoClientesBusca(false);
         }
-        if (cancelled) return;
-        const list = data?.clientes ?? data?.Clientes ?? (Array.isArray(data) ? data : data?.items ?? []);
-        setClientesBusca(Array.isArray(list) ? list : []);
-      } catch {
-        if (!cancelled) setClientesBusca([]);
-      } finally {
-        if (!cancelled) setCarregandoClientesBusca(false);
-      }
-    }, searchClienteBusca.trim() ? 400 : 0);
-    return () => { cancelled = true; clearTimeout(t); };
+      },
+      searchClienteBusca.trim() ? 400 : 0,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [openDialogCliente, searchClienteBusca]);
 
   const selecionarCliente = (cliente) => {
     setClienteSelecionado({
       id: cliente.id ?? cliente.Id,
-      nome: cliente.nomeCompleto ?? cliente.NomeCompleto ?? cliente.nome ?? "Cliente",
+      nome:
+        cliente.nomeCompleto ??
+        cliente.NomeCompleto ??
+        cliente.nome ??
+        "Cliente",
     });
     setOpenDialogCliente(false);
     setSearchClienteBusca("");
@@ -444,7 +504,14 @@ function Condicional() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <AssignmentReturn sx={{ fontSize: 26, color: "primary.main" }} />
           <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                fontSize: 22,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+              }}
+            >
               Condicional
             </Typography>
             <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
@@ -460,7 +527,14 @@ function Condicional() {
       </Box>
 
       {/* ═══ Tabs ═══ */}
-      <Box sx={{ borderBottom: "1px solid", borderColor: "divider", bgcolor: "background.paper", px: { xs: 1, md: 2 } }}>
+      <Box
+        sx={{
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          px: { xs: 1, md: 2 },
+        }}
+      >
         <Tabs
           value={tabAtual}
           onChange={(_, v) => setTabAtual(v)}
@@ -498,9 +572,16 @@ function Condicional() {
           /* ════════════════════════════════════════════════════════
              TAB: NOVO CONDICIONAL
              ════════════════════════════════════════════════════════ */
-          <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}>
+          <Grid
+            container
+            spacing={1.5}
+            sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}
+          >
             {/* ── Coluna principal (9/12) ── */}
-            <Grid size={{ xs: 12, lg: 9 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Grid
+              size={{ xs: 12, lg: 9 }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
               {/* Linha campos: Vendedor + Produto + Cliente */}
               <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
                 <Grid size={{ xs: 12, sm: 4, md: 3 }}>
@@ -520,8 +601,13 @@ function Condicional() {
                                 height: 26,
                                 fontSize: 12,
                                 fontWeight: 800,
-                                bgcolor: alpha(theme.palette.primary.main, isDark ? 0.32 : 0.18),
-                                color: isDark ? "primary.light" : "primary.dark",
+                                bgcolor: alpha(
+                                  theme.palette.primary.main,
+                                  isDark ? 0.32 : 0.18,
+                                ),
+                                color: isDark
+                                  ? "primary.light"
+                                  : "primary.dark",
                               }}
                             >
                               {vendedorInicial}
@@ -530,7 +616,11 @@ function Condicional() {
                         </InputAdornment>
                       ),
                     }}
-                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.paper" } }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        bgcolor: "background.paper",
+                      },
+                    }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4, md: 5 }}>
@@ -545,12 +635,17 @@ function Condicional() {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Search sx={{ color: "text.secondary", fontSize: 20 }} />
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: searchProduto ? (
                         <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setSearchProduto("")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchProduto("")}
+                          >
                             <Close fontSize="small" />
                           </IconButton>
                         </InputAdornment>
@@ -572,12 +667,20 @@ function Condicional() {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Person sx={{ color: "text.secondary", fontSize: 20 }} />
+                          <Person
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: clienteSelecionado ? (
                         <InputAdornment position="end">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setClienteSelecionado(null); }}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setClienteSelecionado(null);
+                            }}
+                          >
                             <Close fontSize="small" />
                           </IconButton>
                         </InputAdornment>
@@ -590,14 +693,33 @@ function Condicional() {
               {/* Preview de produtos (quando digitando) */}
               {(searchProduto || "").trim() && produtosPreview.length > 0 ? (
                 <Paper variant="outlined" sx={{ mb: 1.25, overflow: "hidden" }}>
-                  <Box sx={{ px: 1.5, py: 0.75, bgcolor: ticket.headerBg, borderBottom: "1px solid", borderColor: "divider" }}>
-                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "text.secondary", textTransform: "uppercase" }}>
-                      {carregandoProdutos ? "Carregando…" : "Resultados — clique para adicionar"}
+                  <Box
+                    sx={{
+                      px: 1.5,
+                      py: 0.75,
+                      bgcolor: ticket.headerBg,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "text.secondary",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {carregandoProdutos
+                        ? "Carregando…"
+                        : "Resultados — clique para adicionar"}
                     </Typography>
                   </Box>
                   <Stack divider={<Divider />}>
                     {produtosPreview.map((produto) => {
-                      const preco = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+                      const preco =
+                        Number(produto.precoVenda ?? produto.precoCusto ?? 0) ||
+                        0;
                       return (
                         <Box
                           key={produto.id}
@@ -620,15 +742,36 @@ function Condicional() {
                             <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
                               {produto.nome || "Produto"}
                             </Typography>
-                            <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
-                              {produto.sku ? `SKU: ${produto.sku}` : `#${produto.id}`}
+                            <Typography
+                              sx={{ fontSize: 11, color: "text.secondary" }}
+                            >
+                              {produto.sku
+                                ? `SKU: ${produto.sku}`
+                                : `#${produto.id}`}
                             </Typography>
                           </Box>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? "primary.main" : "text.primary" }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: 13,
+                                color: isDark ? "primary.main" : "text.primary",
+                              }}
+                            >
                               {fmtBRL(preco)}
                             </Typography>
-                            <Add sx={{ fontSize: 18, color: isDark ? "primary.main" : "primary.dark" }} />
+                            <Add
+                              sx={{
+                                fontSize: 18,
+                                color: isDark ? "primary.main" : "primary.dark",
+                              }}
+                            />
                           </Box>
                         </Box>
                       );
@@ -661,12 +804,27 @@ function Condicional() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? "primary.light" : "#1565c0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: 13,
+                      color: isDark ? "primary.light" : "#1565c0",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
                     Itens do condicional
                   </Typography>
                   {carrinho.length > 0 && (
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary" }}>
-                      {carrinho.length} {carrinho.length === 1 ? "item" : "itens"}
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "text.secondary",
+                      }}
+                    >
+                      {carrinho.length}{" "}
+                      {carrinho.length === 1 ? "item" : "itens"}
                     </Typography>
                   )}
                 </Box>
@@ -689,10 +847,18 @@ function Condicional() {
                         <TableCell width={48} align="center"></TableCell>
                         <TableCell width={100}>Código</TableCell>
                         <TableCell>Descrição</TableCell>
-                        <TableCell align="center" width={120}>Qtd.</TableCell>
-                        <TableCell align="right" width={96}>P. Unit.</TableCell>
-                        <TableCell align="right" width={108}>Subtotal</TableCell>
-                        <TableCell align="center" width={64}>Vend.</TableCell>
+                        <TableCell align="center" width={120}>
+                          Qtd.
+                        </TableCell>
+                        <TableCell align="right" width={96}>
+                          P. Unit.
+                        </TableCell>
+                        <TableCell align="right" width={108}>
+                          Subtotal
+                        </TableCell>
+                        <TableCell align="center" width={64}>
+                          Vend.
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -709,10 +875,20 @@ function Condicional() {
                                 color: "text.secondary",
                               }}
                             >
-                              <ShoppingCart sx={{ fontSize: 56, color: ticket.emptyIcon }} />
-                              <Typography sx={{ fontWeight: 700, color: ticket.text }}>Nenhum item ainda</Typography>
-                              <Typography variant="body2" sx={{ textAlign: "center", maxWidth: 360 }}>
-                                Use a busca acima para encontrar e adicionar produtos.
+                              <ShoppingCart
+                                sx={{ fontSize: 56, color: ticket.emptyIcon }}
+                              />
+                              <Typography
+                                sx={{ fontWeight: 700, color: ticket.text }}
+                              >
+                                Nenhum item ainda
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{ textAlign: "center", maxWidth: 360 }}
+                              >
+                                Use a busca acima para encontrar e adicionar
+                                produtos.
                               </Typography>
                             </Box>
                           </TableCell>
@@ -729,13 +905,23 @@ function Condicional() {
                               onClick={() => setItemSelecionadoId(item.id)}
                               sx={{
                                 cursor: "pointer",
-                                "&:nth-of-type(even) td": { bgcolor: ticket.rowStripe },
-                                "& td": { borderColor: ticket.rowBorder, color: ticket.text, transition: "background-color 0.2s" },
+                                "&:nth-of-type(even) td": {
+                                  bgcolor: ticket.rowStripe,
+                                },
+                                "& td": {
+                                  borderColor: ticket.rowBorder,
+                                  color: ticket.text,
+                                  transition: "background-color 0.2s",
+                                },
                                 ...(selecionada
                                   ? {
                                       "& td": {
                                         borderColor: ticket.rowBorder,
-                                        bgcolor: alpha(theme.palette.primary.main, 0.12) + " !important",
+                                        bgcolor:
+                                          alpha(
+                                            theme.palette.primary.main,
+                                            0.12,
+                                          ) + " !important",
                                       },
                                       outline: `2px solid ${theme.palette.primary.main}`,
                                       outlineOffset: "-2px",
@@ -756,22 +942,78 @@ function Condicional() {
                                   <Delete fontSize="small" />
                                 </IconButton>
                               </TableCell>
-                              <TableCell sx={{ fontFamily: "monospace", fontSize: 12, color: "text.secondary" }}>
+                              <TableCell
+                                sx={{
+                                  fontFamily: "monospace",
+                                  fontSize: 12,
+                                  color: "text.secondary",
+                                }}
+                              >
                                 {codigo}
                               </TableCell>
-                              <TableCell sx={{ fontWeight: 600 }}>{item.nome}</TableCell>
+                              <TableCell sx={{ fontWeight: 600 }}>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.75,
+                                    }}
+                                  >
+                                    <Typography>{item.nome}</Typography>
+                                    {item.tipo === "bazar" && (
+                                      <Chip
+                                        label="BAZAR"
+                                        size="small"
+                                        sx={{
+                                          height: 20,
+                                          fontSize: 10,
+                                          fontWeight: 700,
+                                          bgcolor: "warning.main",
+                                          color: "warning.contrastText",
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+                                  {item.consignanteNome && (
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ color: "text.secondary" }}
+                                    >
+                                      Consignante: {item.consignanteNome}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </TableCell>
                               <TableCell align="center">
                                 <Box
-                                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.25,
+                                  }}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleAlterarQuantidade(item.id, item.quantidade - 1)}
+                                    onClick={() =>
+                                      handleAlterarQuantidade(
+                                        item.id,
+                                        item.quantidade - 1,
+                                      )
+                                    }
                                     sx={{
                                       bgcolor: ticket.qtyBtnBg,
                                       color: ticket.text,
-                                      "&:hover": { bgcolor: ticket.qtyBtnHover },
+                                      "&:hover": {
+                                        bgcolor: ticket.qtyBtnHover,
+                                      },
                                     }}
                                     aria-label="Diminuir"
                                   >
@@ -779,17 +1021,31 @@ function Condicional() {
                                   </IconButton>
                                   <Typography
                                     component="span"
-                                    sx={{ minWidth: 28, textAlign: "center", fontWeight: 800, color: ticket.text }}
+                                    sx={{
+                                      minWidth: 28,
+                                      textAlign: "center",
+                                      fontWeight: 800,
+                                      color: ticket.text,
+                                    }}
                                   >
                                     {item.quantidade}
                                   </Typography>
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleAlterarQuantidade(item.id, item.quantidade + 1)}
+                                    onClick={() =>
+                                      handleAlterarQuantidade(
+                                        item.id,
+                                        item.quantidade + 1,
+                                      )
+                                    }
                                     sx={{
                                       bgcolor: ticket.addBtn,
-                                      color: isDark ? theme.palette.primary.contrastText : "#fff",
-                                      "&:hover": { bgcolor: ticket.addBtnHover },
+                                      color: isDark
+                                        ? theme.palette.primary.contrastText
+                                        : "#fff",
+                                      "&:hover": {
+                                        bgcolor: ticket.addBtnHover,
+                                      },
                                     }}
                                     aria-label="Aumentar"
                                   >
@@ -797,10 +1053,20 @@ function Condicional() {
                                   </IconButton>
                                 </Box>
                               </TableCell>
-                              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                              <TableCell
+                                align="right"
+                                sx={{ whiteSpace: "nowrap" }}
+                              >
                                 {fmtBRL(item.precoVenda)}
                               </TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 800, whiteSpace: "nowrap", color: "primary.main" }}>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  fontWeight: 800,
+                                  whiteSpace: "nowrap",
+                                  color: "primary.main",
+                                }}
+                              >
                                 {fmtBRL(totalLinha)}
                               </TableCell>
                               <TableCell align="center">
@@ -811,8 +1077,13 @@ function Condicional() {
                                       height: 28,
                                       fontSize: 12,
                                       fontWeight: 800,
-                                      bgcolor: alpha(theme.palette.primary.main, isDark ? 0.32 : 0.18),
-                                      color: isDark ? "primary.light" : "primary.dark",
+                                      bgcolor: alpha(
+                                        theme.palette.primary.main,
+                                        isDark ? 0.32 : 0.18,
+                                      ),
+                                      color: isDark
+                                        ? "primary.light"
+                                        : "primary.dark",
                                       mx: "auto",
                                     }}
                                   >
@@ -831,20 +1102,55 @@ function Condicional() {
             </Grid>
 
             {/* ── Sidebar direita (3/12) ── */}
-            <Grid size={{ xs: 12, lg: 3 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Grid
+              size={{ xs: 12, lg: 3 }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
               <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0 }}>
-                <SummaryCard label="Cliente" value={clienteSelecionado?.nome || "—"} isDark={isDark} />
-                <SummaryCard label="Itens" value={String(carrinho.length)} isDark={isDark} />
-                <SummaryCard label="Total" value={fmtBRL(calcularTotal())} highlight isDark={isDark} />
+                <SummaryCard
+                  label="Cliente"
+                  value={clienteSelecionado?.nome || "—"}
+                  isDark={isDark}
+                />
+                <SummaryCard
+                  label="Itens"
+                  value={String(carrinho.length)}
+                  isDark={isDark}
+                />
+                <SummaryCard
+                  label="Total"
+                  value={fmtBRL(calcularTotal())}
+                  highlight
+                  isDark={isDark}
+                />
 
                 <Box sx={{ flex: 1 }} />
 
-                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.06em", mb: 1 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 1.5, bgcolor: "background.paper" }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: "text.secondary",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      mb: 1,
+                    }}
+                  >
                     Informação
                   </Typography>
-                  <Typography sx={{ fontSize: 12, color: "text.secondary", lineHeight: 1.6 }}>
-                    Produtos serão reservados do estoque e contabilizados como venda. Ao devolver, voltam ao estoque.
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      color: "text.secondary",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Produtos serão reservados do estoque e contabilizados como
+                    venda. Ao devolver, voltam ao estoque.
                   </Typography>
                 </Paper>
 
@@ -892,11 +1198,26 @@ function Condicional() {
                   justifyContent: "space-between",
                 }}
               >
-                <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? "primary.light" : "#1565c0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <Typography
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: 13,
+                    color: isDark ? "primary.light" : "#1565c0",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
                   Condicionais pendentes
                 </Typography>
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary" }}>
-                  Ao devolver, produtos voltam ao estoque e valor é removido das vendas
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "text.secondary",
+                  }}
+                >
+                  Ao devolver, produtos voltam ao estoque e valor é removido das
+                  vendas
                 </Typography>
               </Box>
 
@@ -919,14 +1240,22 @@ function Condicional() {
                       <TableCell>Cliente</TableCell>
                       <TableCell align="center">Itens</TableCell>
                       <TableCell align="right">Valor</TableCell>
-                      <TableCell align="center" width={140}>Ações</TableCell>
+                      <TableCell align="center" width={140}>
+                        Ações
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {carregandoPendentes ? (
                       <TableRow>
                         <TableCell colSpan={5} sx={{ borderBottom: "none" }}>
-                          <Typography sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
+                          <Typography
+                            sx={{
+                              py: 4,
+                              textAlign: "center",
+                              color: "text.secondary",
+                            }}
+                          >
                             Carregando…
                           </Typography>
                         </TableCell>
@@ -934,9 +1263,23 @@ function Condicional() {
                     ) : condicionaisPendentes.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} sx={{ borderBottom: "none" }}>
-                          <Box sx={{ py: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                            <History sx={{ fontSize: 56, color: ticket.emptyIcon }} />
-                            <Typography sx={{ fontWeight: 700, color: ticket.text }}>Nenhum condicional pendente</Typography>
+                          <Box
+                            sx={{
+                              py: 4,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <History
+                              sx={{ fontSize: 56, color: ticket.emptyIcon }}
+                            />
+                            <Typography
+                              sx={{ fontWeight: 700, color: ticket.text }}
+                            >
+                              Nenhum condicional pendente
+                            </Typography>
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -946,16 +1289,34 @@ function Condicional() {
                           key={c.id}
                           hover
                           sx={{
-                            "&:nth-of-type(even) td": { bgcolor: ticket.rowStripe },
-                            "& td": { borderColor: ticket.rowBorder, color: ticket.text },
+                            "&:nth-of-type(even) td": {
+                              bgcolor: ticket.rowStripe,
+                            },
+                            "& td": {
+                              borderColor: ticket.rowBorder,
+                              color: ticket.text,
+                            },
                           }}
                         >
                           <TableCell>
-                            {c.data ? new Date(c.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                            {c.data
+                              ? new Date(c.data).toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "—"}
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{c.clienteNome ?? "—"}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {c.clienteNome ?? "—"}
+                          </TableCell>
                           <TableCell align="center">{c.itens ?? 0}</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 800, color: "primary.main" }}
+                          >
                             {fmtBRL(c.valorTotal)}
                           </TableCell>
                           <TableCell align="center">
@@ -983,7 +1344,13 @@ function Condicional() {
       </Box>
 
       {/* ═══ Dialog: Selecionar Cliente ═══ */}
-      <Dialog open={openDialogCliente} onClose={() => setOpenDialogCliente(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Dialog
+        open={openDialogCliente}
+        onClose={() => setOpenDialogCliente(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <PersonSearch /> Selecionar cliente
         </DialogTitle>
@@ -1006,17 +1373,31 @@ function Condicional() {
           />
           <Box sx={{ maxHeight: 360, overflowY: "auto" }}>
             {carregandoClientesBusca ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 3, textAlign: "center" }}
+              >
                 Carregando…
               </Typography>
             ) : clientesBusca.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                {searchClienteBusca.trim() ? "Nenhum cliente encontrado." : "Digite para buscar."}
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 3, textAlign: "center" }}
+              >
+                {searchClienteBusca.trim()
+                  ? "Nenhum cliente encontrado."
+                  : "Digite para buscar."}
               </Typography>
             ) : (
               <List dense>
                 {clientesBusca.map((c) => {
-                  const nome = c.nomeCompleto ?? c.NomeCompleto ?? c.nome ?? `Cliente #${c.id ?? c.Id}`;
+                  const nome =
+                    c.nomeCompleto ??
+                    c.NomeCompleto ??
+                    c.nome ??
+                    `Cliente #${c.id ?? c.Id}`;
                   return (
                     <ListItemButton
                       key={c.id ?? c.Id}
@@ -1029,7 +1410,12 @@ function Condicional() {
                         "&:hover": { bgcolor: "action.hover" },
                       }}
                     >
-                      <ListItemText primary={nome} secondary={c.cpf ? `CPF: ${c.cpf}` : `ID: ${c.id ?? c.Id}`} />
+                      <ListItemText
+                        primary={nome}
+                        secondary={
+                          c.cpf ? `CPF: ${c.cpf}` : `ID: ${c.id ?? c.Id}`
+                        }
+                      />
                     </ListItemButton>
                   );
                 })}
@@ -1038,7 +1424,10 @@ function Condicional() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOpenDialogCliente(false)} sx={{ textTransform: "none" }}>
+          <Button
+            onClick={() => setOpenDialogCliente(false)}
+            sx={{ textTransform: "none" }}
+          >
             Fechar
           </Button>
         </DialogActions>
@@ -1050,26 +1439,43 @@ function Condicional() {
         onClose={fecharConfirmDevolver}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 2, bgcolor: "background.paper", p: 1 } }}
+        PaperProps={{
+          sx: { borderRadius: 2, bgcolor: "background.paper", p: 1 },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 600, color: "text.primary", display: "flex", alignItems: "center", gap: 1 }}>
+        <DialogTitle
+          sx={{
+            fontWeight: 600,
+            color: "text.primary",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <AssignmentReturn /> Devolver condicional
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            Devolver condicional para <strong>{condicionalParaDevolver?.clienteNome ?? "cliente"}</strong>?
+            Devolver condicional para{" "}
+            <strong>{condicionalParaDevolver?.clienteNome ?? "cliente"}</strong>
+            ?
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
             Os produtos voltarão ao estoque e o valor será removido das vendas.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={fecharConfirmDevolver} sx={{ textTransform: "none" }}>
+          <Button
+            onClick={fecharConfirmDevolver}
+            sx={{ textTransform: "none" }}
+          >
             Cancelar
           </Button>
           <Button
             variant="contained"
-            onClick={() => condicionalParaDevolver && handleDevolver(condicionalParaDevolver)}
+            onClick={() =>
+              condicionalParaDevolver && handleDevolver(condicionalParaDevolver)
+            }
             sx={{ textTransform: "none", fontWeight: 700 }}
           >
             Confirmar
