@@ -29,6 +29,11 @@ import {
   LocalOffer,
 } from "@mui/icons-material";
 import VexaDatePicker from "../VexaDatePicker";
+import {
+  isProdutoBazar,
+  QUANTIDADE_PRODUTO_BAZAR,
+} from "../Bazar/bazarHelpers";
+import { showError } from "../../utils/notifications";
 
 const INITIAL_STATE = {
   clienteId: null,
@@ -117,21 +122,26 @@ export const NovaVendaDialog = ({
   const handleProdutoChange = (value) => {
     setSelectedProduto(value);
     if (value) {
+      const qty = isProdutoBazar(value)
+        ? QUANTIDADE_PRODUTO_BAZAR
+        : formData.quantidade;
       const newData = {
         ...formData,
         produtoId: value.id,
+        quantidade: qty,
         valorUnitario: value.preco || 0,
         codigoBarras: value.codigoBarras || "",
       };
-      const valores = calcularValores({
-        ...newData,
-        quantidade: formData.quantidade,
-      });
+      const valores = calcularValores(newData);
       setFormData({ ...newData, valorTotal: valores.valorFinal });
     }
   };
 
   const handleQuantidadeChange = (quantidade) => {
+    if (isProdutoBazar(selectedProduto)) {
+      showError("Peças do bazar são vendidas em quantidade fixa (1 unidade).");
+      return;
+    }
     const qty = parseInt(quantidade) || 1;
     const newData = { ...formData, quantidade: qty };
     const valores = calcularValores(newData);
@@ -424,10 +434,25 @@ export const NovaVendaDialog = ({
                       fullWidth
                       label="Quantidade"
                       type="number"
-                      value={formData.quantidade}
+                      value={
+                        isProdutoBazar(selectedProduto)
+                          ? QUANTIDADE_PRODUTO_BAZAR
+                          : formData.quantidade
+                      }
                       onChange={(e) => handleQuantidadeChange(e.target.value)}
-                      disabled={submitting}
-                      inputProps={{ min: 1, step: 1 }}
+                      disabled={submitting || isProdutoBazar(selectedProduto)}
+                      helperText={
+                        isProdutoBazar(selectedProduto)
+                          ? "Peça única do bazar (fixo em 1)"
+                          : undefined
+                      }
+                      inputProps={{
+                        min: 1,
+                        max: isProdutoBazar(selectedProduto)
+                          ? QUANTIDADE_PRODUTO_BAZAR
+                          : undefined,
+                        step: 1,
+                      }}
                       required
                     />
                   </Grid>

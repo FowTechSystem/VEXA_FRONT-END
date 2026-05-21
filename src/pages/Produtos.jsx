@@ -64,6 +64,10 @@ import {
 } from "../utils/entityMessages";
 import { validateRequired } from "../utils/validators";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
+import {
+  isProdutoBazar,
+  QUANTIDADE_PRODUTO_BAZAR,
+} from "../components/Bazar/bazarHelpers";
 
 const TAMANHOS_ROUPA = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 const TAMANHOS_CALCADOS = [
@@ -351,7 +355,9 @@ function Produtos() {
       precoCusto: num(p.precoCusto) ?? 0,
       precoVenda: num(p.precoVenda) ?? 0,
       estoqueMinimo: int(p.estoqueMinimo),
-      quantidadeEstoque: int(p.estoqueTotal),
+      quantidadeEstoque: isProdutoBazar(p)
+        ? QUANTIDADE_PRODUTO_BAZAR
+        : int(p.estoqueTotal),
     };
     const optCodigo = str(p.codigoBarras);
     if (optCodigo) payload.codigoBarras = optCodigo;
@@ -523,8 +529,11 @@ function Produtos() {
         p.estoqueTotal ??
         p.estoque ??
         "";
-      p.estoqueTotal =
-        qtdApi === "" || qtdApi == null ? "" : String(qtdApi);
+      p.estoqueTotal = isProdutoBazar(p)
+        ? String(QUANTIDADE_PRODUTO_BAZAR)
+        : qtdApi === "" || qtdApi == null
+          ? ""
+          : String(qtdApi);
       if (p.fornecedorId == null && p.fornecedor && listaFornecedores.length > 0) {
         const found = listaFornecedores.find(
           (f) =>
@@ -662,7 +671,15 @@ function Produtos() {
       return;
     }
 
-    if (!editMode) {
+    if (isProdutoBazar(currentProduto)) {
+      const qBazar = parseInt(String(currentProduto.estoqueTotal ?? ""), 10);
+      if (qBazar !== QUANTIDADE_PRODUTO_BAZAR) {
+        showError(
+          "Produtos do bazar são peças únicas: a quantidade em estoque deve permanecer em 1 unidade.",
+        );
+        return;
+      }
+    } else if (!editMode) {
       const rawEst = currentProduto.estoqueTotal;
       if (rawEst !== "" && rawEst != null) {
         const q = parseInt(String(rawEst), 10);
@@ -846,6 +863,13 @@ function Produtos() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (
+      isProdutoBazar(currentProduto) &&
+      (name === "estoqueTotal" || name === "estoqueMinimo")
+    ) {
+      showError("A quantidade de peças do bazar não pode ser alterada aqui.");
+      return;
+    }
     if (name === "imagemPrincipal") {
       setImagemProdutoFile(null);
     }
@@ -857,6 +881,13 @@ function Produtos() {
 
   const handleDigitsOnlyChange = (e) => {
     const { name, value } = e.target;
+    if (
+      isProdutoBazar(currentProduto) &&
+      (name === "estoqueTotal" || name === "estoqueMinimo")
+    ) {
+      showError("A quantidade de peças do bazar não pode ser alterada aqui.");
+      return;
+    }
     const digits = String(value).replace(/\D/g, "");
     setCurrentProduto((prev) => ({
       ...prev,
@@ -1358,10 +1389,12 @@ function Produtos() {
                   <TableCell align="center">
                     <Chip
                       label={
-                        produto.estoqueTotal ??
-                        produto.quantidadeEstoque ??
-                        produto.QuantidadeEstoque ??
-                        0
+                        isProdutoBazar(produto)
+                          ? QUANTIDADE_PRODUTO_BAZAR
+                          : produto.estoqueTotal ??
+                            produto.quantidadeEstoque ??
+                            produto.QuantidadeEstoque ??
+                            0
                       }
                       size="small"
                       sx={{
@@ -2246,13 +2279,35 @@ function Produtos() {
                           Estoque
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                          {currentProduto.estoqueTotal !== "" && currentProduto.estoqueTotal != null
-                            ? `${currentProduto.estoqueTotal} un.`
-                            : "—"}
+                          {isProdutoBazar(currentProduto)
+                            ? `${QUANTIDADE_PRODUTO_BAZAR} un. (peça única)`
+                            : currentProduto.estoqueTotal !== "" && currentProduto.estoqueTotal != null
+                              ? `${currentProduto.estoqueTotal} un.`
+                              : "—"}
                         </Typography>
+                        {isProdutoBazar(currentProduto) && (
+                          <Chip
+                            size="small"
+                            label="BAZAR"
+                            sx={{
+                              mt: 0.5,
+                              height: 20,
+                              fontSize: "0.65rem",
+                              fontWeight: 800,
+                              bgcolor: isDark ? "rgba(245, 158, 11, 0.25)" : "#fef3c7",
+                              color: isDark ? "#FBBF24" : "#b45309",
+                            }}
+                          />
+                        )}
                       </Box>
                     </Box>
                   </Box>
+
+                  {isProdutoBazar(currentProduto) && (
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                      Peça consignada do bazar: a quantidade é fixa (1 unidade) e não pode ser alterada neste cadastro.
+                    </Typography>
+                  )}
 
                   {/* Estoque total / mínimo removidos do cadastro — gerencie em Estoque */}
 

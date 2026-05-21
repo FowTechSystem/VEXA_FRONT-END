@@ -50,6 +50,10 @@ import {
   Lock,
 } from "@mui/icons-material";
 import { showSuccess, showError } from "../utils/notifications";
+import {
+  isProdutoBazar,
+  QUANTIDADE_PRODUTO_BAZAR,
+} from "../components/Bazar/bazarHelpers";
 import { produtosService } from "../api/produtosService";
 import { clientesService } from "../api/clientesService";
 import { condicionalService } from "../api/condicionalService";
@@ -228,6 +232,10 @@ function Condicional() {
     };
     const jaNoCarrinho = carrinho.find((c) => c.id === produto.id);
     if (jaNoCarrinho) {
+      if (isProdutoBazar(item)) {
+        showError("Esta peça do bazar já está no carrinho (quantidade fixa: 1 unidade).");
+        return;
+      }
       handleAlterarQuantidade(produto.id, jaNoCarrinho.quantidade + 1);
     } else {
       setCarrinho([...carrinho, item]);
@@ -243,6 +251,13 @@ function Condicional() {
     if (novaQuantidade <= 0) {
       handleRemoverProduto(id);
       return;
+    }
+    const item = carrinho.find((c) => c.id === id);
+    if (item && isProdutoBazar(item)) {
+      if (novaQuantidade !== QUANTIDADE_PRODUTO_BAZAR) {
+        showError("Peças do bazar são vendidas em quantidade fixa (1 unidade).");
+        return;
+      }
     }
     setCarrinho(
       carrinho.map((item) =>
@@ -261,7 +276,9 @@ function Condicional() {
         itens: carrinho.map((item) => ({
           produtoId: Number(item.id),
           tipo: item.tipo ?? "normal",
-          quantidade: Number(item.quantidade) || 1,
+          quantidade: isProdutoBazar(item)
+            ? QUANTIDADE_PRODUTO_BAZAR
+            : Number(item.quantidade) || 1,
           precoUnitario: Number(item.precoVenda) || 0,
         })),
         valorTotal: Number(total.toFixed(2)),
@@ -1004,6 +1021,7 @@ function Condicional() {
                                 >
                                   <IconButton
                                     size="small"
+                                    disabled={isProdutoBazar(item)}
                                     onClick={() =>
                                       handleAlterarQuantidade(
                                         item.id,
@@ -1034,6 +1052,7 @@ function Condicional() {
                                   </Typography>
                                   <IconButton
                                     size="small"
+                                    disabled={isProdutoBazar(item)}
                                     onClick={() =>
                                       handleAlterarQuantidade(
                                         item.id,
