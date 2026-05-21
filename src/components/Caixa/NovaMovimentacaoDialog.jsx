@@ -31,6 +31,7 @@ import { caixaService } from "../../api/caixaService";
 import { vexaColors } from "../../theme";
 import { showSuccess, showError } from "../../utils/notifications";
 import { useInAppNotifications } from "../../contexts/InAppNotificationContext";
+import VexaDatePicker from "../VexaDatePicker";
 
 const CATEGORIAS_LUCRO = [
   "Vendas",
@@ -272,17 +273,15 @@ function NovaMovimentacaoDialog({ open, onClose, onSaved }) {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              required
-              size="small"
+            <VexaDatePicker
               label="Data"
-              name="data"
-              type="date"
               value={form.data}
-              onChange={handleChange}
-              InputLabelProps={{ shrink: true }}
-              sx={fieldSx}
+              onChange={(v) =>
+                handleChange({ target: { name: "data", value: v } })
+              }
+              fullWidth
+              minWidth={0}
+              slotProps={{ textField: { required: true, sx: fieldSx } }}
             />
           </Grid>
 

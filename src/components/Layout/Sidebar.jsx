@@ -39,6 +39,11 @@ import {
   Label,
   ExpandLess,
   ExpandMore,
+  Storefront,
+  Handshake,
+  LocalMall,
+  Payments,
+  Checkroom,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
@@ -50,6 +55,9 @@ const drawerWidth = 260;
 
 /** Rotas consideradas “dentro” do grupo Produtos (mantém submenu aberto e destaque no pai). */
 const PRODUTOS_GROUP_PATHS = ["produtos", "categorias", "marcas"];
+
+/** Rotas consideradas “dentro” do grupo Bazar (consignados). */
+const BAZAR_GROUP_PATHS = ["bazar", "bazar/repasses"];
 
 /** Ordena itens do menu por rótulo (pt-BR), incluindo `children` quando existir. */
 function sortMenuItemsByLabel(items) {
@@ -81,6 +89,14 @@ const menuSectionsBase = [
       { text: "Vendas", icon: <PointOfSale />, path: "vendas" },
       { text: "Caixa", icon: <ShoppingCart />, path: "caixa" },
       { text: "Condicional", icon: <AssignmentReturn />, path: "condicional" },
+      {
+        text: "Bazar",
+        icon: <Storefront />,
+        path: "bazar",
+        children: [
+          { text: "Repasses", icon: <Payments />, path: "bazar/repasses" },
+        ],
+      },
     ]),
   },
   {
@@ -130,6 +146,19 @@ function isProdutosGroupActive(pathname) {
   });
 }
 
+function isBazarGroupActive(pathname) {
+  return BAZAR_GROUP_PATHS.some((p) => {
+    const normalized = `/${p}`;
+    return pathname === normalized || pathname.startsWith(`${normalized}/`);
+  });
+}
+
+function isGroupActive(parentPath, pathname) {
+  if (parentPath === "produtos") return isProdutosGroupActive(pathname);
+  if (parentPath === "bazar") return isBazarGroupActive(pathname);
+  return false;
+}
+
 function filterMenuSections(sections, termo) {
   const t = termo.trim().toLowerCase();
   if (!t) return sections;
@@ -163,7 +192,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pesquisa, setPesquisa] = useState("");
-  const [produtosSubmenuOpen, setProdutosSubmenuOpen] = useState(false);
+  const [submenusOpen, setSubmenusOpen] = useState({});
   const user = authService.getUsuario();
   const { empresaAtiva } = useEmpresa();
   const isDevAdmin = isDevAdminUser(user);
@@ -193,25 +222,37 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
 
   const pesquisaAtiva = pesquisa.trim().length > 0;
 
-  const pesquisaMostraSubmenuProdutos = useMemo(() => {
-    if (!pesquisaAtiva) return false;
-    const gestao = menuFiltrado.find((s) => s.title === "Gestão");
-    return !!gestao?.items.some(
-      (i) => i.text === "Produtos" && i.children?.length,
-    );
+  const pesquisaMostraSubmenuParents = useMemo(() => {
+    if (!pesquisaAtiva) return [];
+    const parents = [];
+    menuFiltrado.forEach((section) => {
+      section.items.forEach((item) => {
+        if (item.children?.length) parents.push(item.path);
+      });
+    });
+    return parents;
   }, [menuFiltrado, pesquisaAtiva]);
 
   useEffect(() => {
     if (isProdutosGroupActive(location.pathname)) {
-      setProdutosSubmenuOpen(true);
+      setSubmenusOpen((prev) => ({ ...prev, produtos: true }));
+    }
+    if (isBazarGroupActive(location.pathname)) {
+      setSubmenusOpen((prev) => ({ ...prev, bazar: true }));
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    if (pesquisaMostraSubmenuProdutos) {
-      setProdutosSubmenuOpen(true);
+    if (pesquisaMostraSubmenuParents.length > 0) {
+      setSubmenusOpen((prev) => {
+        const next = { ...prev };
+        pesquisaMostraSubmenuParents.forEach((p) => {
+          next[p] = true;
+        });
+        return next;
+      });
     }
-  }, [pesquisaMostraSubmenuProdutos]);
+  }, [pesquisaMostraSubmenuParents]);
 
   const isActive = (path) =>
     location.pathname === (path.startsWith("/") ? path : `/${path}`);
@@ -303,9 +344,9 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
               {section.items.map((item) => {
                 if (item.children?.length) {
                   const parentActive =
-                    isActive(item.path) || isProdutosGroupActive(location.pathname);
+                    isActive(item.path) || isGroupActive(item.path, location.pathname);
                   const open =
-                    produtosSubmenuOpen || (pesquisaAtiva && parentActive);
+                    !!submenusOpen[item.path] || (pesquisaAtiva && parentActive);
 
                   return (
                     <Box key={item.text}>
@@ -318,7 +359,10 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                             aria-label={open ? "Recolher submenu" : "Expandir submenu"}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setProdutosSubmenuOpen((v) => !v);
+                              setSubmenusOpen((prev) => ({
+                                ...prev,
+                                [item.path]: !prev[item.path],
+                              }));
                             }}
                             sx={{ mr: 0.5, color: "text.secondary" }}
                           >
@@ -334,7 +378,7 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
                         <ListItemButton
                           onClick={() => {
                             navigate(`/${item.path}`);
-                            setProdutosSubmenuOpen(true);
+                            setSubmenusOpen((prev) => ({ ...prev, [item.path]: true }));
                             if (onDrawerToggle) onDrawerToggle();
                           }}
                           sx={{
