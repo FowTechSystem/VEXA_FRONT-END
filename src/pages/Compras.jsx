@@ -42,9 +42,11 @@ import {
   Inventory,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
+import VexaDatePicker from "../components/VexaDatePicker";
 import { comprasService } from "../api/comprasService";
 import { FornecedorService } from "../api/fornecedorService";
 import { produtosService } from "../api/produtosService";
+import AppDatePicker from "../components/AppDatePicker";
 
 const STATUS_COMPRA = {
   pendente: { label: "Pendente", color: "#d97706", bgcolor: "#fef3c7" },
@@ -689,7 +691,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Autocomplete
                     fullWidth
                     options={listaFornecedores}
@@ -723,30 +725,28 @@ function Compras() {
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
+                  <VexaDatePicker
                     label="Data do Pedido"
-                    name="dataPedido"
-                    type="date"
                     value={currentCompra.dataPedido}
-                    onChange={handleChange}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
+                    onChange={(v) =>
+                      handleChange({ target: { name: "dataPedido", value: v } })
+                    }
                     fullWidth
-                    label="Data Entrega Prevista"
-                    name="dataEntregaPrevista"
-                    type="date"
-                    value={currentCompra.dataEntregaPrevista}
-                    onChange={handleChange}
-                    InputLabelProps={{ shrink: true }}
-                    size="small"
+                    minWidth={0}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
+                  <VexaDatePicker
+                    label="Data Entrega Prevista"
+                    value={currentCompra.dataEntregaPrevista}
+                    onChange={(v) =>
+                      handleChange({ target: { name: "dataEntregaPrevista", value: v } })
+                    }
+                    fullWidth
+                    minWidth={0}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -906,7 +906,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mt: 2 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
                     label="Observações"

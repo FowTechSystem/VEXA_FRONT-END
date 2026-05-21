@@ -43,6 +43,7 @@ import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
 import { authService } from "../api/authService";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
+import { isCaixaAberto } from "../utils/caixaStatus";
 import {
   ShoppingCart,
   Search,
@@ -64,11 +65,14 @@ import {
   PointOfSale,
   Discount,
   TrendingUp,
+  Lock,
 } from "@mui/icons-material";
 
-const CatalogoProdutosTransition = React.forwardRef(function CatalogoProdutosTransition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
+const CatalogoProdutosTransition = React.forwardRef(
+  function CatalogoProdutosTransition(props, ref) {
+    return <Slide direction="up" ref={ref} {...props} />;
+  },
+);
 
 const FORMAS_PAGAMENTO = [
   { id: "dinheiro", label: "Dinheiro", Icon: AttachMoney },
@@ -82,7 +86,15 @@ const fmtBRL = (v) => `R$ ${(Number(v) || 0).toFixed(2)}`;
 // (PhotoBox e HotkeyButton removidos — fotos agora aparecem inline na tabela)
 
 // ─── Helper: Summary card (sidebar direita) ──────────────────────────────────
-function SummaryCard({ label, value, highlight, editable, onChange, valuePrefix, isDark }) {
+function SummaryCard({
+  label,
+  value,
+  highlight,
+  editable,
+  onChange,
+  valuePrefix,
+  isDark,
+}) {
   return (
     <Box
       sx={{
@@ -119,17 +131,26 @@ function SummaryCard({ label, value, highlight, editable, onChange, valuePrefix,
           type="number"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
-          inputProps={{ step: "0.01", min: "0", style: { fontWeight: 800, fontSize: 18 } }}
+          inputProps={{
+            step: "0.01",
+            min: "0",
+            style: { fontWeight: 800, fontSize: 18 },
+          }}
           InputProps={{
             startAdornment: valuePrefix ? (
               <InputAdornment position="start">
-                <Typography sx={{ fontWeight: 800, fontSize: 14 }}>{valuePrefix}</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: 14 }}>
+                  {valuePrefix}
+                </Typography>
               </InputAdornment>
             ) : null,
           }}
           sx={{
             mt: 0.25,
-            "& .MuiOutlinedInput-root": { bgcolor: "background.default", height: 36 },
+            "& .MuiOutlinedInput-root": {
+              bgcolor: "background.default",
+              height: 36,
+            },
           }}
         />
       ) : (
@@ -155,6 +176,19 @@ function Caixa() {
   const isDark = theme.palette.mode === "dark";
   const navigate = useNavigate();
   const { emitirSeNovaMovimentacao } = useInAppNotifications();
+
+  // ─── Estado do Caixa (abertura) ────────────────────────────────────────────
+  const [caixaAberto, setCaixaAberto] = useState(() => isCaixaAberto());
+
+  useEffect(() => {
+    const sync = () => setCaixaAberto(isCaixaAberto());
+    window.addEventListener("storage", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
 
   // ─── Estado existente (preservado) ─────────────────────────────────────────
   const [carrinho, setCarrinho] = useState([]);
@@ -200,14 +234,18 @@ function Caixa() {
   // ─── Helpers de imagem do produto ──────────────────────────────────────────
   const getProdutoImagem = (produtoId) => {
     if (produtoId == null) return null;
-    const produto = listaProdutos.find((p) => Number(p.id) === Number(produtoId));
+    const produto = listaProdutos.find(
+      (p) => Number(p.id) === Number(produtoId),
+    );
     if (!produto) return null;
     return (
       produto.imagemUrl ||
       produto.ImagemUrl ||
       produto.imagem ||
       produto.Imagem ||
-      (Array.isArray(produto.imagens) ? produto.imagens[0]?.url || produto.imagens[0] : null) ||
+      (Array.isArray(produto.imagens)
+        ? produto.imagens[0]?.url || produto.imagens[0]
+        : null) ||
       null
     );
   };
@@ -220,13 +258,17 @@ function Caixa() {
       try {
         const data = await produtosService.getAll();
         if (!cancelled) {
-          const prods = Array.isArray(data) ? data : data?.produtos ?? data?.items ?? [];
+          const prods = Array.isArray(data)
+            ? data
+            : (data?.produtos ?? data?.items ?? []);
           setListaProdutos(Array.isArray(prods) ? prods : []);
         }
       } catch (err) {
         if (!cancelled) {
           console.error("Erro ao carregar produtos:", err);
-          showError("Erro ao carregar produtos. Verifique a conexão com o servidor.");
+          showError(
+            "Erro ao carregar produtos. Verifique a conexão com o servidor.",
+          );
           setListaProdutos([]);
         }
       } finally {
@@ -246,7 +288,9 @@ function Caixa() {
       const nome = (p.nome || "").toLowerCase();
       const sku = (p.sku || "").toLowerCase();
       const codigo = String(p.id || "").toLowerCase();
-      return nome.includes(termo) || sku.includes(termo) || codigo.includes(termo);
+      return (
+        nome.includes(termo) || sku.includes(termo) || codigo.includes(termo)
+      );
     });
   }, [listaProdutos, searchProduto]);
 
@@ -258,13 +302,22 @@ function Caixa() {
 
   // ─── Handlers (lógica preservada, só com update de ultimoAdicionadoId) ─────
   const handleAdicionarAoCarrinho = (produto) => {
-    const precoVenda = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+    const precoVenda =
+      Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+    const tipo = produto.tipo ?? "normal";
     const item = {
       id: produto.id,
+      produtoId: produto.id,
+      bazarProdutoId: tipo === "bazar" ? produto.id : null,
+      tipo,
       nome: produto.nome || "Produto",
-      sku: produto.sku != null && String(produto.sku).trim() !== "" ? String(produto.sku) : null,
+      sku:
+        produto.sku != null && String(produto.sku).trim() !== ""
+          ? String(produto.sku)
+          : null,
       precoVenda,
       quantidade: 1,
+      consignanteNome: produto.consignanteNome ?? null,
     };
     const jaNoCarrinho = carrinho.find((c) => c.id === produto.id);
     if (jaNoCarrinho) {
@@ -287,7 +340,9 @@ function Caixa() {
       return;
     }
     setCarrinho(
-      carrinho.map((item) => (item.id === id ? { ...item, quantidade: novaQuantidade } : item)),
+      carrinho.map((item) =>
+        item.id === id ? { ...item, quantidade: novaQuantidade } : item,
+      ),
     );
   };
 
@@ -340,6 +395,11 @@ function Caixa() {
   };
 
   const confirmarPagamento = async () => {
+    if (!isCaixaAberto()) {
+      showError("O caixa está fechado. Abra o caixa para realizar vendas.");
+      navigate("/caixa");
+      return;
+    }
     if (!podeConfirmarPagamento()) return;
     const total = calcularTotal();
     const descontoVal = descontoNum;
@@ -347,13 +407,16 @@ function Caixa() {
     const payload = {
       itens: carrinho.map((item) => ({
         produtoId: Number(item.id),
+        tipo: item.tipo ?? "normal",
         quantidade: Number(item.quantidade) || 1,
         precoUnitario: Number(item.precoVenda) || 0,
       })),
       valorTotal: Number(total.toFixed(2)),
       formaPagamento: String(formaPagamento || "credito"),
       desconto: descontoVal ?? 0,
-      ...(clienteSelecionado?.id != null ? { clienteId: Number(clienteSelecionado.id) } : {}),
+      ...(clienteSelecionado?.id != null
+        ? { clienteId: Number(clienteSelecionado.id) }
+        : {}),
       ...(formaPagamento === "credito" || formaPagamento === "debito"
         ? { parcelas: Number(parcelas) || 1 }
         : {}),
@@ -367,7 +430,9 @@ function Caixa() {
         vendaId: vid,
         id: vid,
         valor: total,
-        descricao: nomeClienteVenda ? `Venda — ${nomeClienteVenda}` : "Venda no caixa",
+        descricao: nomeClienteVenda
+          ? `Venda — ${nomeClienteVenda}`
+          : "Venda no caixa",
         data: new Date().toISOString(),
       });
     } catch (err) {
@@ -375,11 +440,17 @@ function Caixa() {
       const msg =
         data?.mensagem ??
         data?.message ??
-        (Array.isArray(data?.errors) ? data.errors.flat().find(Boolean) : null) ??
+        (Array.isArray(data?.errors)
+          ? data.errors.flat().find(Boolean)
+          : null) ??
         data?.title ??
         "Erro ao registrar venda. Verifique os dados e tente novamente.";
       console.error("Erro ao registrar venda:", data ?? err);
-      showError(typeof msg === "string" ? msg : "Erro ao registrar venda. Tente novamente ou contate o suporte.");
+      showError(
+        typeof msg === "string"
+          ? msg
+          : "Erro ao registrar venda. Tente novamente ou contate o suporte.",
+      );
       return;
     }
     // Reset
@@ -398,7 +469,9 @@ function Caixa() {
   };
 
   const cancelarVenda = () => {
-    if (window.confirm("Deseja limpar a venda atual? Os itens serão removidos.")) {
+    if (
+      window.confirm("Deseja limpar a venda atual? Os itens serão removidos.")
+    ) {
       setCarrinho([]);
       setDesconto("");
       setAcrescimo("");
@@ -469,7 +542,10 @@ function Caixa() {
           data = await clientesService.getAll({ pagina: 1, tamanho: 100 });
         }
         if (cancelled) return;
-        const list = data?.clientes ?? data?.Clientes ?? (Array.isArray(data) ? data : data?.items ?? []);
+        const list =
+          data?.clientes ??
+          data?.Clientes ??
+          (Array.isArray(data) ? data : (data?.items ?? []));
         setClientesBusca(Array.isArray(list) ? list : []);
       } catch {
         if (!cancelled) setClientesBusca([]);
@@ -486,7 +562,12 @@ function Caixa() {
   const selecionarCliente = (cliente) => {
     setClienteSelecionado({
       id: cliente.id ?? cliente.Id,
-      nome: cliente.nomeCompleto ?? cliente.NomeCompleto ?? cliente.nome ?? cliente.Nome ?? "Cliente",
+      nome:
+        cliente.nomeCompleto ??
+        cliente.NomeCompleto ??
+        cliente.nome ??
+        cliente.Nome ??
+        "Cliente",
       cpf: cliente.cpf ?? cliente.CPF ?? null,
     });
     setSearchClienteBusca("");
@@ -498,12 +579,19 @@ function Caixa() {
     const total = calcularTotal();
     if (total <= 0 || !formaPagamento) return [];
     const tipoLabel =
-      formaPagamento === "credito" ? "À Prazo"
-      : formaPagamento === "debito" ? "À Vista"
-      : formaPagamento === "pix" ? "À Vista"
-      : "À Vista";
-    const meioLabel = FORMAS_PAGAMENTO.find((f) => f.id === formaPagamento)?.label || "";
-    const nParc = (formaPagamento === "credito" || formaPagamento === "debito") ? Math.max(1, Number(parcelas) || 1) : 1;
+      formaPagamento === "credito"
+        ? "À Prazo"
+        : formaPagamento === "debito"
+          ? "À Vista"
+          : formaPagamento === "pix"
+            ? "À Vista"
+            : "À Vista";
+    const meioLabel =
+      FORMAS_PAGAMENTO.find((f) => f.id === formaPagamento)?.label || "";
+    const nParc =
+      formaPagamento === "credito" || formaPagamento === "debito"
+        ? Math.max(1, Number(parcelas) || 1)
+        : 1;
     const valorParcela = total / nParc;
     const hoje = new Date();
     return Array.from({ length: nParc }, (_, i) => {
@@ -592,6 +680,7 @@ function Caixa() {
   return (
     <Box
       sx={{
+        position: "relative",
         flex: 1,
         minHeight: "calc(100dvh - 64px)",
         display: "flex",
@@ -619,7 +708,14 @@ function Caixa() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <PointOfSale sx={{ fontSize: 26, color: "primary.main" }} />
           <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                fontSize: 22,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+              }}
+            >
               Venda
             </Typography>
             <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
@@ -635,7 +731,14 @@ function Caixa() {
       </Box>
 
       {/* ═══ Tabs ═══ */}
-      <Box sx={{ borderBottom: "1px solid", borderColor: "divider", bgcolor: "background.paper", px: { xs: 1, md: 2 } }}>
+      <Box
+        sx={{
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          px: { xs: 1, md: 2 },
+        }}
+      >
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
@@ -675,8 +778,15 @@ function Caixa() {
           // ════════════════════════════════════════════════
           // TAB: ITENS
           // ════════════════════════════════════════════════
-          <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}>
-            <Grid size={{ xs: 12, lg: 9 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <Grid
+            container
+            spacing={1.5}
+            sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}
+          >
+            <Grid
+              size={{ xs: 12, lg: 9 }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
               {/* Linha campos: Vendedor + Produto + Cliente */}
               <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
                 <Grid size={{ xs: 12, sm: 4, md: 3 }}>
@@ -689,7 +799,9 @@ function Caixa() {
                       readOnly: true,
                       startAdornment: (
                         <InputAdornment position="start">
-                          <BadgeIcon sx={{ color: "text.secondary", fontSize: 18 }} />
+                          <BadgeIcon
+                            sx={{ color: "text.secondary", fontSize: 18 }}
+                          />
                         </InputAdornment>
                       ),
                     }}
@@ -716,13 +828,19 @@ function Caixa() {
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Search sx={{ color: "primary.main", fontSize: 20 }} />
+                          <Search
+                            sx={{ color: "primary.main", fontSize: 20 }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
                           <Tooltip title="Abrir catálogo">
-                            <IconButton size="small" onClick={abrirCatalogoProdutos} aria-label="Abrir catálogo">
+                            <IconButton
+                              size="small"
+                              onClick={abrirCatalogoProdutos}
+                              aria-label="Abrir catálogo"
+                            >
                               <QrCodeScanner sx={{ color: "primary.main" }} />
                             </IconButton>
                           </Tooltip>
@@ -732,9 +850,15 @@ function Caixa() {
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         bgcolor: ticket.clienteInputBg,
-                        "& fieldset": { borderColor: alpha(theme.palette.primary.main, 0.45), borderWidth: 1.5 },
+                        "& fieldset": {
+                          borderColor: alpha(theme.palette.primary.main, 0.45),
+                          borderWidth: 1.5,
+                        },
                         "&:hover fieldset": { borderColor: "primary.main" },
-                        "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "primary.main",
+                          borderWidth: 2,
+                        },
                       },
                     }}
                   />
@@ -744,13 +868,24 @@ function Caixa() {
                     fullWidth
                     size="small"
                     label="Cliente"
-                    value={clienteSelecionado ? clienteSelecionado.nome : "Não informado"}
+                    value={
+                      clienteSelecionado
+                        ? clienteSelecionado.nome
+                        : "Não informado"
+                    }
                     onClick={abrirDialogCliente}
                     InputProps={{
                       readOnly: true,
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Person sx={{ color: clienteSelecionado ? "primary.main" : "text.secondary", fontSize: 18 }} />
+                          <Person
+                            sx={{
+                              color: clienteSelecionado
+                                ? "primary.main"
+                                : "text.secondary",
+                              fontSize: 18,
+                            }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: clienteSelecionado ? (
@@ -770,8 +905,13 @@ function Caixa() {
                     }}
                     sx={{
                       cursor: "pointer",
-                      "& .MuiInputBase-input": { cursor: "pointer", fontStyle: clienteSelecionado ? "normal" : "italic" },
-                      "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg },
+                      "& .MuiInputBase-input": {
+                        cursor: "pointer",
+                        fontStyle: clienteSelecionado ? "normal" : "italic",
+                      },
+                      "& .MuiOutlinedInput-root": {
+                        bgcolor: ticket.clienteInputBg,
+                      },
                     }}
                   />
                 </Grid>
@@ -779,14 +919,30 @@ function Caixa() {
 
               {/* Preview de produtos buscados */}
               {(searchProduto || "").trim() && produtosPreview.length > 0 ? (
-                <Paper variant="outlined" sx={{ mb: 1.25, p: 1, bgcolor: "background.paper" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, fontWeight: 700 }}>
-                    {carregandoProdutos ? "Carregando…" : "Resultados — clique para adicionar"}
+                <Paper
+                  variant="outlined"
+                  sx={{ mb: 1.25, p: 1, bgcolor: "background.paper" }}
+                >
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: "block", mb: 0.75, fontWeight: 700 }}
+                  >
+                    {carregandoProdutos
+                      ? "Carregando…"
+                      : "Resultados — clique para adicionar"}
                   </Typography>
-                  <Stack spacing={0.5} sx={{ maxHeight: 160, overflowY: "auto" }}>
+                  <Stack
+                    spacing={0.5}
+                    sx={{ maxHeight: 160, overflowY: "auto" }}
+                  >
                     {produtosPreview.map((produto) => {
-                      const preco = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
-                      const noCupom = carrinho.some((c) => Number(c.id) === Number(produto.id));
+                      const preco =
+                        Number(produto.precoVenda ?? produto.precoCusto ?? 0) ||
+                        0;
+                      const noCupom = carrinho.some(
+                        (c) => Number(c.id) === Number(produto.id),
+                      );
                       return (
                         <Box
                           key={produto.id}
@@ -805,26 +961,50 @@ function Caixa() {
                             border: "1px solid",
                             borderColor: noCupom ? "primary.main" : "divider",
                             borderRadius: 1,
-                            bgcolor: noCupom ? alpha(theme.palette.primary.main, 0.08) : "background.paper",
+                            bgcolor: noCupom
+                              ? alpha(theme.palette.primary.main, 0.08)
+                              : "background.paper",
                             font: "inherit",
                             color: "inherit",
                             transition: "background-color 0.2s",
-                            "&:hover": { bgcolor: "action.hover", borderColor: "primary.main" },
+                            "&:hover": {
+                              bgcolor: "action.hover",
+                              borderColor: "primary.main",
+                            },
                           }}
                         >
                           <Box sx={{ minWidth: 0 }}>
                             <Typography variant="body2" fontWeight={600} noWrap>
                               {produto.nome || "Produto"}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
-                              {produto.sku ? `SKU ${produto.sku}` : `#${produto.id}`}
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontFamily: "monospace" }}
+                            >
+                              {produto.sku
+                                ? `SKU ${produto.sku}`
+                                : `#${produto.id}`}
                             </Typography>
                           </Box>
-                          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
-                            <Typography variant="body2" fontWeight={800} color="primary.main">
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.5}
+                            sx={{ flexShrink: 0 }}
+                          >
+                            <Typography
+                              variant="body2"
+                              fontWeight={800}
+                              color="primary.main"
+                            >
                               R$ {preco.toFixed(2)}
                             </Typography>
-                            <IconButton size="small" color="primary" aria-label="Adicionar">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              aria-label="Adicionar"
+                            >
                               <Add fontSize="small" />
                             </IconButton>
                           </Stack>
@@ -859,11 +1039,25 @@ function Caixa() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? "primary.light" : "#1565c0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: 13,
+                      color: isDark ? "primary.light" : "#1565c0",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
                     Itens da venda
                   </Typography>
                   {carrinho.length > 0 && (
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary" }}>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "text.secondary",
+                      }}
+                    >
                       Clique na linha para ver a foto
                     </Typography>
                   )}
@@ -885,13 +1079,23 @@ function Caixa() {
                         }}
                       >
                         <TableCell width={48} align="center"></TableCell>
-                        <TableCell width={56} align="center">Foto</TableCell>
+                        <TableCell width={56} align="center">
+                          Foto
+                        </TableCell>
                         <TableCell width={100}>Código</TableCell>
                         <TableCell>Descrição</TableCell>
-                        <TableCell align="center" width={120}>Qtd.</TableCell>
-                        <TableCell align="right" width={96}>P. Unit.</TableCell>
-                        <TableCell align="right" width={108}>Preço</TableCell>
-                        <TableCell align="center" width={64}>Vend.</TableCell>
+                        <TableCell align="center" width={120}>
+                          Qtd.
+                        </TableCell>
+                        <TableCell align="right" width={96}>
+                          P. Unit.
+                        </TableCell>
+                        <TableCell align="right" width={108}>
+                          Preço
+                        </TableCell>
+                        <TableCell align="center" width={64}>
+                          Vend.
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -908,10 +1112,20 @@ function Caixa() {
                                 color: "text.secondary",
                               }}
                             >
-                              <ShoppingCart sx={{ fontSize: 56, color: ticket.emptyIcon }} />
-                              <Typography sx={{ fontWeight: 700, color: ticket.text }}>Nenhum item ainda</Typography>
-                              <Typography variant="body2" sx={{ textAlign: "center", maxWidth: 360 }}>
-                                Use a busca acima ou pressione <strong>F5</strong> para abrir o catálogo.
+                              <ShoppingCart
+                                sx={{ fontSize: 56, color: ticket.emptyIcon }}
+                              />
+                              <Typography
+                                sx={{ fontWeight: 700, color: ticket.text }}
+                              >
+                                Nenhum item ainda
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{ textAlign: "center", maxWidth: 360 }}
+                              >
+                                Use a busca acima ou pressione{" "}
+                                <strong>F5</strong> para abrir o catálogo.
                               </Typography>
                             </Box>
                           </TableCell>
@@ -928,13 +1142,23 @@ function Caixa() {
                               onClick={() => setItemSelecionadoId(item.id)}
                               sx={{
                                 cursor: "pointer",
-                                "&:nth-of-type(even) td": { bgcolor: ticket.rowStripe },
-                                "& td": { borderColor: ticket.rowBorder, color: ticket.text, transition: "background-color 0.2s" },
+                                "&:nth-of-type(even) td": {
+                                  bgcolor: ticket.rowStripe,
+                                },
+                                "& td": {
+                                  borderColor: ticket.rowBorder,
+                                  color: ticket.text,
+                                  transition: "background-color 0.2s",
+                                },
                                 ...(selecionada
                                   ? {
                                       "& td": {
                                         borderColor: ticket.rowBorder,
-                                        bgcolor: alpha(theme.palette.primary.main, 0.12) + " !important",
+                                        bgcolor:
+                                          alpha(
+                                            theme.palette.primary.main,
+                                            0.12,
+                                          ) + " !important",
                                       },
                                       outline: `2px solid ${theme.palette.primary.main}`,
                                       outlineOffset: "-2px",
@@ -956,46 +1180,110 @@ function Caixa() {
                                 </IconButton>
                               </TableCell>
                               <TableCell align="center" sx={{ py: 0.5 }}>
-                                {selecionada ? (
-                                  (() => {
-                                    const imgUrl = getProdutoImagem(item.id);
-                                    return imgUrl ? (
-                                      <Box
-                                        component="img"
-                                        src={imgUrl}
-                                        alt={item.nome}
-                                        sx={{
-                                          width: 44,
-                                          height: 44,
-                                          objectFit: "cover",
-                                          borderRadius: 1,
-                                          border: "1px solid",
-                                          borderColor: "divider",
-                                        }}
-                                        onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                      />
-                                    ) : (
-                                      <ImageNotSupported sx={{ fontSize: 22, color: "text.disabled" }} />
-                                    );
-                                  })()
-                                ) : null}
+                                {selecionada
+                                  ? (() => {
+                                      const imgUrl = getProdutoImagem(item.id);
+                                      return imgUrl ? (
+                                        <Box
+                                          component="img"
+                                          src={imgUrl}
+                                          alt={item.nome}
+                                          sx={{
+                                            width: 44,
+                                            height: 44,
+                                            objectFit: "cover",
+                                            borderRadius: 1,
+                                            border: "1px solid",
+                                            borderColor: "divider",
+                                          }}
+                                          onError={(e) => {
+                                            e.currentTarget.style.display =
+                                              "none";
+                                          }}
+                                        />
+                                      ) : (
+                                        <ImageNotSupported
+                                          sx={{
+                                            fontSize: 22,
+                                            color: "text.disabled",
+                                          }}
+                                        />
+                                      );
+                                    })()
+                                  : null}
                               </TableCell>
-                              <TableCell sx={{ fontFamily: "monospace", fontSize: 12, color: "text.secondary" }}>
+                              <TableCell
+                                sx={{
+                                  fontFamily: "monospace",
+                                  fontSize: 12,
+                                  color: "text.secondary",
+                                }}
+                              >
                                 {codigo}
                               </TableCell>
-                              <TableCell sx={{ fontWeight: 600 }}>{item.nome}</TableCell>
+                              <TableCell sx={{ fontWeight: 600 }}>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.75,
+                                    }}
+                                  >
+                                    <Typography>{item.nome}</Typography>
+                                    {item.tipo === "bazar" && (
+                                      <Chip
+                                        label="BAZAR"
+                                        size="small"
+                                        sx={{
+                                          height: 20,
+                                          fontSize: 10,
+                                          fontWeight: 700,
+                                          bgcolor: "warning.main",
+                                          color: "warning.contrastText",
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+                                  {item.consignanteNome && (
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ color: "text.secondary" }}
+                                    >
+                                      Consignante: {item.consignanteNome}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </TableCell>
                               <TableCell align="center">
                                 <Box
-                                  sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.25,
+                                  }}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleAlterarQuantidade(item.id, item.quantidade - 1)}
+                                    onClick={() =>
+                                      handleAlterarQuantidade(
+                                        item.id,
+                                        item.quantidade - 1,
+                                      )
+                                    }
                                     sx={{
                                       bgcolor: ticket.qtyBtnBg,
                                       color: ticket.text,
-                                      "&:hover": { bgcolor: ticket.qtyBtnHover },
+                                      "&:hover": {
+                                        bgcolor: ticket.qtyBtnHover,
+                                      },
                                     }}
                                     aria-label="Diminuir"
                                   >
@@ -1003,17 +1291,31 @@ function Caixa() {
                                   </IconButton>
                                   <Typography
                                     component="span"
-                                    sx={{ minWidth: 28, textAlign: "center", fontWeight: 800, color: ticket.text }}
+                                    sx={{
+                                      minWidth: 28,
+                                      textAlign: "center",
+                                      fontWeight: 800,
+                                      color: ticket.text,
+                                    }}
                                   >
                                     {item.quantidade}
                                   </Typography>
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleAlterarQuantidade(item.id, item.quantidade + 1)}
+                                    onClick={() =>
+                                      handleAlterarQuantidade(
+                                        item.id,
+                                        item.quantidade + 1,
+                                      )
+                                    }
                                     sx={{
                                       bgcolor: ticket.addBtn,
-                                      color: isDark ? theme.palette.primary.contrastText : "#fff",
-                                      "&:hover": { bgcolor: ticket.addBtnHover },
+                                      color: isDark
+                                        ? theme.palette.primary.contrastText
+                                        : "#fff",
+                                      "&:hover": {
+                                        bgcolor: ticket.addBtnHover,
+                                      },
                                     }}
                                     aria-label="Aumentar"
                                   >
@@ -1021,10 +1323,20 @@ function Caixa() {
                                   </IconButton>
                                 </Box>
                               </TableCell>
-                              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                              <TableCell
+                                align="right"
+                                sx={{ whiteSpace: "nowrap" }}
+                              >
                                 R$ {item.precoVenda.toFixed(2)}
                               </TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 800, whiteSpace: "nowrap", color: "primary.main" }}>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  fontWeight: 800,
+                                  whiteSpace: "nowrap",
+                                  color: "primary.main",
+                                }}
+                              >
                                 R$ {totalLinha.toFixed(2)}
                               </TableCell>
                               <TableCell align="center">
@@ -1035,8 +1347,13 @@ function Caixa() {
                                       height: 28,
                                       fontSize: 12,
                                       fontWeight: 800,
-                                      bgcolor: alpha(theme.palette.primary.main, isDark ? 0.32 : 0.18),
-                                      color: isDark ? "primary.light" : "primary.dark",
+                                      bgcolor: alpha(
+                                        theme.palette.primary.main,
+                                        isDark ? 0.32 : 0.18,
+                                      ),
+                                      color: isDark
+                                        ? "primary.light"
+                                        : "primary.dark",
                                       mx: "auto",
                                     }}
                                   >
@@ -1055,10 +1372,21 @@ function Caixa() {
             </Grid>
 
             {/* Sidebar direita */}
-            <Grid size={{ xs: 12, lg: 3 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Grid
+              size={{ xs: 12, lg: 3 }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
               <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0 }}>
-                <SummaryCard label="Itens" value={String(carrinho.length)} isDark={isDark} />
-                <SummaryCard label="Valor" value={fmtBRL(calcularSubtotal())} isDark={isDark} />
+                <SummaryCard
+                  label="Itens"
+                  value={String(carrinho.length)}
+                  isDark={isDark}
+                />
+                <SummaryCard
+                  label="Valor"
+                  value={fmtBRL(calcularSubtotal())}
+                  isDark={isDark}
+                />
                 <SummaryCard
                   label="Desconto"
                   value={desconto}
@@ -1067,7 +1395,12 @@ function Caixa() {
                   valuePrefix="R$"
                   isDark={isDark}
                 />
-                <SummaryCard label="Valor Líquido" value={fmtBRL(calcularTotal())} highlight isDark={isDark} />
+                <SummaryCard
+                  label="Valor Líquido"
+                  value={fmtBRL(calcularTotal())}
+                  highlight
+                  isDark={isDark}
+                />
               </Stack>
             </Grid>
           </Grid>
@@ -1075,8 +1408,21 @@ function Caixa() {
           // ════════════════════════════════════════════════
           // TAB: FINALIZAÇÃO
           // ════════════════════════════════════════════════
-          <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0, overflow: "auto" }}>
-            <Grid size={{ xs: 12, lg: 9 }} sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+          <Grid
+            container
+            spacing={1.5}
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              p: { xs: 1, md: 1.5 },
+              m: 0,
+              overflow: "auto",
+            }}
+          >
+            <Grid
+              size={{ xs: 12, lg: 9 }}
+              sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}
+            >
               {/* Bloco Cliente */}
               <Paper
                 variant="outlined"
@@ -1093,21 +1439,43 @@ function Caixa() {
                   sx={{
                     width: 48,
                     height: 48,
-                    bgcolor: clienteSelecionado ? alpha(theme.palette.primary.main, 0.25) : alpha(theme.palette.text.disabled, 0.18),
-                    color: clienteSelecionado ? "primary.main" : "text.disabled",
+                    bgcolor: clienteSelecionado
+                      ? alpha(theme.palette.primary.main, 0.25)
+                      : alpha(theme.palette.text.disabled, 0.18),
+                    color: clienteSelecionado
+                      ? "primary.main"
+                      : "text.disabled",
                   }}
                 >
-                  {clienteSelecionado ? (clienteSelecionado.nome || "?").charAt(0).toUpperCase() : <Person />}
+                  {clienteSelecionado ? (
+                    (clienteSelecionado.nome || "?").charAt(0).toUpperCase()
+                  ) : (
+                    <Person />
+                  )}
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: 10, fontWeight: 800, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color: "text.secondary",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
                     Cliente
                   </Typography>
-                  <Typography sx={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>
-                    {clienteSelecionado ? clienteSelecionado.nome : "Não informado"}
+                  <Typography
+                    sx={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}
+                  >
+                    {clienteSelecionado
+                      ? clienteSelecionado.nome
+                      : "Não informado"}
                   </Typography>
                   {clienteSelecionado?.cpf ? (
-                    <Typography sx={{ fontSize: 11, color: "text.secondary" }}>CPF: {clienteSelecionado.cpf}</Typography>
+                    <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                      CPF: {clienteSelecionado.cpf}
+                    </Typography>
                   ) : null}
                 </Box>
                 <Stack direction="row" spacing={1}>
@@ -1143,11 +1511,18 @@ function Caixa() {
                 multiline
                 minRows={1}
                 maxRows={2}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg } }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    bgcolor: ticket.clienteInputBg,
+                  },
+                }}
               />
 
               {/* Bloco Pagamento */}
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+              <Paper
+                variant="outlined"
+                sx={{ p: 1.5, bgcolor: "background.paper" }}
+              >
                 <Typography
                   sx={{
                     fontWeight: 800,
@@ -1162,15 +1537,38 @@ function Caixa() {
                 </Typography>
 
                 {/* Toggle condição (visual) */}
-                <Box sx={{ display: "flex", gap: 0.5, mb: 1.5, flexWrap: "wrap", alignItems: "center" }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.secondary", mr: 1 }}>Condição:</Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    mb: 1.5,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "text.secondary",
+                      mr: 1,
+                    }}
+                  >
+                    Condição:
+                  </Typography>
                   {["aVista", "aPrazo"].map((c) => (
                     <Button
                       key={c}
                       size="small"
-                      variant={condicaoPagamento === c ? "contained" : "outlined"}
+                      variant={
+                        condicaoPagamento === c ? "contained" : "outlined"
+                      }
                       onClick={() => setCondicaoPagamento(c)}
-                      sx={{ textTransform: "none", fontWeight: 700, minWidth: 90 }}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 700,
+                        minWidth: 90,
+                      }}
                     >
                       {c === "aVista" ? "À Vista" : "À Prazo"}
                     </Button>
@@ -1189,7 +1587,8 @@ function Caixa() {
                           onClick={() => {
                             setFormaPagamento(forma.id);
                             if (forma.id !== "dinheiro") setValorRecebido("");
-                            if (forma.id !== "credito" && forma.id !== "debito") setParcelas(1);
+                            if (forma.id !== "credito" && forma.id !== "debito")
+                              setParcelas(1);
                           }}
                           elevation={0}
                           sx={{
@@ -1204,17 +1603,30 @@ function Caixa() {
                             cursor: "pointer",
                             border: "2px solid",
                             borderColor: selected ? "primary.main" : "divider",
-                            bgcolor: selected ? alpha(theme.palette.primary.main, 0.14) : "background.paper",
+                            bgcolor: selected
+                              ? alpha(theme.palette.primary.main, 0.14)
+                              : "background.paper",
                             font: "inherit",
                             color: "inherit",
                             transition: "all 0.2s ease-out",
                             transform: selected ? "scale(1.02)" : "scale(1)",
-                            boxShadow: selected ? `0 4px 12px ${alpha(theme.palette.primary.main, 0.25)}` : "none",
+                            boxShadow: selected
+                              ? `0 4px 12px ${alpha(theme.palette.primary.main, 0.25)}`
+                              : "none",
                             "&:hover": { borderColor: "primary.main" },
                           }}
                         >
-                          <IconF sx={{ fontSize: 28, color: selected ? "primary.main" : "text.secondary" }} />
-                          <Typography sx={{ fontWeight: 700, fontSize: 13 }}>{forma.label}</Typography>
+                          <IconF
+                            sx={{
+                              fontSize: 28,
+                              color: selected
+                                ? "primary.main"
+                                : "text.secondary",
+                            }}
+                          />
+                          <Typography sx={{ fontWeight: 700, fontSize: 13 }}>
+                            {forma.label}
+                          </Typography>
                         </Paper>
                       </Grid>
                     );
@@ -1239,21 +1651,34 @@ function Caixa() {
                         ),
                       }}
                       inputProps={{ step: "0.01", min: "0" }}
-                      sx={{ "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg } }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          bgcolor: ticket.clienteInputBg,
+                        },
+                      }}
                     />
                     {valorRecebido ? (
-                      <Alert severity={calcularTroco() >= 0 ? "success" : "error"} variant="outlined">
+                      <Alert
+                        severity={calcularTroco() >= 0 ? "success" : "error"}
+                        variant="outlined"
+                      >
                         Troco: <strong>R$ {calcularTroco().toFixed(2)}</strong>
                       </Alert>
                     ) : null}
                   </Stack>
                 )}
 
-                {(formaPagamento === "credito" || formaPagamento === "debito") && (
+                {(formaPagamento === "credito" ||
+                  formaPagamento === "debito") && (
                   <FormControl
                     fullWidth
                     size="small"
-                    sx={{ mt: 1.5, "& .MuiOutlinedInput-root": { bgcolor: ticket.clienteInputBg } }}
+                    sx={{
+                      mt: 1.5,
+                      "& .MuiOutlinedInput-root": {
+                        bgcolor: ticket.clienteInputBg,
+                      },
+                    }}
                   >
                     <InputLabel id="pdv-parcelas-label">Parcelas</InputLabel>
                     <Select
@@ -1283,8 +1708,17 @@ function Caixa() {
                       bgcolor: ticket.clienteInputBg,
                     }}
                   >
-                    <QrCode2 sx={{ fontSize: 56, color: alpha(theme.palette.primary.main, 0.5) }} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <QrCode2
+                      sx={{
+                        fontSize: 56,
+                        color: alpha(theme.palette.primary.main, 0.5),
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.5 }}
+                    >
                       Confirme o PIX no app do banco antes de gravar
                     </Typography>
                   </Box>
@@ -1293,7 +1727,10 @@ function Caixa() {
 
               {/* Tabela de parcelas (visual) */}
               {parcelasVisuais.length > 0 && (
-                <Paper variant="outlined" sx={{ overflow: "hidden", bgcolor: "background.paper" }}>
+                <Paper
+                  variant="outlined"
+                  sx={{ overflow: "hidden", bgcolor: "background.paper" }}
+                >
                   <Box
                     sx={{
                       px: 1.5,
@@ -1303,7 +1740,15 @@ function Caixa() {
                       borderColor: "divider",
                     }}
                   >
-                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: isDark ? "primary.light" : "#1565c0", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <Typography
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: 13,
+                        color: isDark ? "primary.light" : "#1565c0",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
                       Parcelas
                     </Typography>
                   </Box>
@@ -1325,7 +1770,9 @@ function Caixa() {
                           <TableCell width={100}>Tipo</TableCell>
                           <TableCell>Meio de Pagamento</TableCell>
                           <TableCell width={120}>Vencimento</TableCell>
-                          <TableCell width={120} align="right">Valor</TableCell>
+                          <TableCell width={120} align="right">
+                            Valor
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1334,14 +1781,24 @@ function Caixa() {
                             key={p.parcela}
                             sx={{
                               "& td": { borderColor: ticket.rowBorder },
-                              bgcolor: idx % 2 === 0 ? "background.paper" : ticket.rowStripe,
+                              bgcolor:
+                                idx % 2 === 0
+                                  ? "background.paper"
+                                  : ticket.rowStripe,
                             }}
                           >
-                            <TableCell sx={{ fontWeight: 700 }}>{p.parcela}</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>
+                              {p.parcela}
+                            </TableCell>
                             <TableCell>{p.tipo}</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>{p.meio}</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>
+                              {p.meio}
+                            </TableCell>
                             <TableCell>{p.vencimento}</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 800, color: "primary.main" }}>
+                            <TableCell
+                              align="right"
+                              sx={{ fontWeight: 800, color: "primary.main" }}
+                            >
                               R$ {p.valor.toFixed(2)}
                             </TableCell>
                           </TableRow>
@@ -1354,9 +1811,16 @@ function Caixa() {
             </Grid>
 
             {/* Sidebar Finalização */}
-            <Grid size={{ xs: 12, lg: 3 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Grid
+              size={{ xs: 12, lg: 3 }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
               <Stack spacing={1.25}>
-                <SummaryCard label="Valor Total" value={fmtBRL(calcularSubtotal())} isDark={isDark} />
+                <SummaryCard
+                  label="Valor Total"
+                  value={fmtBRL(calcularSubtotal())}
+                  isDark={isDark}
+                />
                 <SummaryCard
                   label="Desconto"
                   value={desconto}
@@ -1373,9 +1837,18 @@ function Caixa() {
                   valuePrefix="R$"
                   isDark={isDark}
                 />
-                <SummaryCard label="Crédito Cliente" value="R$ 0,00" isDark={isDark} />
+                <SummaryCard
+                  label="Crédito Cliente"
+                  value="R$ 0,00"
+                  isDark={isDark}
+                />
                 <SummaryCard label="Cashback" value="R$ 0,00" isDark={isDark} />
-                <SummaryCard label="Valor Líquido" value={fmtBRL(calcularTotal())} highlight isDark={isDark} />
+                <SummaryCard
+                  label="Valor Líquido"
+                  value={fmtBRL(calcularTotal())}
+                  highlight
+                  isDark={isDark}
+                />
               </Stack>
             </Grid>
           </Grid>
@@ -1421,7 +1894,8 @@ function Caixa() {
               fontWeight: 800,
               minWidth: 220,
               py: 1.1,
-              boxShadow: (t) => `0 4px 16px ${alpha(t.palette.primary.main, 0.4)}`,
+              boxShadow: (t) =>
+                `0 4px 16px ${alpha(t.palette.primary.main, 0.4)}`,
               "&.Mui-disabled": { opacity: 0.55 },
             }}
           >
@@ -1486,10 +1960,19 @@ function Caixa() {
             flexShrink: 0,
           }}
         >
-          <Typography component="span" variant="h6" sx={{ flex: 1, fontWeight: 800 }}>
+          <Typography
+            component="span"
+            variant="h6"
+            sx={{ flex: 1, fontWeight: 800 }}
+          >
             Buscar produtos
           </Typography>
-          <IconButton edge="end" color="inherit" onClick={fecharCatalogoProdutos} aria-label="Fechar catálogo">
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={fecharCatalogoProdutos}
+            aria-label="Fechar catálogo"
+          >
             <Close />
           </IconButton>
         </DialogTitle>
@@ -1527,23 +2010,42 @@ function Caixa() {
               ),
             }}
           />
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, flexShrink: 0 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 1, flexShrink: 0 }}
+          >
             Toque para adicionar. Itens já no cupom aparecem destacados.
           </Typography>
           <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {carregandoProdutos ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                sx={{ py: 4 }}
+              >
                 Carregando…
               </Typography>
             ) : produtosFiltrados.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                {searchProduto.trim() ? "Nenhum produto encontrado." : "Nenhum produto cadastrado."}
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                sx={{ py: 4 }}
+              >
+                {searchProduto.trim()
+                  ? "Nenhum produto encontrado."
+                  : "Nenhum produto cadastrado."}
               </Typography>
             ) : (
               <Stack spacing={0.75}>
                 {produtosFiltrados.map((produto) => {
-                  const preco = Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
-                  const itemCarrinho = carrinho.find((c) => Number(c.id) === Number(produto.id));
+                  const preco =
+                    Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
+                  const itemCarrinho = carrinho.find(
+                    (c) => Number(c.id) === Number(produto.id),
+                  );
                   const noCupom = !!itemCarrinho;
                   return (
                     <Paper
@@ -1567,18 +2069,40 @@ function Caixa() {
                           : "background.paper",
                         font: "inherit",
                         color: "inherit",
-                        transition: "background-color 0.2s, border-color 0.2s, box-shadow 0.2s",
-                        boxShadow: noCupom ? `0 0 0 1px ${alpha(theme.palette.primary.main, 0.45)}` : "none",
+                        transition:
+                          "background-color 0.2s, border-color 0.2s, box-shadow 0.2s",
+                        boxShadow: noCupom
+                          ? `0 0 0 1px ${alpha(theme.palette.primary.main, 0.45)}`
+                          : "none",
                         "&:hover": {
                           borderColor: "primary.main",
                           boxShadow: 1,
                         },
                       }}
                     >
-                      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 1,
+                          alignItems: "flex-start",
+                        }}
+                      >
                         <Box sx={{ minWidth: 0 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
-                            <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.3 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.75,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              fontWeight={700}
+                              color="text.primary"
+                              sx={{ lineHeight: 1.3 }}
+                            >
                               {produto.nome || "Produto"}
                             </Typography>
                             {noCupom ? (
@@ -1586,17 +2110,39 @@ function Caixa() {
                                 size="small"
                                 label={`${itemCarrinho.quantidade} no cupom`}
                                 color="primary"
-                                sx={{ height: 22, fontWeight: 800, "& .MuiChip-label": { px: 1 } }}
+                                sx={{
+                                  height: 22,
+                                  fontWeight: 800,
+                                  "& .MuiChip-label": { px: 1 },
+                                }}
                               />
                             ) : null}
                           </Box>
                           <Typography variant="caption" color="text.secondary">
-                            {produto.sku ? `SKU ${produto.sku}` : `#${produto.id}`}
+                            {produto.sku
+                              ? `SKU ${produto.sku}`
+                              : `#${produto.id}`}
                           </Typography>
                         </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
-                          {noCupom ? <CheckCircle sx={{ fontSize: 22, color: "primary.main" }} aria-hidden /> : null}
-                          <Typography variant="body2" fontWeight={800} color="primary.main">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {noCupom ? (
+                            <CheckCircle
+                              sx={{ fontSize: 22, color: "primary.main" }}
+                              aria-hidden
+                            />
+                          ) : null}
+                          <Typography
+                            variant="body2"
+                            fontWeight={800}
+                            color="primary.main"
+                          >
                             R$ {preco.toFixed(2)}
                           </Typography>
                         </Box>
@@ -1608,8 +2154,20 @@ function Caixa() {
             )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 2, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-          <Button onClick={fecharCatalogoProdutos} sx={{ textTransform: "none" }} variant="contained" color="inherit">
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderTop: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Button
+            onClick={fecharCatalogoProdutos}
+            sx={{ textTransform: "none" }}
+            variant="contained"
+            color="inherit"
+          >
             Fechar
           </Button>
         </DialogActions>
@@ -1640,10 +2198,19 @@ function Caixa() {
             flexShrink: 0,
           }}
         >
-          <Typography component="span" variant="h6" sx={{ flex: 1, fontWeight: 800 }}>
+          <Typography
+            component="span"
+            variant="h6"
+            sx={{ flex: 1, fontWeight: 800 }}
+          >
             Buscar cliente
           </Typography>
-          <IconButton edge="end" color="inherit" onClick={fecharDialogCliente} aria-label="Fechar busca de cliente">
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={fecharDialogCliente}
+            aria-label="Fechar busca de cliente"
+          >
             <Close />
           </IconButton>
         </DialogTitle>
@@ -1674,17 +2241,33 @@ function Caixa() {
               ),
             }}
           />
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, flexShrink: 0 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 1, flexShrink: 0 }}
+          >
             Toque em um cliente para selecionar e fechar. Um cliente por venda.
           </Typography>
           <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {carregandoClientesBusca ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                sx={{ py: 4 }}
+              >
                 Carregando…
               </Typography>
             ) : clientesBusca.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                {searchClienteBusca.trim() ? "Nenhum cliente encontrado." : "Nenhum cliente na lista. Digite para buscar."}
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                sx={{ py: 4 }}
+              >
+                {searchClienteBusca.trim()
+                  ? "Nenhum cliente encontrado."
+                  : "Nenhum cliente na lista. Digite para buscar."}
               </Typography>
             ) : (
               <Stack spacing={0.75}>
@@ -1708,10 +2291,17 @@ function Caixa() {
                     bgcolor: "background.paper",
                     font: "inherit",
                     color: "inherit",
-                    "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      bgcolor: "action.hover",
+                    },
                   }}
                 >
-                  <Typography variant="body2" fontWeight={700} color="text.primary">
+                  <Typography
+                    variant="body2"
+                    fontWeight={700}
+                    color="text.primary"
+                  >
                     Venda sem cliente
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -1719,7 +2309,12 @@ function Caixa() {
                   </Typography>
                 </Paper>
                 {clientesBusca.map((c) => {
-                  const nome = c.nomeCompleto ?? c.NomeCompleto ?? c.nome ?? c.Nome ?? `Cliente #${c.id ?? c.Id}`;
+                  const nome =
+                    c.nomeCompleto ??
+                    c.NomeCompleto ??
+                    c.nome ??
+                    c.Nome ??
+                    `Cliente #${c.id ?? c.Id}`;
                   const sub = c.cpf ? `CPF: ${c.cpf}` : `ID: ${c.id ?? c.Id}`;
                   return (
                     <Paper
@@ -1745,7 +2340,12 @@ function Caixa() {
                         },
                       }}
                     >
-                      <Typography variant="body2" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.3 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight={700}
+                        color="text.primary"
+                        sx={{ lineHeight: 1.3 }}
+                      >
                         {nome}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -1758,12 +2358,71 @@ function Caixa() {
             )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 2, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-          <Button onClick={fecharDialogCliente} sx={{ textTransform: "none" }} variant="contained" color="inherit">
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderTop: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Button
+            onClick={fecharDialogCliente}
+            sx={{ textTransform: "none" }}
+            variant="contained"
+            color="inherit"
+          >
             Fechar
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ═══ Overlay: Caixa fechado bloqueia vendas ═══ */}
+      {!caixaAberto && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            backgroundColor: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <Paper
+            elevation={8}
+            sx={{
+              p: 4,
+              maxWidth: 440,
+              textAlign: "center",
+              borderRadius: 2,
+            }}
+          >
+            <Lock sx={{ fontSize: 56, color: "error.main", mb: 2 }} />
+            <Typography variant="h6" fontWeight={700} gutterBottom>
+              Caixa fechado
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Para realizar vendas você precisa abrir o caixa. Vá até a tela de Caixa e clique em <strong>Abrir Caixa</strong>.
+            </Typography>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<PointOfSale />}
+              onClick={() => navigate("/caixa")}
+              sx={{ textTransform: "none", fontWeight: 700 }}
+            >
+              Ir para o Caixa
+            </Button>
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }
