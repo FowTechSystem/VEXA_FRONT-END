@@ -28,7 +28,7 @@ import {
   AccountBalanceWallet,
   LocalOffer,
 } from "@mui/icons-material";
-import AppDatePicker from "../AppDatePicker";
+import VexaDatePicker from "../VexaDatePicker";
 
 const INITIAL_STATE = {
   clienteId: null,
@@ -573,12 +573,14 @@ export const NovaVendaDialog = ({
                   </Grid>
 
                   <Grid item xs={12}>
-                    <AppDatePicker
+                    <VexaDatePicker
                       label="Data da Venda"
                       value={formData.dataVenda}
                       onChange={(v) => handleFieldChange("dataVenda", v)}
                       disabled={submitting}
-                      required
+                      fullWidth
+                      minWidth={0}
+                      slotProps={{ textField: { required: true } }}
                     />
                   </Grid>
 

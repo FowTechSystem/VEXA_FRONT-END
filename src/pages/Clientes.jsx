@@ -47,7 +47,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import { LoadingBox } from "../components/LoadingBox";
 import { FotoPerfilPicker } from "../components/FotoPerfilPicker";
-import AppDatePicker from "../components/AppDatePicker";
+import VexaDatePicker from "../components/VexaDatePicker";
 import { clientesService } from "../api/clientesService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
 import {
@@ -997,7 +997,18 @@ function Clientes() {
                 <Grid item xs={12} md={3}><TextField fullWidth required={cpfObrigatorio} label="CPF" name="cpf" value={currentCliente.cpf} onChange={handleCPFChange} error={!!cpfError} helperText={cpfError || ""} size="small" placeholder="000.000.000-00" InputProps={{ endAdornment: cpfChecking && <CircularProgress size={20} /> }} /></Grid>
                 <Grid item xs={12} md={3}><TextField fullWidth label="RG" name="rg" value={currentCliente.rg} onChange={handleChange} size="small" placeholder="RG" /></Grid>
                 <Grid item xs={12} md={3}><TextField fullWidth required={cnpjObrigatorio} label="CNPJ" name="cnpj" value={currentCliente.cnpj} onChange={handleCNPJChange} error={!!cnpjError} helperText={cnpjError || ""} size="small" placeholder="00.000.000/0000-00" /></Grid>
-                <Grid item xs={12} md={3}><AppDatePicker label="Data Nascimento" required value={currentCliente.dataNascimento} onChange={(v) => handleChange({ target: { name: "dataNascimento", value: v } })} /></Grid>
+                <Grid item xs={12} md={3}>
+                  <VexaDatePicker
+                    label="Data Nascimento"
+                    value={currentCliente.dataNascimento}
+                    onChange={(v) =>
+                      setCurrentCliente({ ...currentCliente, dataNascimento: v })
+                    }
+                    fullWidth
+                    minWidth={0}
+                    slotProps={{ textField: { required: true } }}
+                  />
+                </Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="WhatsApp" name="whatsApp" value={currentCliente.whatsApp} onChange={handleWhatsAppChange} size="small" placeholder="Somente números" inputProps={{ inputMode: "numeric" }} /></Grid>
                 <Grid item xs={12} md={4}><FormControl fullWidth size="small" sx={selectFieldSx}><InputLabel id="tipo-tel-label">Tipo</InputLabel><Select labelId="tipo-tel-label" label="Tipo" defaultValue="Celular"><MenuItem value="Celular">Celular</MenuItem><MenuItem value="Fixo">Fixo</MenuItem><MenuItem value="Comercial">Comercial</MenuItem></Select></FormControl></Grid>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Telefone" name="telefone" value={currentCliente.telefone} onChange={handleTelefoneChange} size="small" placeholder="Somente números" inputProps={{ inputMode: "numeric" }} /></Grid>

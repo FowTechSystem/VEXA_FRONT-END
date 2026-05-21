@@ -20,7 +20,7 @@ import { caixaService } from "../api/caixaService";
 import { vexaColors } from "../theme";
 import { showSuccess, showError } from "../utils/notifications";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
-import AppDatePicker from "../components/AppDatePicker";
+import VexaDatePicker from "../components/VexaDatePicker";
 
 const CATEGORIAS_LUCRO = [
   "Vendas",
@@ -257,12 +257,15 @@ function NovaMovimentacaoCaixa() {
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <AppDatePicker
-                required
+              <VexaDatePicker
                 label="Data"
                 value={form.data}
-                onChange={(v) => handleChange({ target: { name: "data", value: v } })}
-                sx={fieldSx}
+                onChange={(v) =>
+                  handleChange({ target: { name: "data", value: v } })
+                }
+                fullWidth
+                minWidth={0}
+                slotProps={{ textField: { required: true, sx: fieldSx } }}
               />
             </Grid>
             <Grid size={12}>

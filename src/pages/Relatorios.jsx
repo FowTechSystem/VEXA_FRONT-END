@@ -22,6 +22,7 @@ import {
   People,
   LocalFireDepartment,
 } from "@mui/icons-material";
+import VexaDatePicker from "../components/VexaDatePicker";
 import { PieChart } from "@mui/x-charts/PieChart";
 import { showSuccess } from "../utils/notifications";
 import { vendasService } from "../api/vendasService";
@@ -433,17 +434,15 @@ function Relatorios() {
           <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, mb: 3 }}>
             {tabSelecionada.precisaPeriodo && (
               <>
-                <AppDatePicker
+                <VexaDatePicker
                   label="Data início"
                   value={dataInicio}
                   onChange={setDataInicio}
-                  sx={{ minWidth: 170 }}
                 />
-                <AppDatePicker
+                <VexaDatePicker
                   label="Data fim"
                   value={dataFim}
                   onChange={setDataFim}
-                  sx={{ minWidth: 170 }}
                 />
               </>
             )}

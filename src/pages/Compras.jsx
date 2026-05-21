@@ -42,6 +42,7 @@ import {
   Inventory,
 } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
+import VexaDatePicker from "../components/VexaDatePicker";
 import { comprasService } from "../api/comprasService";
 import { FornecedorService } from "../api/fornecedorService";
 import { produtosService } from "../api/produtosService";
@@ -723,22 +724,26 @@ function Compras() {
                     disablePortal
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <AppDatePicker
+                <Grid item xs={12} md={6}>
+                  <VexaDatePicker
                     label="Data do Pedido"
                     value={currentCompra.dataPedido}
                     onChange={(v) =>
-                      setCurrentCompra({ ...currentCompra, dataPedido: v })
+                      handleChange({ target: { name: "dataPedido", value: v } })
                     }
+                    fullWidth
+                    minWidth={0}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <AppDatePicker
+                <Grid item xs={12} md={6}>
+                  <VexaDatePicker
                     label="Data Entrega Prevista"
                     value={currentCompra.dataEntregaPrevista}
                     onChange={(v) =>
-                      setCurrentCompra({ ...currentCompra, dataEntregaPrevista: v })
+                      handleChange({ target: { name: "dataEntregaPrevista", value: v } })
                     }
+                    fullWidth
+                    minWidth={0}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>

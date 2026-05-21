@@ -2,6 +2,9 @@
 import React, { useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import "dayjs/locale/pt-br";
 import {
   ThemeProvider as CustomThemeProvider,
   ThemeContext,
@@ -31,6 +34,10 @@ import Categorias from "./pages/Categorias";
 import Marcas from "./pages/Marcas";
 import CatalogoDigital from "./pages/CatalogoDigital";
 import CatalogoPublico from "./pages/CatalogoPublico";
+import Bazar from "./pages/Bazar";
+import BazarConsignante from "./pages/BazarConsignante";
+import BazarConsignantePecas from "./pages/BazarConsignantePecas";
+import BazarRepasses from "./pages/BazarRepasses";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
 import { vexaColors, vexaSurfaces } from "./theme";
@@ -147,6 +154,12 @@ function AppContent() {
             }
           />
           <Route path="catalogo-digital" element={<CatalogoDigital />} />
+
+          {/* Módulo Bazar */}
+          <Route path="bazar" element={<Bazar />} />
+          <Route path="bazar/consignante/:id" element={<BazarConsignante />} />
+          <Route path="bazar/consignante/:id/pecas" element={<BazarConsignantePecas />} />
+          <Route path="bazar/repasses" element={<BazarRepasses />} />
         </Route>
 
         {/* Rota 404 - Redireciona para Login (exceto catálogo público) */}
@@ -161,7 +174,9 @@ function AppContent() {
 function App() {
   return (
     <CustomThemeProvider>
-      <AppContent />
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+        <AppContent />
+      </LocalizationProvider>
     </CustomThemeProvider>
   );
 }

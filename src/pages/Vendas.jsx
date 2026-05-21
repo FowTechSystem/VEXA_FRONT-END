@@ -70,6 +70,7 @@ import {
 } from "../utils/movimentacaoCaixa";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
 import NovaMovimentacaoDialog from "../components/Caixa/NovaMovimentacaoDialog";
+import VexaDatePicker from "../components/VexaDatePicker";
 
 const fmtBRL = (v) =>
   `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -521,17 +522,21 @@ function Movimentacoes() {
             {/* Linha de filtros: Datas + Busca + Tipos + Ações */}
             <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
               <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                <AppDatePicker
+                <VexaDatePicker
                   label="Data início"
                   value={dataInicio}
                   onChange={setDataInicio}
+                  fullWidth
+                  minWidth={0}
                 />
               </Grid>
               <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                <AppDatePicker
+                <VexaDatePicker
                   label="Data fim"
                   value={dataFim}
                   onChange={setDataFim}
+                  fullWidth
+                  minWidth={0}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4 }}>
