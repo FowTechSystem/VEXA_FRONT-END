@@ -285,12 +285,36 @@ function Produtos() {
     const optCodigo = str(p.codigoBarras);
     if (optCodigo) payload.codigoBarras = optCodigo;
 
-    // Imagem: alinhado a clientes/usuários — POST com fotoBase64 (arquivo novo); URL http com foto1; PUT com foto1 (URL após upload ou existente).
+    // Imagem principal → sempre Foto1 no banco. Galeria → Foto2/Foto3.
+    const imgPrincipal =
+      p.imagemPrincipal != null && String(p.imagemPrincipal).trim() !== ""
+        ? String(p.imagemPrincipal).trim()
+        : null;
+
+    const aplicarFoto1NoPayload = (fonte) => {
+      const s = fonte != null ? String(fonte).trim() : "";
+      if (!s) return;
+      if (s.includes("base64,")) {
+        const b64 = s.split(",")[1];
+        payload.foto1 = s;
+        if (isCreate) {
+          if (b64) payload.fotoBase64 = b64;
+        } else {
+          payload.foto1Url = s;
+          if (b64) payload.foto1Base64 = b64;
+        }
+      } else if (isHttpImageUrl(s)) {
+        payload.foto1 = s;
+        if (!isCreate) payload.foto1Url = s;
+      }
+    };
+
     if (isCreate) {
       if (p.fotoBase64 != null && String(p.fotoBase64).trim() !== "") {
         payload.fotoBase64 = String(p.fotoBase64).trim();
-      } else if (isHttpImageUrl(p.imagemPrincipal)) {
-        payload.foto1 = p.imagemPrincipal.trim();
+        payload.foto1 = `data:image/jpeg;base64,${String(p.fotoBase64).trim()}`;
+      } else {
+        aplicarFoto1NoPayload(imgPrincipal);
       }
     } else {
       const urlNova =
@@ -298,9 +322,11 @@ function Produtos() {
           ? String(p.foto1Url).trim()
           : null;
       if (urlNova) {
-        payload.foto1 = urlNova;
-      } else if (isHttpImageUrl(p.imagemPrincipal)) {
-        payload.foto1 = p.imagemPrincipal.trim();
+        aplicarFoto1NoPayload(urlNova);
+      } else if (p.fotoBase64 != null && String(p.fotoBase64).trim() !== "") {
+        aplicarFoto1NoPayload(`data:image/jpeg;base64,${String(p.fotoBase64).trim()}`);
+      } else {
+        aplicarFoto1NoPayload(imgPrincipal);
       }
     }
 
@@ -324,11 +350,19 @@ function Produtos() {
 
     payload.observacoes = str(p.observacoes);
 
-    const extrasArr = Array.isArray(p.imagensAdicionais) ? p.imagensAdicionais : [];
-    extrasArr.forEach((img, idx) => {
+    let extrasArr = (Array.isArray(p.imagensAdicionais) ? p.imagensAdicionais : [])
+      .map((img) => (img != null && String(img).trim() !== "" ? String(img).trim() : null))
+      .filter(Boolean);
+
+    const temFoto1 =
+      !!(payload.foto1 || payload.foto1Url || payload.foto1Base64 || payload.fotoBase64);
+    if (!temFoto1 && extrasArr.length > 0) {
+      aplicarFoto1NoPayload(extrasArr[0]);
+      extrasArr = extrasArr.slice(1);
+    }
+
+    extrasArr.forEach((s, idx) => {
       if (idx > 1) return;
-      if (img == null || String(img).trim() === "") return;
-      const s = String(img).trim();
       if (s.includes("base64,")) {
         const b64 = s.split(",")[1];
         if (b64) {
@@ -439,8 +473,17 @@ function Produtos() {
       p.cores = Array.isArray(p.cores) ? p.cores : [];
       p.tamanhos = Array.isArray(p.tamanhos) ? p.tamanhos : [];
       p.tipoTamanho = p.tipoTamanho || inferirTipoTamanho(p.tamanhos);
-      p.imagemPrincipal =
+      // Foto principal = slot Foto1; se vazio, usa a primeira adicional (comum após criar só com galeria)
+      const primeiraFotoDisponivel =
         p.foto1 ||
+        p.Foto1 ||
+        p.foto2 ||
+        p.Foto2 ||
+        p.foto3 ||
+        p.Foto3 ||
+        "";
+      p.imagemPrincipal =
+        primeiraFotoDisponivel ||
         p.imagemPrincipal ||
         p.urlImagem ||
         p.imagemUrl ||
@@ -598,12 +641,12 @@ function Produtos() {
             return;
           }
         } catch (uploadErr) {
-          if (editMode) {
-            console.error("[Produtos] Falha no upload da foto", uploadErr);
-            showError("Não foi possível enviar a imagem. Tente novamente.");
-            return;
-          }
-          console.warn("[Produtos] Upload na criação indisponível; usando base64 no JSON.", uploadErr);
+          console.warn(
+            editMode
+              ? "[Produtos] Upload falhou na edição; enviando imagem no PUT (data URL/base64)."
+              : "[Produtos] Upload na criação indisponível; usando base64 no JSON.",
+            uploadErr,
+          );
         }
       }
 
@@ -622,7 +665,7 @@ function Produtos() {
         {
           ...currentProduto,
           imagemPrincipal: imagemPrincipalPayload,
-          fotoBase64: editMode ? null : imagemUrlAposUpload ? null : fotoBase64,
+          fotoBase64: imagemUrlAposUpload ? null : fotoBase64,
           foto1Url: editMode ? foto1Url : undefined,
         },
         !editMode,

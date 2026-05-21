@@ -55,6 +55,10 @@ import { caixaService } from "../api/caixaService";
 import { vendasService } from "../api/vendasService";
 import { comprasService } from "../api/comprasService";
 import { showSuccess, showError, showWarning } from "../utils/notifications";
+import { getApiErrorMessage } from "../utils/apiError";
+import { resolveEmpresaIdForRequest } from "../api/axiosConfig";
+import { isDevAdminUser } from "../constants/devAdmin";
+import { authService } from "../api/authService";
 import {
   resolverTipoMovimentacaoLinha,
   valorMovimentacaoAssinado,
@@ -64,13 +68,6 @@ import NovaMovimentacaoDialog from "../components/Caixa/NovaMovimentacaoDialog";
 
 const fmtBRL = (v) =>
   `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-function apiErrMessage(err) {
-  const d = err?.response?.data;
-  if (d && typeof d === "object" && d.message != null) return String(d.message);
-  if (typeof d === "string" && d.trim()) return d;
-  return err?.message || "Operação não concluída.";
-}
 
 // ─── Helper: Summary card (sidebar) ─────────────────────────────────────────
 function SummaryCard({ label, value, color, accent, isDark }) {
@@ -235,6 +232,12 @@ function Movimentacoes() {
       })
       .catch((err) => {
         console.error("Erro ao carregar movimentações:", err);
+        const status = err?.response?.status;
+        if (status === 400 && isDevAdminUser(authService.getUsuario()) && resolveEmpresaIdForRequest() == null) {
+          showWarning('Conta dev: clique em "Entrar em empresa" no topo e selecione uma empresa.');
+        } else if (status === 400 || status === 403) {
+          showError(getApiErrorMessage(err, "Não foi possível carregar o caixa."));
+        }
         setTotalEntradas(0);
         setTotalSaidas(0);
         setSaldoAtual(0);
@@ -329,7 +332,7 @@ function Movimentacoes() {
       setMovimentacaoSelecionada(null);
       carregarMovimentacoes();
     } catch (err) {
-      showError(apiErrMessage(err));
+      showError(getApiErrorMessage(err));
     } finally {
       setExcluindo(false);
     }

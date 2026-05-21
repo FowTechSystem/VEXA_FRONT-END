@@ -27,9 +27,11 @@ export const produtosService = {
 
   getAll: async (params = {}) => {
     const queryParams = new URLSearchParams();
-    if (params.pagina != null) queryParams.append("pagina", params.pagina);
-    if (params.tamanho != null) queryParams.append("tamanho", params.tamanho);
-    const url = queryParams.toString() ? `/produtos?${queryParams}` : "/produtos";
+    const pagina = params.pagina ?? 1;
+    const tamanho = Math.min(Number(params.tamanho ?? 500) || 500, 500);
+    queryParams.append("pagina", pagina);
+    queryParams.append("tamanho", tamanho);
+    const url = `/produtos?${queryParams}`;
     const response = await api.get(url);
 
     // A API retorna um objeto GetListaProdutosResponse
