@@ -23,13 +23,21 @@ const clearAuth = () => {
   notifyAuthChanged();
 };
 
-function getEmpresaAtivaId() {
+/**
+ * ID da empresa para o header X-Empresa-Id (somente conta dev).
+ * Prioridade: empresa escolhida em "Entrar em empresa" → empresaId do usuário logado.
+ */
+export function resolveEmpresaIdForRequest() {
   try {
     const user = JSON.parse(localStorage.getItem(USER_DATA_KEY) || "{}");
     if (!isDevAdminUser(user)) return null;
+
     const raw = localStorage.getItem(EMPRESA_ATIVA_KEY);
     const empresa = raw ? JSON.parse(raw) : null;
-    return empresa?.id ?? null;
+    if (empresa?.id != null) return empresa.id;
+
+    const fromUser = user.empresaId ?? user.EmpresaId;
+    return fromUser != null ? fromUser : null;
   } catch {
     return null;
   }
@@ -50,8 +58,8 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Dev entrando em empresa: envia X-Empresa-Id para o backend usar esse contexto
-    const empresaId = getEmpresaAtivaId();
+    // Dev: contexto de empresa (obrigatório na API de produção para listagens)
+    const empresaId = resolveEmpresaIdForRequest();
     if (
       empresaId != null &&
       !/auth\/(login|forgot-password|reset-password)/i.test(config.url || "")
@@ -66,6 +74,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (import.meta.env.DEV && error.response?.status === 400) {
+      const body = error.response?.data;
+      const preview =
+        typeof body === "string"
+          ? body.slice(0, 200)
+          : body?.message ?? body?.Message ?? body?.mensagem ?? JSON.stringify(body)?.slice(0, 200);
+      console.warn("[VEXA API 400]", error.config?.method, error.config?.url, preview);
+    }
     if (error.response?.status === 401) {
       const url = error.config?.url || "";
       const isPublicAuth =

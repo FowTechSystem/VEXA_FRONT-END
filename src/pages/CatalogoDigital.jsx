@@ -172,7 +172,7 @@ function CatalogoDigital() {
     setCarregando(true);
     try {
       const [prodsRes, catRes] = await Promise.all([
-        produtosService.getAll({ pagina: 1, tamanho: 2000 }),
+        produtosService.getAll({ pagina: 1, tamanho: 500 }),
         CategoriaService.getAll().catch(() => null),
       ]);
 
