@@ -27,6 +27,7 @@ import { PieChart } from "@mui/x-charts/PieChart";
 import { showSuccess } from "../utils/notifications";
 import { vendasService } from "../api/vendasService";
 import { produtosService } from "../api/produtosService";
+import AppDatePicker from "../components/AppDatePicker";
 import {
   downloadPdf,
   gerarPdfEstoque,

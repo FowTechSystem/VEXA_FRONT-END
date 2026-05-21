@@ -273,6 +273,7 @@ function NovaMovimentacaoDialog({ open, onClose, onSaved }) {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
+
             <VexaDatePicker
               label="Data"
               value={form.data}
@@ -282,6 +283,7 @@ function NovaMovimentacaoDialog({ open, onClose, onSaved }) {
               fullWidth
               minWidth={0}
               slotProps={{ textField: { required: true, sx: fieldSx } }}
+
             />
           </Grid>
 

@@ -20,7 +20,9 @@ import {
 import { Add, Edit, Delete, Search, ArrowBack } from "@mui/icons-material";
 import { LoadingBox } from "../components/LoadingBox";
 import { CategoriaService } from "../api/categoriaService";
-import { showError } from "../utils/notifications";
+import { showError, showSuccess } from "../utils/notifications";
+import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
+import { confirmMessages, entityNames } from "../utils/entityMessages";
 
 const getInitials = (nome) => {
   if (!nome) return "?";
@@ -59,6 +61,8 @@ function Categorias() {
   const [editMode, setEditMode] = useState(false);
   const [errors, setErrors] = useState({});
   const [carregando, setCarregando] = useState(false);
+  const [categoriaParaExcluir, setCategoriaParaExcluir] = useState(null);
+  const [excluindoCategoria, setExcluindoCategoria] = useState(false);
 
   const fetchCategorias = async () => {
     setCarregando(true);
@@ -147,15 +151,28 @@ function Categorias() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Deseja realmente excluir esta categoria?")) {
-      try {
-        await CategoriaService.delete(id);
-        fetchCategorias();
-      } catch (error) {
-        console.error("Erro ao excluir categoria:", error);
-        showError("Erro ao excluir categoria.");
-      }
+  const handleAbrirConfirmExcluir = (categoria) => {
+    setCategoriaParaExcluir({ id: categoria.id, nome: categoria.nome || "" });
+  };
+
+  const handleFecharConfirmExcluir = () => {
+    if (excluindoCategoria) return;
+    setCategoriaParaExcluir(null);
+  };
+
+  const handleConfirmarExcluir = async () => {
+    if (!categoriaParaExcluir?.id) return;
+    setExcluindoCategoria(true);
+    try {
+      await CategoriaService.delete(categoriaParaExcluir.id);
+      showSuccess("Categoria excluída.");
+      setCategoriaParaExcluir(null);
+      fetchCategorias();
+    } catch (error) {
+      console.error("Erro ao excluir categoria:", error);
+      showError("Erro ao excluir categoria.");
+    } finally {
+      setExcluindoCategoria(false);
     }
   };
 
@@ -320,7 +337,7 @@ function Categorias() {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(categoria.id)}
+                      onClick={() => handleAbrirConfirmExcluir(categoria)}
                       sx={{
                         color: theme.palette.text.secondary,
                         "&:hover": { bgcolor: "error.light", color: "error.main" },
@@ -407,6 +424,16 @@ function Categorias() {
           </Box>
         </Box>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!categoriaParaExcluir}
+        onClose={handleFecharConfirmExcluir}
+        onConfirm={handleConfirmarExcluir}
+        title="Excluir categoria"
+        message={confirmMessages.delete(entityNames.categoria)}
+        itemLabel={categoriaParaExcluir?.nome}
+        loading={excluindoCategoria}
+      />
     </Box>
   );
 }

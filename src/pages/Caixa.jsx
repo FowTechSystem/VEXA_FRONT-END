@@ -43,6 +43,7 @@ import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
 import { authService } from "../api/authService";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
+import { isCaixaAberto } from "../utils/caixaStatus";
 import {
   ShoppingCart,
   Search,
@@ -64,6 +65,7 @@ import {
   PointOfSale,
   Discount,
   TrendingUp,
+  Lock,
 } from "@mui/icons-material";
 
 const CatalogoProdutosTransition = React.forwardRef(function CatalogoProdutosTransition(props, ref) {
@@ -155,6 +157,19 @@ function Caixa() {
   const isDark = theme.palette.mode === "dark";
   const navigate = useNavigate();
   const { emitirSeNovaMovimentacao } = useInAppNotifications();
+
+  // ─── Estado do Caixa (abertura) ────────────────────────────────────────────
+  const [caixaAberto, setCaixaAberto] = useState(() => isCaixaAberto());
+
+  useEffect(() => {
+    const sync = () => setCaixaAberto(isCaixaAberto());
+    window.addEventListener("storage", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
 
   // ─── Estado existente (preservado) ─────────────────────────────────────────
   const [carrinho, setCarrinho] = useState([]);
@@ -340,6 +355,11 @@ function Caixa() {
   };
 
   const confirmarPagamento = async () => {
+    if (!isCaixaAberto()) {
+      showError("O caixa está fechado. Abra o caixa para realizar vendas.");
+      navigate("/caixa");
+      return;
+    }
     if (!podeConfirmarPagamento()) return;
     const total = calcularTotal();
     const descontoVal = descontoNum;
@@ -592,6 +612,7 @@ function Caixa() {
   return (
     <Box
       sx={{
+        position: "relative",
         flex: 1,
         minHeight: "calc(100dvh - 64px)",
         display: "flex",
@@ -1764,6 +1785,53 @@ function Caixa() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ═══ Overlay: Caixa fechado bloqueia vendas ═══ */}
+      {!caixaAberto && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            backgroundColor: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <Paper
+            elevation={8}
+            sx={{
+              p: 4,
+              maxWidth: 440,
+              textAlign: "center",
+              borderRadius: 2,
+            }}
+          >
+            <Lock sx={{ fontSize: 56, color: "error.main", mb: 2 }} />
+            <Typography variant="h6" fontWeight={700} gutterBottom>
+              Caixa fechado
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Para realizar vendas você precisa abrir o caixa. Vá até a tela de Caixa e clique em <strong>Abrir Caixa</strong>.
+            </Typography>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<PointOfSale />}
+              onClick={() => navigate("/caixa")}
+              sx={{ textTransform: "none", fontWeight: 700 }}
+            >
+              Ir para o Caixa
+            </Button>
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }

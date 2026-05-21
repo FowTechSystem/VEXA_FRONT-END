@@ -46,6 +46,7 @@ import VexaDatePicker from "../components/VexaDatePicker";
 import { comprasService } from "../api/comprasService";
 import { FornecedorService } from "../api/fornecedorService";
 import { produtosService } from "../api/produtosService";
+import AppDatePicker from "../components/AppDatePicker";
 
 const STATUS_COMPRA = {
   pendente: { label: "Pendente", color: "#d97706", bgcolor: "#fef3c7" },
@@ -690,7 +691,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Autocomplete
                     fullWidth
                     options={listaFornecedores}
@@ -745,7 +746,7 @@ function Compras() {
                     minWidth={0}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <FormControl fullWidth size="small" sx={selectFieldSx}>
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -905,7 +906,7 @@ function Compras() {
               </Typography>
 
               <Grid container spacing={2.5} sx={{ mt: 2 }}>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
                     label="Observações"
