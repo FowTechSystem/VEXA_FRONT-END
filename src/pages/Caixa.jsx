@@ -47,7 +47,7 @@ import { vendasService } from "../api/vendasService";
 import { clientesService } from "../api/clientesService";
 import { authService } from "../api/authService";
 import { useInAppNotifications } from "../contexts/InAppNotificationContext";
-import { isCaixaAberto } from "../utils/caixaStatus";
+import { isCaixaAberto, CAIXA_CHANGED_EVENT } from "../utils/caixaStatus";
 import {
   ShoppingCart,
   Search,
@@ -186,9 +186,11 @@ function Caixa() {
 
   useEffect(() => {
     const sync = () => setCaixaAberto(isCaixaAberto());
+    window.addEventListener(CAIXA_CHANGED_EVENT, sync);
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
     return () => {
+      window.removeEventListener(CAIXA_CHANGED_EVENT, sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
     };
