@@ -80,11 +80,11 @@ const fmtBRL = (v) =>
   `R$ ${(Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ─── Helper: Summary card (sidebar) ─────────────────────────────────────────
-function SummaryCard({ label, value, color, accent, isDark }) {
+function SummaryCard({ label, value, color, accent, isDark, sx }) {
   return (
     <Box
       sx={{
-        p: 1.25,
+        p: { xs: 1, sm: 1.25 },
         borderRadius: 2,
         border: accent ? "2px solid" : "1px solid",
         borderColor: accent ? color : "divider",
@@ -93,12 +93,15 @@ function SummaryCard({ label, value, color, accent, isDark }) {
         display: "flex",
         flexDirection: "column",
         gap: 0.25,
-        minHeight: 64,
+        minHeight: { xs: 56, sm: 64 },
+        minWidth: 0,
+        flex: { xs: "1 1 0", xl: "initial" },
+        ...sx,
       }}
     >
       <Typography
         sx={{
-          fontSize: 10,
+          fontSize: { xs: 9, sm: 10 },
           fontWeight: 800,
           letterSpacing: "0.08em",
           color: "text.secondary",
@@ -110,7 +113,7 @@ function SummaryCard({ label, value, color, accent, isDark }) {
       <Typography
         sx={{
           fontWeight: 900,
-          fontSize: accent ? 22 : 18,
+          fontSize: { xs: accent ? 16 : 14, sm: accent ? 22 : 18 },
           color: accent ? color : "text.primary",
           lineHeight: 1.1,
           mt: 0.25,
@@ -519,12 +522,85 @@ function Movimentacoes() {
           overflow: "hidden",
         }}
       >
-        <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, p: { xs: 1, md: 1.5 }, m: 0 }}>
-          {/* ── Coluna principal (9/12) ── */}
-          <Grid size={{ xs: 12, lg: 9 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <Grid container spacing={1.5} sx={{ flex: 1, minHeight: 0, minWidth: 0, p: { xs: 1, md: 1.5 }, m: 0 }}>
+          {/* ── Resumo (topo em telas menores, coluna direita em xl+) ── */}
+          <Grid
+            size={{ xs: 12, xl: 3 }}
+            order={{ xs: 1, xl: 2 }}
+            sx={{ display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}
+          >
+            <Stack
+              direction={{ xs: "row", xl: "column" }}
+              spacing={1.25}
+              sx={{ width: "100%", minWidth: 0 }}
+            >
+              <SummaryCard
+                label="Total de Entradas"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(totalEntradas)}
+                color={corEntrada}
+                isDark={isDark}
+              />
+              <SummaryCard
+                label="Total de Saídas"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(totalSaidas)}
+                color={corSaida}
+                isDark={isDark}
+              />
+              <SummaryCard
+                label="Saldo Atual"
+                value={carregandoMovimentacoes ? "…" : fmtBRL(saldoAtual)}
+                color={corSaldo}
+                accent
+                isDark={isDark}
+              />
+            </Stack>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                mt: 1.25,
+                bgcolor: "background.paper",
+                display: { xs: "none", xl: "block" },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  color: "text.secondary",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  mb: 1,
+                }}
+              >
+                Período
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: "text.primary", fontWeight: 600 }}>
+                {dataInicio ? new Date(dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                {" → "}
+                {dataFim ? new Date(dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.5 }}>
+                Filtros:{" "}
+                {filtroTipo === "todos"
+                  ? "Todos os tipos"
+                  : filtroTipo === "entradas"
+                    ? "Apenas entradas"
+                    : "Apenas saídas"}
+              </Typography>
+            </Paper>
+          </Grid>
+
+          {/* ── Coluna principal ── */}
+          <Grid
+            size={{ xs: 12, xl: 9 }}
+            order={{ xs: 2, xl: 1 }}
+            sx={{ display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}
+          >
             {/* Linha de filtros: Datas + Busca + Tipos + Ações */}
-            <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
-              <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+            <Grid container spacing={1.25} sx={{ mb: 1.25, width: "100%", minWidth: 0 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }} sx={{ minWidth: 0 }}>
                 <VexaDatePicker
                   label="Data início"
                   value={dataInicio}
@@ -533,7 +609,7 @@ function Movimentacoes() {
                   minWidth={0}
                 />
               </Grid>
-              <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }} sx={{ minWidth: 0 }}>
                 <VexaDatePicker
                   label="Data fim"
                   value={dataFim}
@@ -542,7 +618,7 @@ function Movimentacoes() {
                   minWidth={0}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Grid size={{ xs: 12, md: 12, lg: 6, xl: 4 }} sx={{ minWidth: 0 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -566,19 +642,29 @@ function Movimentacoes() {
                   }}
                 />
               </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Stack direction="row" spacing={0.75} sx={{ height: "100%" }}>
+              <Grid size={{ xs: 12, lg: 12, xl: 4 }} sx={{ minWidth: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ width: "100%" }}
+                >
                   <Button
-                    fullWidth
                     size="small"
                     variant={filtroTipo === "todos" ? "contained" : "outlined"}
                     onClick={() => setFiltroTipo("todos")}
-                    sx={{ textTransform: "none", fontWeight: 700, height: 40 }}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 700,
+                      height: 40,
+                      flex: { xs: "1 1 calc(33% - 8px)", sm: "1 1 auto" },
+                      minWidth: { xs: 0, sm: 72 },
+                    }}
                   >
                     Todos
                   </Button>
                   <Button
-                    fullWidth
                     size="small"
                     variant={filtroTipo === "entradas" ? "contained" : "outlined"}
                     onClick={() => setFiltroTipo("entradas")}
@@ -586,6 +672,8 @@ function Movimentacoes() {
                       textTransform: "none",
                       fontWeight: 700,
                       height: 40,
+                      flex: { xs: "1 1 calc(33% - 8px)", sm: "1 1 auto" },
+                      minWidth: { xs: 0, sm: 72 },
                       ...(filtroTipo === "entradas" && {
                         bgcolor: corEntrada,
                         color: "#fff",
@@ -601,7 +689,6 @@ function Movimentacoes() {
                     Entradas
                   </Button>
                   <Button
-                    fullWidth
                     size="small"
                     variant={filtroTipo === "saidas" ? "contained" : "outlined"}
                     onClick={() => setFiltroTipo("saidas")}
@@ -609,6 +696,8 @@ function Movimentacoes() {
                       textTransform: "none",
                       fontWeight: 700,
                       height: 40,
+                      flex: { xs: "1 1 calc(33% - 8px)", sm: "1 1 auto" },
+                      minWidth: { xs: 0, sm: 72 },
                       ...(filtroTipo === "saidas" && {
                         bgcolor: corSaida,
                         color: "#fff",
@@ -634,6 +723,7 @@ function Movimentacoes() {
                           height: 40,
                           width: 40,
                           borderRadius: 1,
+                          flexShrink: 0,
                         }}
                       >
                         <Refresh fontSize="small" />
@@ -648,6 +738,7 @@ function Movimentacoes() {
                         height: 40,
                         width: 40,
                         borderRadius: 1,
+                        flexShrink: 0,
                       }}
                     >
                       <FileDownload fontSize="small" />
@@ -699,8 +790,8 @@ function Movimentacoes() {
                 )}
               </Box>
 
-              <TableContainer sx={{ flex: 1, minHeight: 0 }}>
-                <Table size="small" stickyHeader>
+              <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                <Table size="small" stickyHeader sx={{ minWidth: 720 }}>
                   <TableHead>
                     <TableRow
                       sx={{
@@ -716,9 +807,15 @@ function Movimentacoes() {
                     >
                       <TableCell width={120}>Tipo</TableCell>
                       <TableCell>Descrição</TableCell>
-                      <TableCell width={120}>Data</TableCell>
-                      <TableCell width={140} align="right">Valor</TableCell>
-                      <TableCell width={140}>Pagamento</TableCell>
+                      <TableCell width={120} sx={{ display: { xs: "none", md: "table-cell" } }}>
+                        Data
+                      </TableCell>
+                      <TableCell width={140} align="right">
+                        Valor
+                      </TableCell>
+                      <TableCell width={140} sx={{ display: { xs: "none", lg: "table-cell" } }}>
+                        Pagamento
+                      </TableCell>
                       <TableCell width={110}>Status</TableCell>
                       <TableCell width={56} align="center">Ações</TableCell>
                     </TableRow>
@@ -784,7 +881,7 @@ function Movimentacoes() {
                               />
                             </TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>{mov.descricao}</TableCell>
-                            <TableCell sx={{ fontSize: 12 }}>
+                            <TableCell sx={{ fontSize: 12, display: { xs: "none", md: "table-cell" } }}>
                               {mov.data ? new Date(mov.data).toLocaleDateString("pt-BR") : "—"}
                             </TableCell>
                             <TableCell
@@ -798,7 +895,7 @@ function Movimentacoes() {
                               {positivo ? "+ " : "- "}
                               {fmtBRL(Math.abs(mov.valor))}
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
                               <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>
                                 {mov.formaPagamento}
                               </Typography>
@@ -833,56 +930,6 @@ function Movimentacoes() {
                 </Table>
               </TableContainer>
             </Paper>
-          </Grid>
-
-          {/* ── Sidebar direita (3/12) ── */}
-          <Grid size={{ xs: 12, lg: 3 }} sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0 }}>
-              <SummaryCard
-                label="Total de Entradas"
-                value={carregandoMovimentacoes ? "…" : fmtBRL(totalEntradas)}
-                color={corEntrada}
-                isDark={isDark}
-              />
-              <SummaryCard
-                label="Total de Saídas"
-                value={carregandoMovimentacoes ? "…" : fmtBRL(totalSaidas)}
-                color={corSaida}
-                isDark={isDark}
-              />
-              <SummaryCard
-                label="Saldo Atual"
-                value={carregandoMovimentacoes ? "…" : fmtBRL(saldoAtual)}
-                color={corSaldo}
-                accent
-                isDark={isDark}
-              />
-
-              <Box sx={{ flex: 1 }} />
-
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
-                <Typography
-                  sx={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: "text.secondary",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    mb: 1,
-                  }}
-                >
-                  Período
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: "text.primary", fontWeight: 600 }}>
-                  {dataInicio ? new Date(dataInicio + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
-                  {" → "}
-                  {dataFim ? new Date(dataFim + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 0.5 }}>
-                  Filtros: {filtroTipo === "todos" ? "Todos os tipos" : filtroTipo === "entradas" ? "Apenas entradas" : "Apenas saídas"}
-                </Typography>
-              </Paper>
-            </Stack>
           </Grid>
         </Grid>
       </Box>

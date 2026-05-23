@@ -11,7 +11,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Link as MuiLink,
 } from "@mui/material";
 import { useTheme, alpha } from "@mui/material/styles";
 import { authPillTextFieldSx } from "../components/Auth/authFieldStyles";
@@ -20,7 +19,7 @@ import {
   VisibilityOff,
   WarningAmber,
 } from "@mui/icons-material";
-import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { showError } from "../utils/notifications";
 import { authService } from "../api/authService";
 import AuthSplitShell from "../components/Auth/AuthSplitShell";
@@ -150,27 +149,6 @@ function Login() {
             {loading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
-
-        <Box sx={{ textAlign: "center", mt: 3 }}>
-          <Typography variant="body2" color="text.secondary">
-            Esqueceu sua senha?{" "}
-            <MuiLink
-              component={Link}
-              to="/recuperar-senha"
-              sx={{
-                color: isLight ? theme.palette.primary.dark : theme.palette.primary.main,
-                textDecoration: "none",
-                fontWeight: 600,
-                "&:hover": {
-                  textDecoration: "underline",
-                  color: isLight ? theme.palette.primary.main : theme.palette.primary.light,
-                },
-              }}
-            >
-              Recuperar
-            </MuiLink>
-          </Typography>
-        </Box>
 
         {DEMO_SEM_BACKEND && (
           <Box

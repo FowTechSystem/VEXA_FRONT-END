@@ -12,8 +12,6 @@ import {
 import CriticalErrorDialog from "./components/CriticalErrorDialog";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
-import RecuperarSenha from "./pages/RecuperarSenha";
-import RedefinirSenha from "./pages/RedefinirSenha";
 import Home from "./pages/Home";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
@@ -103,8 +101,6 @@ function AppContent() {
       <Routes>
         {/* Rotas Públicas */}
         <Route path="/login" element={<Login />} />
-        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/catalogo-publico/:id" element={<CatalogoPublico />} />
 
         {/* Rotas Protegidas (com sidebar) */}
