@@ -63,7 +63,11 @@ export function VexaDatePicker({
           size: "small",
           fullWidth,
           InputLabelProps: { shrink: true },
-          sx: { minWidth, ...sx },
+          sx: {
+            minWidth: minWidth ?? 0,
+            width: fullWidth ? "100%" : undefined,
+            ...sx,
+          },
           ...(slotProps?.textField || {}),
         },
         // Demais slots (popper, etc) ficam com defaults do tema VEXA

@@ -13,10 +13,13 @@ export default function AuthSplitShell({ title, subtitle, children, logoSrc = "/
       sx={{
         minHeight: "100vh",
         width: "100%",
-        display: "grid",
-        placeItems: "center",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         px: { xs: 2, sm: 3 },
         py: { xs: 4, md: 6 },
+        pt: { xs: "10vh", sm: "12vh", md: "14vh" },
         position: "relative",
         overflow: "hidden",
         bgcolor: "background.default",
@@ -51,47 +54,24 @@ export default function AuthSplitShell({ title, subtitle, children, logoSrc = "/
         <Box
           component="img"
           src={logoSrc}
-          alt="VEXA"
+          alt="VEXA Sistemas"
           sx={{
-            height: { xs: 150, sm: 190, md: 220 },
+            height: { xs: 230, sm: 300, md: 340 },
             width: "auto",
-            maxWidth: { xs: 360, sm: 430, md: 500 },
-            mb: 2.5,
+            maxWidth: { xs: "min(94vw, 460px)", sm: 560, md: 620 },
+            mb: { xs: -2.5, sm: -3.5, md: -4 },
+            display: "block",
             objectFit: "contain",
             filter: "none",
           }}
         />
-
-        <Typography
-          variant="h3"
-          component="p"
-          sx={{
-            fontWeight: 800,
-            letterSpacing: "0.03em",
-            fontSize: { xs: "2rem", md: "2.25rem" },
-            mb: 1,
-            color: isLight ? azul : "#F4F5F8",
-          }}
-        >
-          VEXA
-        </Typography>
-        <Typography
-          variant="h6"
-          sx={{
-            lineHeight: 1.45,
-            fontWeight: 600,
-            mb: 3,
-            color: isLight ? alpha(azul, 0.82) : alpha("#E8EAEF", 0.86),
-          }}
-        >
-          Sistema de Gerenciamento de Relacionamento com Cliente
-        </Typography>
 
         <Paper
           elevation={0}
           sx={{
             width: "100%",
             maxWidth: 440,
+            mt: { xs: -1.5, sm: -2 },
             p: { xs: 2.5, sm: 3.5 },
             borderRadius: { xs: 3, md: 4 },
             bgcolor: "background.paper",

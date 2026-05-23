@@ -12,8 +12,6 @@ import {
 import CriticalErrorDialog from "./components/CriticalErrorDialog";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
-import RecuperarSenha from "./pages/RecuperarSenha";
-import RedefinirSenha from "./pages/RedefinirSenha";
 import Home from "./pages/Home";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";

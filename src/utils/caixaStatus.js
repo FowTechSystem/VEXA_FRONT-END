@@ -5,6 +5,14 @@ import { authService } from "../api/authService";
 
 const PREFIX = "vexa_caixa_status_";
 
+/** Disparado ao abrir/fechar o caixa (mesma aba ou outras, via storage). */
+export const CAIXA_CHANGED_EVENT = "vexa-caixa-changed";
+
+export function notifyCaixaChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CAIXA_CHANGED_EVENT));
+}
+
 function userKey() {
   try {
     const u = authService.getUsuario?.();
@@ -37,6 +45,7 @@ export function abrirCaixa({ valorInicial = 0 } = {}) {
     valorInicial: Number(valorInicial) || 0,
   };
   localStorage.setItem(userKey(), JSON.stringify(payload));
+  notifyCaixaChanged();
   return payload;
 }
 
@@ -49,5 +58,6 @@ export function fecharCaixa() {
     dataFechamento: new Date().toISOString(),
   };
   localStorage.setItem(userKey(), JSON.stringify(payload));
+  notifyCaixaChanged();
   return payload;
 }
