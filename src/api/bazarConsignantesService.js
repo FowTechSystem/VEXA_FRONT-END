@@ -63,8 +63,26 @@ export const bazarConsignantesService = {
     return response.data;
   },
 
-  delete: async (id) => {
-    const response = await api.delete(`/bazar/consignantes/${id}`);
+  /**
+   * Remove (soft delete) um consignante.
+   *
+   * O backend pode retornar HTTP 409 quando há vínculos:
+   *   { error: "HAS_SALES", message }      → bloqueia exclusão (vendas vinculadas)
+   *   { error: "HAS_BAG_ITEMS", qtdPecas } → exige confirmação explícita
+   *
+   * Quando o usuário confirma a remoção de um consignante com peças,
+   * chamamos de novo com `confirmed: true` para que o backend autorize
+   * a remoção em cascata das peças disponíveis.
+   *
+   * @param {number|string} id
+   * @param {object}  [opts]
+   * @param {boolean} [opts.confirmed=false]
+   */
+  delete: async (id, { confirmed = false } = {}) => {
+    const url = confirmed
+      ? `/bazar/consignantes/${id}?confirmed=true`
+      : `/bazar/consignantes/${id}`;
+    const response = await api.delete(url);
     return response.data;
   },
 };
