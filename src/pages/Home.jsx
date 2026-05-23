@@ -33,6 +33,8 @@ import {
   CalendarMonth,
   CreditCard,
   CheckCircle,
+  Lock,
+  LockOpen,
 } from "@mui/icons-material";
 import {
   AreaChart,
@@ -52,6 +54,7 @@ import {
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../api/authService";
+import { getCaixaStatus, CAIXA_CHANGED_EVENT } from "../utils/caixaStatus";
 import { caixaService } from "../api/caixaService";
 import { vendasService } from "../api/vendasService";
 import { produtosService } from "../api/produtosService";
@@ -188,7 +191,7 @@ export default function Home() {
   // ─── Dados do Resumo de Hoje ──────────────────────────────────────────────
   const [carregandoHoje, setCarregandoHoje] = useState(true);
   const [caixaResumo, setCaixaResumo] = useState(null);
-  const [caixaErro, setCaixaErro] = useState(false);
+  const [caixaStatusLocal, setCaixaStatusLocal] = useState(() => getCaixaStatus());
   const [vendasLista, setVendasLista] = useState([]);
 
   const usuario = useMemo(() => authService.getUsuario() ?? {}, []);
@@ -256,10 +259,19 @@ export default function Home() {
     } catch (_) {}
   }, []);
 
+  useEffect(() => {
+    const syncCaixa = () => setCaixaStatusLocal(getCaixaStatus());
+    window.addEventListener(CAIXA_CHANGED_EVENT, syncCaixa);
+    window.addEventListener("storage", syncCaixa);
+    return () => {
+      window.removeEventListener(CAIXA_CHANGED_EVENT, syncCaixa);
+      window.removeEventListener("storage", syncCaixa);
+    };
+  }, []);
+
   // ─── Carrega Resumo de Hoje ──────────────────────────────────────────────
   const carregarDadosHoje = useCallback(async () => {
     setCarregandoHoje(true);
-    setCaixaErro(false);
     const hojeStr = hojeISO();
     try {
       const [rCaixa, rVendas] = await Promise.allSettled([
@@ -270,7 +282,6 @@ export default function Home() {
         setCaixaResumo(rCaixa.value ?? {});
       } else {
         setCaixaResumo({});
-        setCaixaErro(true);
       }
       if (rVendas.status === "fulfilled") {
         setVendasLista(extrairListaVendas(rVendas.value));
@@ -279,7 +290,6 @@ export default function Home() {
       }
     } catch {
       setCaixaResumo({});
-      setCaixaErro(true);
       setVendasLista([]);
     } finally {
       setCarregandoHoje(false);
@@ -409,13 +419,7 @@ export default function Home() {
     [vendasLista, agora],
   );
 
-  const caixaAberto = useMemo(() => {
-    if (caixaErro || caixaResumo == null) return null;
-    const ent = Number(caixaResumo.totalEntradas ?? caixaResumo.TotalEntradas ?? 0) || 0;
-    const mov = caixaResumo.movimentacoes ?? caixaResumo.Movimentacoes ?? [];
-    const arr = Array.isArray(mov) ? mov : [];
-    return ent > 0 || arr.length > 0;
-  }, [caixaResumo, caixaErro]);
+  const caixaAberto = caixaStatusLocal.aberto;
 
   const faturamentoHoje = useMemo(
     () => vendasHoje.reduce((acc, v) => acc + (Number(v.valorTotal ?? v.ValorTotal ?? 0) || 0), 0),
@@ -503,16 +507,22 @@ export default function Home() {
                 {dataExtenso} · {horaStr}
               </Typography>
             </Box>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              {carregandoHoje ? (
-                <Skeleton variant="rounded" width={140} height={32} sx={{ borderRadius: 999 }} />
-              ) : caixaErro ? (
-                <Chip label="Status indisponível" color="default" variant="outlined" sx={{ fontWeight: 600 }} />
-              ) : caixaAberto ? (
-                <Chip label="Caixa Aberto" color="success" sx={{ fontWeight: 700 }} />
-              ) : (
-                <Chip label="Caixa Fechado" sx={{ fontWeight: 700, bgcolor: "warning.main", color: "warning.contrastText" }} />
-              )}
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+              <Chip
+                icon={caixaAberto ? <LockOpen sx={{ fontSize: "16px !important" }} /> : <Lock sx={{ fontSize: "16px !important" }} />}
+                label={caixaAberto ? "Caixa Aberto" : "Caixa Fechado"}
+                color={caixaAberto ? "success" : "default"}
+                clickable
+                onClick={() => navigate("/caixa")}
+                sx={{
+                  fontWeight: 700,
+                  ...(!caixaAberto && {
+                    bgcolor: "warning.main",
+                    color: "warning.contrastText",
+                    "& .MuiChip-icon": { color: "warning.contrastText" },
+                  }),
+                }}
+              />
 
               <FormControl size="small" sx={{ minWidth: 110 }}>
                 <Select

@@ -67,6 +67,7 @@ import {
   isCaixaAberto,
   abrirCaixa as abrirCaixaStorage,
   fecharCaixa as fecharCaixaStorage,
+  CAIXA_CHANGED_EVENT,
 } from "../utils/caixaStatus";
 import {
   resolverTipoMovimentacaoLinha,
@@ -164,6 +165,16 @@ function Movimentacoes() {
   const [openAbrirCaixa, setOpenAbrirCaixa] = useState(false);
   const [openFecharCaixa, setOpenFecharCaixa] = useState(false);
   const [valorInicialInput, setValorInicialInput] = useState("");
+
+  useEffect(() => {
+    const sync = () => setCaixaStatus(getCaixaStatus());
+    window.addEventListener(CAIXA_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(CAIXA_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   const handleAbrirCaixa = () => {
     const valor = parseFloat(String(valorInicialInput).replace(",", ".")) || 0;
