@@ -93,31 +93,4 @@ export const authService = {
   getToken() {
     return localStorage.getItem(TOKEN_KEY);
   },
-
-  /**
-   * Solicita e-mail com link de recuperação (rota pública).
-   * Backend: POST /api/Auth/forgot-password — ver docs/HANDOFF-RECUPERACAO-SENHA-BACKEND.md
-   * @param {string} email
-   */
-  async solicitarRecuperacaoSenha(email) {
-    const trimmedEmail = String(email ?? "").trim();
-    const response = await api.post("/Auth/forgot-password", {
-      email: trimmedEmail,
-    });
-    return response.data;
-  },
-
-  /**
-   * Redefine senha com token recebido por e-mail (rota pública).
-   * Backend: POST /api/Auth/reset-password
-   * @param {string} token
-   * @param {string} newPassword
-   */
-  async redefinirSenhaComToken(token, newPassword) {
-    const response = await api.post("/Auth/reset-password", {
-      token: String(token ?? "").trim(),
-      newPassword: String(newPassword ?? ""),
-    });
-    return response.data;
-  },
 };
