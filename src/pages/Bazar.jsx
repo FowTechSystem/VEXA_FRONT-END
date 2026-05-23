@@ -38,9 +38,11 @@ import {
   WarningAmberRounded,
   Checkroom,
   ArrowForward,
+  Delete,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { LoadingBox } from "../components/LoadingBox";
+import ConfirmDialog from "../components/ConfirmDialog";
 import NovoConsignanteModal from "../components/Bazar/NovoConsignanteModal";
 import {
   getAvatarColor,
@@ -68,6 +70,13 @@ function Bazar() {
     vendidoMes: 0,
   });
   const [carregando, setCarregando] = useState(false);
+
+  // Máquina de estado da exclusão (3 cenários conforme contrato com o backend)
+  //   step: "confirm" → modal simples "Deseja excluir?"
+  //   step: "blocked" → modal bloqueante (HAS_SALES)
+  //   step: "warning" → modal de aviso amarelo com count de peças (HAS_BAG_ITEMS)
+  const [exclusao, setExclusao] = useState(null);
+  // { consignante, step, qtdPecas, message, loading }
 
   // Foco automático no campo de busca ao carregar (UX requisito do fluxo principal)
   useEffect(() => {
@@ -142,6 +151,89 @@ function Bazar() {
     showSuccess("Consignante cadastrado com sucesso.");
     setModalNovoOpen(false);
     navigate(`/bazar/consignante/${novo.id}`);
+  };
+
+  /**
+   * Abre o fluxo de exclusão de um consignante a partir do clique na lixeira.
+   * Começa pelo modal de confirmação simples; o backend define o próximo passo.
+   */
+  const handleAbrirExclusao = (consignante) => {
+    setExclusao({
+      consignante,
+      step: "confirm",
+      qtdPecas: 0,
+      message: "",
+      loading: false,
+    });
+  };
+
+  const handleFecharExclusao = () => {
+    setExclusao((prev) => (prev?.loading ? prev : null));
+  };
+
+  /**
+   * Tenta excluir o consignante. Interpreta a resposta do backend:
+   *   200/204                              → sucesso (toast + refresh)
+   *   409 { error: "HAS_SALES" }           → exibe modal bloqueante
+   *   409 { error: "HAS_BAG_ITEMS", ...}   → exibe modal de aviso (passa qtdPecas)
+   *   outros erros                         → toast vermelho com mensagem
+   *
+   * Quando o usuário confirma o modal de aviso, a função é chamada novamente
+   * com `confirmed=true` para autorizar a remoção em cascata das peças.
+   */
+  const executarExclusao = async ({ confirmed = false } = {}) => {
+    if (!exclusao?.consignante) return;
+    setExclusao((prev) => ({ ...prev, loading: true }));
+    try {
+      await bazarConsignantesService.delete(exclusao.consignante.id, {
+        confirmed,
+      });
+      showSuccess(
+        `Consignante "${exclusao.consignante.nome}" excluído com sucesso.`,
+      );
+      setExclusao(null);
+      await carregarConsignantes();
+      carregarResumo();
+    } catch (error) {
+      const data = error?.response?.data || {};
+      const status = error?.response?.status;
+      const code = String(data.error || data.code || "").toUpperCase();
+
+      if (status === 409 && code === "HAS_SALES") {
+        setExclusao({
+          consignante: exclusao.consignante,
+          step: "blocked",
+          qtdPecas: 0,
+          message:
+            data.message ||
+            "O consignante não pode ser excluído pois existem vendas vinculadas a ele. Exclua ou desvincule as vendas primeiro.",
+          loading: false,
+        });
+        return;
+      }
+
+      if (status === 409 && code === "HAS_BAG_ITEMS") {
+        const qtd = Number(data.qtdPecas ?? data.count ?? data.quantidade) || 0;
+        setExclusao({
+          consignante: exclusao.consignante,
+          step: "warning",
+          qtdPecas: qtd,
+          message:
+            data.message ||
+            `Este consignante possui ${qtd} peça(s) em sacola. Ao excluir, todas as peças disponíveis também serão removidas. Deseja continuar?`,
+          loading: false,
+        });
+        return;
+      }
+
+      const msg =
+        data.message ||
+        data.detail ||
+        "Não foi possível excluir o consignante. Tente novamente.";
+      showError(msg);
+      console.error("[Bazar] erro ao excluir:", error);
+      setExclusao((prev) => (prev ? { ...prev, loading: false } : null));
+    }
   };
 
   return (
@@ -500,24 +592,44 @@ function Bazar() {
                           )}
                         </TableCell>
                         <TableCell align="right">
-                          <Tooltip title="Abrir consignante">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelecionar(c.id);
-                              }}
-                              sx={{
-                                color: "text.secondary",
-                                "&:hover": {
-                                  bgcolor: "action.hover",
-                                  color: "primary.main",
-                                },
-                              }}
-                            >
-                              <ArrowForward fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            <Tooltip title="Excluir consignante">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirExclusao(c);
+                                }}
+                                sx={{
+                                  color: alpha(theme.palette.error.main, 0.85),
+                                  "&:hover": {
+                                    bgcolor: alpha(theme.palette.error.main, 0.14),
+                                    color: "error.main",
+                                  },
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Abrir consignante">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelecionar(c.id);
+                                }}
+                                sx={{
+                                  color: "text.secondary",
+                                  "&:hover": {
+                                    bgcolor: "action.hover",
+                                    color: "primary.main",
+                                  },
+                                }}
+                              >
+                                <ArrowForward fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     );
@@ -533,6 +645,55 @@ function Bazar() {
         open={modalNovoOpen}
         onClose={() => setModalNovoOpen(false)}
         onSaved={handleNovoSalvo}
+      />
+
+      {/* ────────── Modais do fluxo de exclusão ────────── */}
+      {/* Cenário A — confirmação simples (sem vínculos) */}
+      <ConfirmDialog
+        open={exclusao?.step === "confirm"}
+        onClose={handleFecharExclusao}
+        onConfirm={() => executarExclusao({ confirmed: false })}
+        variant="confirm"
+        destructive
+        loading={!!exclusao?.loading}
+        title="Excluir consignante"
+        message={
+          exclusao?.consignante
+            ? `Deseja realmente excluir o consignante "${exclusao.consignante.nome}"?`
+            : ""
+        }
+        confirmLabel="Excluir"
+      />
+
+      {/* Cenário B — bloqueante (HAS_SALES) */}
+      <ConfirmDialog
+        open={exclusao?.step === "blocked"}
+        onClose={handleFecharExclusao}
+        variant="blocking"
+        title="Não é possível excluir"
+        message={
+          exclusao?.message ||
+          "O consignante não pode ser excluído pois existem vendas vinculadas a ele. Exclua ou desvincule as vendas primeiro."
+        }
+        acknowledgeLabel="Entendi"
+      />
+
+      {/* Cenário C — confirmação com aviso (HAS_BAG_ITEMS) */}
+      <ConfirmDialog
+        open={exclusao?.step === "warning"}
+        onClose={handleFecharExclusao}
+        onConfirm={() => executarExclusao({ confirmed: true })}
+        variant="warning"
+        destructive
+        loading={!!exclusao?.loading}
+        title="Atenção"
+        message={
+          exclusao?.message ||
+          (exclusao?.qtdPecas
+            ? `Este consignante possui ${exclusao.qtdPecas} peça(s) em sacola. Ao excluir, todas as peças disponíveis também serão removidas. Deseja continuar?`
+            : "Este consignante possui peças em sacola. Ao excluir, todas as peças disponíveis também serão removidas. Deseja continuar?")
+        }
+        confirmLabel="Excluir mesmo assim"
       />
     </Box>
   );
