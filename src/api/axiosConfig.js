@@ -24,20 +24,29 @@ const clearAuth = () => {
 };
 
 /**
- * ID da empresa para o header X-Empresa-Id (somente conta dev).
- * Prioridade: empresa escolhida em "Entrar em empresa" → empresaId do usuário logado.
+ * ID da empresa para o header X-Empresa-Id.
+ *
+ * Prioridade:
+ * 1. Empresa selecionada no painel dev (`empresaAtiva` no localStorage) — único
+ *    caminho para usuários **antes** do login (necessário em backends multi-tenant
+ *    que exigem tenant até no /Auth/login).
+ * 2. empresaId no userData (usuário comum já autenticado).
+ *
+ * Para o usuário comum, o backend tipicamente resolve o tenant via claim JWT —
+ * o header é redundante mas inofensivo.
  */
 export function resolveEmpresaIdForRequest() {
   try {
-    const user = JSON.parse(localStorage.getItem(USER_DATA_KEY) || "{}");
-    if (!isDevAdminUser(user)) return null;
-
     const raw = localStorage.getItem(EMPRESA_ATIVA_KEY);
     const empresa = raw ? JSON.parse(raw) : null;
     if (empresa?.id != null) return empresa.id;
 
-    const fromUser = user.empresaId ?? user.EmpresaId;
-    return fromUser != null ? fromUser : null;
+    const user = JSON.parse(localStorage.getItem(USER_DATA_KEY) || "{}");
+    if (isDevAdminUser(user)) {
+      const fromUser = user.empresaId ?? user.EmpresaId;
+      return fromUser != null ? fromUser : null;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -58,12 +67,11 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Dev: contexto de empresa (obrigatório na API de produção para listagens)
+    // Dev: contexto de empresa (obrigatório na API de produção para listagens).
+    // Backends multi-tenant podem exigir X-Empresa-Id também no /Auth/login, então
+    // enviamos sempre que houver empresa selecionada — inofensivo no auth se ignorado.
     const empresaId = resolveEmpresaIdForRequest();
-    if (
-      empresaId != null &&
-      !/auth\/(login|forgot-password|reset-password)/i.test(config.url || "")
-    ) {
+    if (empresaId != null) {
       config.headers["X-Empresa-Id"] = String(empresaId);
     }
     return config;

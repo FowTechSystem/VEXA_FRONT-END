@@ -116,7 +116,7 @@ export const showInfo = (message) => {
     icon: "ℹ️",
     style: {
       ...defaultOptions.style,
-      borderLeft: "4px solid var(--toast-info, #f8f32b)",
+      borderLeft: "4px solid var(--color-primary, #f8f32b)",
     },
   });
 };

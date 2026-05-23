@@ -26,7 +26,51 @@ export const vexaSurfaces = {
   lightPaper: "#F0F2F7",
 };
 
-const getTheme = (mode) => {
+/** Calcula contraste preto/branco para o texto sobre uma cor de fundo. */
+function pickContrastText(hex) {
+  if (!hex || typeof hex !== "string") return "#000000";
+  const clean = hex.replace("#", "").trim();
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean.padEnd(6, "0").slice(0, 6);
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  // Luminância relativa (sRGB).
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#000000" : "#FFFFFF";
+}
+
+/** Clareia/escurece uma cor hex em uma fração de 0..1. */
+function shadeColor(hex, fraction) {
+  if (!hex) return hex;
+  const clean = hex.replace("#", "");
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean.padEnd(6, "0").slice(0, 6);
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  const apply = (c) => {
+    const next =
+      fraction >= 0
+        ? Math.round(c + (255 - c) * fraction)
+        : Math.round(c * (1 + fraction));
+    return Math.max(0, Math.min(255, next));
+  };
+  const toHex = (n) => n.toString(16).padStart(2, "0");
+  return `#${toHex(apply(r))}${toHex(apply(g))}${toHex(apply(b))}`;
+}
+
+const getTheme = (mode, overrides = {}) => {
   const isDark = mode === "dark";
   const v = vexaColors;
   const canvasDark = vexaSurfaces.darkCanvas;
@@ -34,20 +78,23 @@ const getTheme = (mode) => {
   const canvasLight = vexaSurfaces.lightCanvas;
   const paperLight = vexaSurfaces.lightPaper;
 
+  const primaryMain = overrides.primaryColor || v.amareloNeon;
+  const secondaryMain = overrides.secondaryColor || v.cinzaAzulado;
+
   return createTheme({
     palette: {
       mode,
       primary: {
-        main: v.amareloNeon,
-        light: "#FAF45A",
-        dark: "#C9C425",
-        contrastText: v.preto,
+        main: primaryMain,
+        light: shadeColor(primaryMain, 0.25),
+        dark: shadeColor(primaryMain, -0.2),
+        contrastText: pickContrastText(primaryMain),
       },
       secondary: {
-        main: v.cinzaAzulado,
-        light: "#A8B2C3",
-        dark: "#6F7A8C",
-        contrastText: isDark ? "#FFFFFF" : v.preto,
+        main: secondaryMain,
+        light: shadeColor(secondaryMain, 0.2),
+        dark: shadeColor(secondaryMain, -0.2),
+        contrastText: isDark ? "#FFFFFF" : pickContrastText(secondaryMain),
       },
       background: {
         default: isDark ? canvasDark : canvasLight,
@@ -62,7 +109,7 @@ const getTheme = (mode) => {
       action: {
         active: isDark ? v.cinzaAzulado : alpha(v.azulEscuro, 0.65),
         hover: isDark ? alpha(v.cinzaAzulado, 0.12) : alpha(v.preto, 0.05),
-        selected: isDark ? alpha(v.amareloNeon, 0.12) : alpha(v.amareloNeon, 0.24),
+        selected: isDark ? alpha(primaryMain, 0.12) : alpha(primaryMain, 0.24),
         disabled: isDark ? alpha(v.cinzaAzulado, 0.35) : alpha(v.preto, 0.26),
         disabledBackground: isDark
           ? alpha(v.cinzaAzulado, 0.12)
@@ -245,8 +292,8 @@ const getTheme = (mode) => {
               },
               "&.Mui-focused fieldset": {
                 borderColor: isDark
-                  ? alpha(v.amareloNeon, 0.75)
-                  : v.amareloNeon,
+                  ? alpha(primaryMain, 0.75)
+                  : primaryMain,
               },
             },
           },
@@ -345,4 +392,4 @@ const getTheme = (mode) => {
   });
 };
 
-export { getTheme };
+export { getTheme, pickContrastText, shadeColor };

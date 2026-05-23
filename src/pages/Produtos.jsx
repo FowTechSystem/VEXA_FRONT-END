@@ -2388,17 +2388,17 @@ function Produtos() {
               boxShadow: "none",
               ...(isDark
                 ? {
-                    color: theme.palette.common.black,
-                    bgcolor: "#EAB308",
-                    border: "2px solid #EAB308",
+                    color: theme.palette.primary.contrastText,
+                    bgcolor: theme.palette.primary.dark,
+                    border: `2px solid ${theme.palette.primary.dark}`,
                     "&:hover": {
-                      bgcolor: "#FACC15",
-                      borderColor: "#FACC15",
+                      bgcolor: theme.palette.primary.main,
+                      borderColor: theme.palette.primary.main,
                     },
                     "&.Mui-disabled": {
-                      color: alpha(theme.palette.common.black, 0.4),
-                      bgcolor: alpha("#EAB308", 0.45),
-                      borderColor: alpha("#EAB308", 0.35),
+                      color: alpha(theme.palette.primary.contrastText, 0.4),
+                      bgcolor: alpha(theme.palette.primary.dark, 0.45),
+                      borderColor: alpha(theme.palette.primary.dark, 0.35),
                     },
                   }
                 : {
