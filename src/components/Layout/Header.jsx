@@ -31,6 +31,8 @@ import {
 } from "@mui/icons-material";
 import { ThemeContext } from "../../contexts/ThemeContext";
 import { useEmpresa } from "../../contexts/EmpresaContext";
+import { useCompanySettings } from "../../contexts/CompanySettingsContext";
+import CompanyLogo from "../CompanyLogo";
 import UserProfileDrawer from "../UserProfileDrawer";
 import { authService } from "../../api/authService";
 import { useInAppNotifications } from "../../contexts/InAppNotificationContext";
@@ -46,6 +48,7 @@ function Header({ onMenuClick }) {
   const { notificacoes, marcarTodasComoLidas } = useInAppNotifications();
   const { mode, toggleTheme } = useContext(ThemeContext);
   const { empresaAtiva, empresas, setEmpresaAtiva, sairEmpresa, isDev } = useEmpresa();
+  const { settings } = useCompanySettings();
   const navigate = useNavigate();
   const location = useLocation();
   const qtdNaoLidas = notificacoes.filter((n) => !n.lida).length;
@@ -123,33 +126,37 @@ function Header({ onMenuClick }) {
             <MenuIcon />
           </IconButton>
 
-          <Typography
-            variant="h6"
-            noWrap
+          <Box
             component="button"
             type="button"
             onClick={handleIrInicio}
             aria-label="Ir para início"
             sx={{
               flexGrow: 1,
-              fontWeight: 700,
-              letterSpacing: 1,
-              color: isDark ? "primary.main" : "inherit",
+              display: "flex",
+              alignItems: "center",
               cursor: "pointer",
               textAlign: "left",
               border: "none",
               background: "none",
-              fontFamily: "inherit",
-              fontSize: "inherit",
-              lineHeight: "inherit",
               padding: 0,
-              "&:hover": {
-                opacity: 0.92,
-              },
+              color: isDark ? "primary.main" : "inherit",
+              "&:hover": { opacity: 0.92 },
             }}
           >
-            VEXA
-          </Typography>
+            {settings?.logo_url ? (
+              <CompanyLogo height={36} />
+            ) : (
+              <CompanyLogo
+                variant="header"
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  color: "inherit",
+                }}
+              />
+            )}
+          </Box>
           {/* Label da empresa atual */}
           {(() => {
             const user = authService.getUsuario();

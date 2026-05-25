@@ -11,9 +11,12 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { AdminPanelSettings, Tune } from "@mui/icons-material";
+import { AdminPanelSettings, Palette, Tune } from "@mui/icons-material";
 import PermissoesTab from "./PermissoesTab";
 import ParametrosTab from "./ParametrosTab";
+import PersonalizacaoTab from "./PersonalizacaoTab";
+import { authService } from "../../api/authService";
+import { isDevAdminUser } from "../../constants/devAdmin";
 import { configUiPalette, VEX } from "./configuracoesHelpers";
 
 function TabPanel({ children, value, index }) {
@@ -30,6 +33,8 @@ export default function ConfiguracoesPage() {
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
   const [tab, setTab] = useState(0);
   const [paramDirty, setParamDirty] = useState(false);
+  const isDev = useMemo(() => isDevAdminUser(authService.getUsuario()), []);
+  const personalizacaoTabIndex = 2;
 
   useEffect(() => {
     const beforeUnload = (e) => {
@@ -89,6 +94,9 @@ export default function ConfiguracoesPage() {
         >
           <Tab icon={<AdminPanelSettings fontSize="small" />} iconPosition="start" label="Permissões de usuários" />
           <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="Parâmetros do sistema" />
+          {isDev && (
+            <Tab icon={<Palette fontSize="small" />} iconPosition="start" label="Personalização" />
+          )}
         </Tabs>
       ) : (
         <FormControl fullWidth size="small">
@@ -105,6 +113,9 @@ export default function ConfiguracoesPage() {
           >
             <MenuItem value={0}>Permissões de usuários</MenuItem>
             <MenuItem value={1}>Parâmetros do sistema</MenuItem>
+            {isDev && (
+              <MenuItem value={personalizacaoTabIndex}>Personalização</MenuItem>
+            )}
           </Select>
         </FormControl>
       )}
@@ -115,6 +126,11 @@ export default function ConfiguracoesPage() {
       <TabPanel value={tab} index={1}>
         <ParametrosTab onDirtyChange={setParamDirty} />
       </TabPanel>
+      {isDev && (
+        <TabPanel value={tab} index={personalizacaoTabIndex}>
+          <PersonalizacaoTab />
+        </TabPanel>
+      )}
     </Box>
   );
 }

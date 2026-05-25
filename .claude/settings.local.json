@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(grep -A 2 \"VEXA_FRONT-END\\\\\\\\\\\\\\\\src\\\\\\\\\\\\\\\\\\(components\\\\\\\\\\\\\\\\Bazar\\\\|pages\\\\\\\\\\\\\\\\Bazar\\\\|pages\\\\\\\\\\\\\\\\BazarConsignante\\\\|pages\\\\\\\\\\\\\\\\BazarRepasses\\\\|components\\\\\\\\\\\\\\\\Layout\\)\")"
+      "Bash(grep -A 2 \"VEXA_FRONT-END\\\\\\\\\\\\\\\\src\\\\\\\\\\\\\\\\\\(components\\\\\\\\\\\\\\\\Bazar\\\\|pages\\\\\\\\\\\\\\\\Bazar\\\\|pages\\\\\\\\\\\\\\\\BazarConsignante\\\\|pages\\\\\\\\\\\\\\\\BazarRepasses\\\\|components\\\\\\\\\\\\\\\\Layout\\)\")",
+      "Bash(npx vite *)"
     ]
   }
 }

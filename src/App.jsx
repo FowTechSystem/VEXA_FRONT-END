@@ -12,6 +12,8 @@ import {
 import CriticalErrorDialog from "./components/CriticalErrorDialog";
 import MainLayout from "./components/Layout/MainLayout";
 import Login from "./pages/Login";
+import RecuperarSenha from "./pages/RecuperarSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import Home from "./pages/Home";
 import Caixa from "./pages/Caixa";
 import Vendas from "./pages/Vendas";
@@ -28,6 +30,7 @@ import Condicional from "./pages/Condicional";
 import Empresas from "./pages/Empresas";
 import DevOnlyRoute from "./components/Auth/DevOnlyRoute";
 import AdminSettingsRoute from "./components/Auth/AdminSettingsRoute";
+import ModuleRoute from "./components/Auth/ModuleRoute";
 import Categorias from "./pages/Categorias";
 import Marcas from "./pages/Marcas";
 import CatalogoDigital from "./pages/CatalogoDigital";
@@ -38,6 +41,7 @@ import BazarConsignantePecas from "./pages/BazarConsignantePecas";
 import BazarRepasses from "./pages/BazarRepasses";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { EmpresaProvider } from "./contexts/EmpresaContext";
+import { CompanySettingsProvider } from "./contexts/CompanySettingsContext";
 import { vexaColors, vexaSurfaces } from "./theme";
 
 function AppContent() {
@@ -129,23 +133,59 @@ function AppContent() {
                 path="vendas/nova-movimentacao"
                 element={<Navigate to="/caixa?novaMov=1" replace />}
               />
-              <Route path="vendas" element={<Caixa />} />
+              <Route
+                path="vendas"
+                element={<ModuleRoute moduleKey="vendas"><Caixa /></ModuleRoute>}
+              />
               <Route
                 path="caixa/nova-movimentacao"
                 element={<Navigate to="/caixa?novaMov=1" replace />}
               />
-              <Route path="caixa" element={<Vendas />} />
-              <Route path="produtos" element={<Produtos />} />
-              <Route path="estoque" element={<Estoque />} />
-              <Route path="compras" element={<Compras />} />
-              <Route path="fiscal" element={<Fiscal />} />
-              <Route path="clientes" element={<Clientes />} />
-              <Route path="fornecedores" element={<Fornecedores />} />
-              <Route path="categorias" element={<Categorias />} />
-              <Route path="marcas" element={<Marcas />} />
+              <Route
+                path="caixa"
+                element={<ModuleRoute moduleKey="caixa"><Vendas /></ModuleRoute>}
+              />
+              <Route
+                path="produtos"
+                element={<ModuleRoute moduleKey="produtos"><Produtos /></ModuleRoute>}
+              />
+              <Route
+                path="estoque"
+                element={<ModuleRoute moduleKey="estoque"><Estoque /></ModuleRoute>}
+              />
+              <Route
+                path="compras"
+                element={<ModuleRoute moduleKey="compras"><Compras /></ModuleRoute>}
+              />
+              <Route
+                path="fiscal"
+                element={<ModuleRoute moduleKey="fiscal"><Fiscal /></ModuleRoute>}
+              />
+              <Route
+                path="clientes"
+                element={<ModuleRoute moduleKey="clientes"><Clientes /></ModuleRoute>}
+              />
+              <Route
+                path="fornecedores"
+                element={<ModuleRoute moduleKey="fornecedores"><Fornecedores /></ModuleRoute>}
+              />
+              <Route
+                path="categorias"
+                element={<ModuleRoute moduleKey="produtos"><Categorias /></ModuleRoute>}
+              />
+              <Route
+                path="marcas"
+                element={<ModuleRoute moduleKey="produtos"><Marcas /></ModuleRoute>}
+              />
               <Route path="usuarios" element={<Usuarios />} />
-              <Route path="relatorios" element={<Relatorios />} />
-              <Route path="condicional" element={<Condicional />} />
+              <Route
+                path="relatorios"
+                element={<ModuleRoute moduleKey="relatorios"><Relatorios /></ModuleRoute>}
+              />
+              <Route
+                path="condicional"
+                element={<ModuleRoute moduleKey="condicional"><Condicional /></ModuleRoute>}
+              />
               <Route
                 path="empresas"
                 element={
@@ -162,19 +202,28 @@ function AppContent() {
                   </AdminSettingsRoute>
                 }
               />
-              <Route path="catalogo-digital" element={<CatalogoDigital />} />
+              <Route
+                path="catalogo-digital"
+                element={<ModuleRoute moduleKey="catalogo"><CatalogoDigital /></ModuleRoute>}
+              />
 
               {/* Módulo Bazar */}
-              <Route path="bazar" element={<Bazar />} />
+              <Route
+                path="bazar"
+                element={<ModuleRoute moduleKey="bazar"><Bazar /></ModuleRoute>}
+              />
               <Route
                 path="bazar/consignante/:id"
-                element={<BazarConsignante />}
+                element={<ModuleRoute moduleKey="bazar"><BazarConsignante /></ModuleRoute>}
               />
               <Route
                 path="bazar/consignante/:id/pecas"
-                element={<BazarConsignantePecas />}
+                element={<ModuleRoute moduleKey="bazar"><BazarConsignantePecas /></ModuleRoute>}
               />
-              <Route path="bazar/repasses" element={<BazarRepasses />} />
+              <Route
+                path="bazar/repasses"
+                element={<ModuleRoute moduleKey="repasses"><BazarRepasses /></ModuleRoute>}
+              />
             </Route>
 
             {/* Rota 404 - Redireciona para Login (exceto catálogo público) */}
@@ -188,11 +237,13 @@ function AppContent() {
 
 function App() {
   return (
-    <CustomThemeProvider>
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
-        <AppContent />
-      </LocalizationProvider>
-    </CustomThemeProvider>
+    <CompanySettingsProvider>
+      <CustomThemeProvider>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+          <AppContent />
+        </LocalizationProvider>
+      </CustomThemeProvider>
+    </CompanySettingsProvider>
   );
 }
 

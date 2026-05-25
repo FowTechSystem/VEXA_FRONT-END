@@ -437,7 +437,7 @@ function Dashboard() {
         },
       },
     },
-    colors: [isDark ? vexaColors.amareloNeon : "#10B981", isDark ? "#8D99AE" : "#14B8A6", isDark ? "#FAF45A" : "#F59E0B"],
+    colors: [isDark ? theme.palette.primary.main : "#10B981", isDark ? "#8D99AE" : "#14B8A6", isDark ? theme.palette.primary.light : "#F59E0B"],
     stroke: { lineCap: "round" },
     labels: metasDoMes.map((m) => m.meta),
     legend: {
@@ -622,7 +622,7 @@ function Dashboard() {
       value: fmtBRL(stats.faturamentoMes),
       delta: stats.deltaFat,
       spark: serieDiaria.sparkFat,
-      color: isDark ? vexaColors.amareloNeon : "#14B8A6",
+      color: isDark ? theme.palette.primary.main : "#14B8A6",
     },
     {
       title: "Total de Vendas",

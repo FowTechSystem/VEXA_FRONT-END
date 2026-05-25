@@ -1,9 +1,19 @@
 /* src/index.css — variáveis da paleta VEXA (uso em CSS puro / libs externas) */
 :root {
+  /* Paleta institucional original (compatibilidade). */
   --vexa-azul-escuro: #2b2d42;
   --vexa-cinza-azulado: #8d99ae;
   --vexa-preto: #000000;
   --vexa-amarelo-neon: #f8f32b;
+
+  /* Cores white-label sobrescritas em runtime por applyTheme() no CompanySettingsContext.
+     Use estas variáveis em CSS puro / libs externas. Dentro do MUI prefira theme.palette. */
+  --color-primary: #f8f32b;
+  --color-secondary: #2b2d42;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-warning: #f59e0b;
 }
 
 * {

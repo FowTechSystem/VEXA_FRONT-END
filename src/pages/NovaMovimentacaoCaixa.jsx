@@ -73,7 +73,7 @@ function outlineFieldSx(theme) {
           : alpha(vexaColors.azulEscuro, 0.35),
       },
       "&.Mui-focused fieldset": {
-        borderColor: isDark ? alpha(vexaColors.amareloNeon, 0.75) : vexaColors.amareloNeon,
+        borderColor: isDark ? alpha(theme.palette.primary.main, 0.75) : theme.palette.primary.main,
       },
     },
     "& .MuiInputLabel-root.Mui-focused": { color: theme.palette.primary.main },

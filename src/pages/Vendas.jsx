@@ -410,8 +410,8 @@ function Movimentacoes() {
       },
       entrada: {
         label: "Entrada",
-        color: isDark ? vexaColors.amareloNeon : vexaColors.azulEscuro,
-        bgcolor: alpha(vexaColors.amareloNeon, isDark ? 0.22 : 0.28),
+        color: isDark ? theme.palette.primary.main : vexaColors.azulEscuro,
+        bgcolor: alpha(theme.palette.primary.main, isDark ? 0.22 : 0.28),
         icon: <TrendingUp sx={{ fontSize: 14 }} />,
       },
       saida: {

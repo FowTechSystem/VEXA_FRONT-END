@@ -470,7 +470,7 @@ export default function Home() {
 
   // ─── Atalhos ──────────────────────────────────────────────────────────────
   const atalhos = [
-    { titulo: "Nova Venda", subtitulo: "Abrir o ponto de venda", icone: <ShoppingCartRounded sx={{ fontSize: 38 }} />, corCirculo: isDark ? vexaColors.amareloNeon : "#14B8A6", corIcone: isDark ? vexaColors.preto : "#fff", rota: "/vendas" },
+    { titulo: "Nova Venda", subtitulo: "Abrir o ponto de venda", icone: <ShoppingCartRounded sx={{ fontSize: 38 }} />, corCirculo: isDark ? theme.palette.primary.main : "#14B8A6", corIcone: isDark ? theme.palette.primary.contrastText : "#fff", rota: "/vendas" },
     { titulo: "Movimentação Caixa", subtitulo: "Registrar entrada ou saída", icone: <PointOfSaleRounded sx={{ fontSize: 38 }} />, corCirculo: "#8B5CF6", corIcone: "#fff", rota: "/caixa?novaMov=1" },
     { titulo: "Novo Cliente", subtitulo: "Cadastro rápido", icone: <PersonAddRounded sx={{ fontSize: 38 }} />, corCirculo: "#F59E0B", corIcone: "#fff", rota: "/clientes" },
     { titulo: "Estoque", subtitulo: "Consultar quantidades", icone: <Inventory2Rounded sx={{ fontSize: 38 }} />, corCirculo: "#3B82F6", corIcone: "#fff", rota: "/estoque" },

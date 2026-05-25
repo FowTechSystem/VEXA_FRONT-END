@@ -1,5 +1,5 @@
 // src/components/Layout/Sidebar.jsx
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useCallback, useState, useMemo, useEffect } from "react";
 import {
   Box,
   Drawer,
@@ -48,8 +48,11 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "../../api/authService";
 import { useEmpresa } from "../../contexts/EmpresaContext";
+import { useCompanySettings } from "../../contexts/CompanySettingsContext";
 import { isDevAdminUser } from "../../constants/devAdmin";
 import { canAccessConfiguracoesSistema } from "../../constants/configAccess";
+import { isModuleEnabled } from "../../constants/modules";
+import CompanyLogo from "../CompanyLogo";
 
 const drawerWidth = 260;
 
@@ -79,22 +82,23 @@ const menuSectionsBase = [
   {
     title: "Visão Geral",
     items: [
-      { text: "Início", icon: <HomeRounded />, path: "/" },
+      { text: "Início", icon: <HomeRounded />, path: "/", moduleKey: "inicio" },
     ],
   },
   {
     title: "Operação",
     items: sortMenuItemsByLabel([
-      { text: "Catálogo Digital", icon: <MenuBook />, path: "catalogo-digital" },
-      { text: "Vendas", icon: <PointOfSale />, path: "vendas" },
-      { text: "Caixa", icon: <ShoppingCart />, path: "caixa" },
-      { text: "Condicional", icon: <AssignmentReturn />, path: "condicional" },
+      { text: "Catálogo Digital", icon: <MenuBook />, path: "catalogo-digital", moduleKey: "catalogo" },
+      { text: "Vendas", icon: <PointOfSale />, path: "vendas", moduleKey: "vendas" },
+      { text: "Caixa", icon: <ShoppingCart />, path: "caixa", moduleKey: "caixa" },
+      { text: "Condicional", icon: <AssignmentReturn />, path: "condicional", moduleKey: "condicional" },
       {
         text: "Bazar",
         icon: <Storefront />,
         path: "bazar",
+        moduleKey: "bazar",
         children: [
-          { text: "Repasses", icon: <Payments />, path: "bazar/repasses" },
+          { text: "Repasses", icon: <Payments />, path: "bazar/repasses", moduleKey: "repasses" },
         ],
       },
     ]),
@@ -106,28 +110,29 @@ const menuSectionsBase = [
         text: "Produtos",
         icon: <Inventory />,
         path: "produtos",
+        moduleKey: "produtos",
         children: [
-          { text: "Categorias", icon: <Category />, path: "categorias" },
-          { text: "Marcas", icon: <Label />, path: "marcas" },
+          { text: "Categorias", icon: <Category />, path: "categorias", moduleKey: "produtos" },
+          { text: "Marcas", icon: <Label />, path: "marcas", moduleKey: "produtos" },
         ],
       },
-      { text: "Estoque", icon: <Warehouse />, path: "estoque" },
-      { text: "Compras", icon: <ShoppingBag />, path: "compras" },
-      { text: "Fiscal", icon: <Receipt />, path: "fiscal" },
+      { text: "Estoque", icon: <Warehouse />, path: "estoque", moduleKey: "estoque" },
+      { text: "Compras", icon: <ShoppingBag />, path: "compras", moduleKey: "compras" },
+      { text: "Fiscal", icon: <Receipt />, path: "fiscal", moduleKey: "fiscal" },
     ]),
   },
   {
     title: "Cadastros",
     items: sortMenuItemsByLabel([
-      { text: "Usuários", icon: <AccountCircle />, path: "usuarios" },
-      { text: "Clientes", icon: <People />, path: "clientes" },
-      { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores" },
+      { text: "Usuários", icon: <AccountCircle />, path: "usuarios", moduleKey: "usuarios" },
+      { text: "Clientes", icon: <People />, path: "clientes", moduleKey: "clientes" },
+      { text: "Fornecedores", icon: <LocalShipping />, path: "fornecedores", moduleKey: "fornecedores" },
     ]),
   },
   {
     title: "Análises",
     items: sortMenuItemsByLabel([
-      { text: "Relatórios", icon: <Assessment />, path: "relatorios" },
+      { text: "Relatórios", icon: <Assessment />, path: "relatorios", moduleKey: "relatorios" },
     ]),
   },
 ];
@@ -135,7 +140,7 @@ const menuSectionsBase = [
 const sistemaSection = {
   title: "Sistema",
   items: sortMenuItemsByLabel([
-    { text: "Configurações", icon: <Settings />, path: "configuracoes" },
+    { text: "Configurações", icon: <Settings />, path: "configuracoes", moduleKey: "configuracoes" },
   ]),
 };
 
@@ -195,25 +200,61 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
   const [submenusOpen, setSubmenusOpen] = useState({});
   const user = authService.getUsuario();
   const { empresaAtiva } = useEmpresa();
+  const { settings, loading: settingsLoading } = useCompanySettings();
   const isDevAdmin = isDevAdminUser(user);
   const showConfigMenu = canAccessConfiguracoesSistema(user);
 
+  const enabledModulesSet = useMemo(
+    () => new Set(settings?.enabled_modules || []),
+    [settings],
+  );
+
+  const filterByModule = useCallback(
+    (items) => {
+      if (settingsLoading) return items;
+      return items
+        .map((item) => {
+          if (item.children?.length) {
+            const kids = item.children.filter((c) =>
+              isModuleEnabled(c.moduleKey, enabledModulesSet),
+            );
+            const parentEnabled = isModuleEnabled(
+              item.moduleKey,
+              enabledModulesSet,
+            );
+            if (!parentEnabled && kids.length === 0) return null;
+            return { ...item, children: kids };
+          }
+          return isModuleEnabled(item.moduleKey, enabledModulesSet)
+            ? item
+            : null;
+        })
+        .filter(Boolean);
+    },
+    [enabledModulesSet, settingsLoading],
+  );
+
   const menuSections = useMemo(() => {
-    let sections = [...menuSectionsBase];
-    if (showConfigMenu) sections = [...sections, sistemaSection];
+    let sections = menuSectionsBase
+      .map((section) => ({ ...section, items: filterByModule(section.items) }))
+      .filter((section) => section.items.length > 0);
+    if (showConfigMenu) {
+      const sistema = { ...sistemaSection, items: filterByModule(sistemaSection.items) };
+      if (sistema.items.length) sections = [...sections, sistema];
+    }
     if (isDevAdmin) {
       sections = [
         ...sections,
         {
           title: "Administração",
           items: sortMenuItemsByLabel([
-            { text: "Empresas", icon: <Business />, path: "empresas" },
+            { text: "Empresas", icon: <Business />, path: "empresas", moduleKey: "empresas" },
           ]),
         },
       ];
     }
     return sections;
-  }, [showConfigMenu, isDevAdmin]);
+  }, [showConfigMenu, isDevAdmin, filterByModule]);
 
   const menuFiltrado = useMemo(
     () => filterMenuSections(menuSections, pesquisa),
@@ -282,9 +323,8 @@ function Sidebar({ mobileOpen, onDrawerToggle }) {
           justifyContent: "center",
         }}
       >
-        <Typography variant="h5" fontWeight={700} letterSpacing={2}>
-          VEXA
-        </Typography>
+        <CompanyLogo height={36} />
+
       </Toolbar>
 
       <Divider />
