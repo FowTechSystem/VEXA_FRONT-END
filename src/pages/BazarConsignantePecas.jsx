@@ -30,17 +30,17 @@ import {
 import { alpha } from "@mui/material/styles";
 import {
   ArrowBack,
-  Edit,
-  AssignmentReturn,
   Visibility,
   Checkroom,
   PhotoLibrary,
   LocalMall,
   Close,
+  Delete,
 } from "@mui/icons-material";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LoadingBox } from "../components/LoadingBox";
 import VexaDatePicker from "../components/VexaDatePicker";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { bazarConsignantesService } from "../api/bazarConsignantesService";
 import { bazarPecasService } from "../api/bazarPecasService";
 import { bazarSacolasService } from "../api/bazarSacolasService";
@@ -104,6 +104,9 @@ function BazarConsignantePecas() {
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+
+  // Estado do modal de confirmação de exclusão de peça
+  const [exclusao, setExclusao] = useState(null); // { peca, loading }
 
   // Carrega consignante uma vez por id (só pra exibir nome no breadcrumb/header)
   useEffect(() => {
@@ -188,26 +191,36 @@ function BazarConsignantePecas() {
     );
   }
 
-  const handleEditar = () => {
-    // TODO: abrir modal/painel de edição da peça (PUT /bazar/pecas/:id)
-    showWarning("Edição individual da peça será disponibilizada em breve.");
+  const handleVerDetalhes = () => {
+    showWarning("Tela de detalhes da peça será disponibilizada em breve.");
   };
 
-  const handleMarcarDevolvida = async (peca) => {
+  const handleAbrirExclusao = (peca) => {
+    if (peca.status === STATUS_PECA.VENDIDA) return; // segurança extra
+    setExclusao({ peca, loading: false });
+  };
+
+  const handleFecharExclusao = () => {
+    setExclusao((prev) => (prev?.loading ? prev : null));
+  };
+
+  const executarExclusao = async () => {
+    if (!exclusao?.peca) return;
+    setExclusao((prev) => ({ ...prev, loading: true }));
     try {
-      await bazarPecasService.devolver(peca.id);
-      showSuccess("Peça marcada como devolvida.");
+      await bazarPecasService.delete(exclusao.peca.id);
+      showSuccess("Peça excluída.");
+      setExclusao(null);
       await carregarPecas();
     } catch (error) {
       const msg =
         error.response?.data?.message ||
-        "Não foi possível marcar a peça como devolvida.";
+        error.response?.data?.detail ||
+        "Não foi possível excluir esta peça.";
       showError(msg);
+      console.error("[BazarConsignantePecas] erro ao excluir peça:", error);
+      setExclusao((prev) => (prev ? { ...prev, loading: false } : null));
     }
-  };
-
-  const handleVerDetalhes = () => {
-    showWarning("Tela de detalhes da peça será disponibilizada em breve.");
   };
 
   return (
@@ -424,37 +437,6 @@ function BazarConsignantePecas() {
                       </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          {p.status === STATUS_PECA.DISPONIVEL && (
-                            <Tooltip title="Editar peça">
-                              <IconButton
-                                size="small"
-                                onClick={handleEditar}
-                                sx={{
-                                  color: "text.secondary",
-                                  "&:hover": { bgcolor: "action.hover", color: "primary.main" },
-                                }}
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {p.status === STATUS_PECA.DISPONIVEL && (
-                            <Tooltip title="Marcar como devolvida">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleMarcarDevolvida(p)}
-                                sx={{
-                                  color: "text.secondary",
-                                  "&:hover": {
-                                    bgcolor: alpha(theme.palette.error.main, 0.1),
-                                    color: "error.main",
-                                  },
-                                }}
-                              >
-                                <AssignmentReturn fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
                           <Tooltip title="Ver detalhes">
                             <IconButton
                               size="small"
@@ -467,6 +449,39 @@ function BazarConsignantePecas() {
                               <Visibility fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          {p.status === STATUS_PECA.VENDIDA ? (
+                            <Tooltip title="Peça vendida não pode ser excluída">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  disabled
+                                  sx={{
+                                    color: "text.secondary",
+                                    opacity: 0.3,
+                                    cursor: "not-allowed",
+                                  }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip title="Excluir peça">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleAbrirExclusao(p)}
+                                sx={{
+                                  color: alpha(theme.palette.error.main, 0.85),
+                                  "&:hover": {
+                                    bgcolor: alpha(theme.palette.error.main, 0.14),
+                                    color: "error.main",
+                                  },
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -477,6 +492,24 @@ function BazarConsignantePecas() {
           </Table>
         </TableContainer>
       </Stack>
+
+      <ConfirmDialog
+        open={!!exclusao}
+        onClose={handleFecharExclusao}
+        onConfirm={executarExclusao}
+        variant="confirm"
+        destructive
+        loading={!!exclusao?.loading}
+        title="Excluir peça"
+        message={
+          exclusao?.peca
+            ? `Deseja excluir esta peça? Esta ação não pode ser desfeita.\n\n${exclusao.peca.descricao}${
+                exclusao.peca.tamanho ? ` · Tam ${exclusao.peca.tamanho}` : ""
+              }${exclusao.peca.cor ? ` · ${exclusao.peca.cor}` : ""}`
+            : "Deseja excluir esta peça? Esta ação não pode ser desfeita."
+        }
+        confirmLabel="Excluir"
+      />
     </Box>
   );
 }
