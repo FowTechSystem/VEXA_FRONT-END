@@ -22,13 +22,14 @@ function matchesDevEmail(email) {
 }
 
 /**
- * Prioriza o e-mail gravado no login (`userEmail` no localStorage).
- * Evita menu Empresas / dev para cliente quando `userData` ficou obsoleto no storage.
+ * Prioriza o e-mail gravado no login (`userEmail` no localStorage), mas cai pro
+ * `userData.email` se aquele não bater — evita travar dev quando os dois ficam
+ * dessincronizados (ex.: setItem parcial, login antigo antes da entrada na lista).
  */
 export function isDevAdminUser(userOrEmail) {
   try {
     const fromLogin = localStorage.getItem(LS_USER_EMAIL_KEY) ?? "";
-    if (fromLogin) return matchesDevEmail(fromLogin);
+    if (fromLogin && matchesDevEmail(fromLogin)) return true;
   } catch (_) {
     /* ignore */
   }
