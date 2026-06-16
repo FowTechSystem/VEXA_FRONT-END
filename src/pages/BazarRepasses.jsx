@@ -40,6 +40,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LoadingBox } from "../components/LoadingBox";
+import ConfirmDialog from "../components/ConfirmDialog";
 import VexaDatePicker from "../components/VexaDatePicker";
 import { bazarConsignantesService } from "../api/bazarConsignantesService";
 import { bazarRepassesService } from "../api/bazarRepassesService";
@@ -51,7 +52,8 @@ import {
   getInitials,
 } from "../components/Bazar/bazarHelpers";
 import GerarRepasseModal from "../components/Bazar/GerarRepasseModal";
-import { showSuccess, showError, showWarning } from "../utils/notifications";
+import RepasseDetalheDialog from "../components/Bazar/RepasseDetalheDialog";
+import { showSuccess, showError } from "../utils/notifications";
 
 function BazarRepasses() {
   const theme = useTheme();
@@ -66,6 +68,10 @@ function BazarRepasses() {
   const [consignanteSelecionado, setConsignanteSelecionado] = useState(null);
   const [pecasPendentesModal, setPecasPendentesModal] = useState([]);
   const [carregandoModal, setCarregandoModal] = useState(false);
+
+  // Detalhes do repasse (modal) e confirmação de "marcar como pago"
+  const [detalheRepasseId, setDetalheRepasseId] = useState(null);
+  const [confirmarPago, setConfirmarPago] = useState(null); // { repasse, loading }
 
   // Aba Pendentes
   const [pendentes, setPendentes] = useState([]);
@@ -148,7 +154,6 @@ function BazarRepasses() {
     if (entry) {
       handleAbrirGerar(entry.consignante, entry.pecas);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consignanteParam, pendentes, carregandoPendentes]);
 
   const totalPendenteGeral = useMemo(
@@ -167,7 +172,11 @@ function BazarRepasses() {
     setCarregandoModal(true);
     try {
       const data = await bazarRepassesService.getPecasPendentes(consignante.id);
-      const lista = Array.isArray(data) ? data : data?.pecas || data?.items || [];
+      // O endpoint devolve grupos [{ consignante, pecas, total }] — extrai as peças
+      const grupos = Array.isArray(data) ? data : data?.itens || data?.items || [];
+      const lista = grupos.flatMap((g) =>
+        Array.isArray(g?.pecas) ? g.pecas : [],
+      );
       setPecasPendentesModal(lista);
     } catch (error) {
       console.error("[BazarRepasses] erro ao buscar peças pendentes:", error);
@@ -214,21 +223,32 @@ function BazarRepasses() {
     }
   };
 
-  const handleMarcarPago = async (repasse) => {
+  const handleMarcarPago = (repasse) => {
+    setConfirmarPago({ repasse, loading: false });
+  };
+
+  const executarMarcarPago = async () => {
+    if (!confirmarPago?.repasse) return;
+    setConfirmarPago((prev) => ({ ...prev, loading: true }));
     try {
-      await bazarRepassesService.marcarComoPago(repasse.id);
+      await bazarRepassesService.marcarComoPago(confirmarPago.repasse.id);
       showSuccess("Repasse marcado como pago.");
+      setConfirmarPago(null);
       await carregarHistorico();
     } catch (error) {
       const msg =
         error.response?.data?.message ||
         "Não foi possível marcar este repasse como pago.";
       showError(msg);
+      setConfirmarPago((prev) => (prev ? { ...prev, loading: false } : null));
     }
   };
 
-  const handleVerDetalhes = () => {
-    showWarning("Detalhes do repasse estarão disponíveis em breve.");
+  const handleVerDetalhes = (repasse) => setDetalheRepasseId(repasse.id);
+
+  const handleRepasseAlterado = async () => {
+    // Cancelamento devolve peças para "pendentes"; pagamento muda o histórico
+    await Promise.all([carregarPendentes(), carregarHistorico()]);
   };
 
   return (
@@ -611,7 +631,7 @@ function BazarRepasses() {
                               <Tooltip title="Ver detalhes">
                                 <IconButton
                                   size="small"
-                                  onClick={handleVerDetalhes}
+                                  onClick={() => handleVerDetalhes(r)}
                                   sx={{
                                     color: "text.secondary",
                                     "&:hover": {
@@ -643,6 +663,30 @@ function BazarRepasses() {
         pecasPendentes={pecasPendentesModal}
         carregando={carregandoModal}
         onConfirmar={handleConfirmarRepasse}
+      />
+
+      <RepasseDetalheDialog
+        open={detalheRepasseId != null}
+        repasseId={detalheRepasseId}
+        onClose={() => setDetalheRepasseId(null)}
+        onChanged={handleRepasseAlterado}
+      />
+
+      <ConfirmDialog
+        open={!!confirmarPago}
+        onClose={() =>
+          setConfirmarPago((prev) => (prev?.loading ? prev : null))
+        }
+        onConfirm={executarMarcarPago}
+        variant="confirm"
+        loading={!!confirmarPago?.loading}
+        title="Marcar repasse como pago"
+        message={
+          confirmarPago?.repasse
+            ? `Confirmar o pagamento de ${formatBRL(confirmarPago.repasse.valor)}? Esta ação não pode ser desfeita.`
+            : ""
+        }
+        confirmLabel="Confirmar pagamento"
       />
     </Box>
   );

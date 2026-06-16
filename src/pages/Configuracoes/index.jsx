@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -11,9 +11,8 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { AdminPanelSettings, Palette, Tune } from "@mui/icons-material";
+import { AdminPanelSettings, Palette } from "@mui/icons-material";
 import PermissoesTab from "./PermissoesTab";
-import ParametrosTab from "./ParametrosTab";
 import PersonalizacaoTab from "./PersonalizacaoTab";
 import { authService } from "../../api/authService";
 import { isDevAdminUser } from "../../constants/devAdmin";
@@ -32,32 +31,10 @@ export default function ConfiguracoesPage() {
   const ui = useMemo(() => configUiPalette(theme), [theme]);
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
   const [tab, setTab] = useState(0);
-  const [paramDirty, setParamDirty] = useState(false);
   const isDev = useMemo(() => isDevAdminUser(authService.getUsuario()), []);
-  const personalizacaoTabIndex = 2;
+  const personalizacaoTabIndex = 1;
 
-  useEffect(() => {
-    const beforeUnload = (e) => {
-      if (!paramDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [paramDirty]);
-
-  const handleTabChange = useCallback(
-    (next) => {
-      if (tab === 1 && paramDirty && next !== 1) {
-        const ok = window.confirm(
-          "Você tem alterações não salvas nos Parâmetros. Deseja sair mesmo assim?",
-        );
-        if (!ok) return;
-      }
-      setTab(next);
-    },
-    [tab, paramDirty],
-  );
+  const handleTabChange = useCallback((next) => setTab(next), []);
 
   return (
     <Box
@@ -72,7 +49,7 @@ export default function ConfiguracoesPage() {
           Configurações do sistema
         </Typography>
         <Typography variant="body2" sx={{ color: theme.palette.mode === "dark" ? VEX.textSecondary : "text.secondary", mt: 0.5 }}>
-          Permissões de usuários e parâmetros operacionais (administradores).
+          Permissões de usuários e personalização da empresa.
         </Typography>
       </Box>
 
@@ -93,7 +70,6 @@ export default function ConfiguracoesPage() {
           }}
         >
           <Tab icon={<AdminPanelSettings fontSize="small" />} iconPosition="start" label="Permissões de usuários" />
-          <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="Parâmetros do sistema" />
           {isDev && (
             <Tab icon={<Palette fontSize="small" />} iconPosition="start" label="Personalização" />
           )}
@@ -112,7 +88,6 @@ export default function ConfiguracoesPage() {
             }}
           >
             <MenuItem value={0}>Permissões de usuários</MenuItem>
-            <MenuItem value={1}>Parâmetros do sistema</MenuItem>
             {isDev && (
               <MenuItem value={personalizacaoTabIndex}>Personalização</MenuItem>
             )}
@@ -122,9 +97,6 @@ export default function ConfiguracoesPage() {
 
       <TabPanel value={tab} index={0}>
         <PermissoesTab />
-      </TabPanel>
-      <TabPanel value={tab} index={1}>
-        <ParametrosTab onDirtyChange={setParamDirty} />
       </TabPanel>
       {isDev && (
         <TabPanel value={tab} index={personalizacaoTabIndex}>

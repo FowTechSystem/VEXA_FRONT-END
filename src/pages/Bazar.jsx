@@ -96,6 +96,7 @@ function Bazar() {
       const data = await bazarConsignantesService.listar({
         busca: buscaDebounced || undefined,
         incluirResumo: true,
+        tamanho: 500,
       });
       const lista = Array.isArray(data)
         ? data
@@ -213,7 +214,8 @@ function Bazar() {
       }
 
       if (status === 409 && code === "HAS_BAG_ITEMS") {
-        const qtd = Number(data.qtdPecas ?? data.count ?? data.quantidade) || 0;
+        const qtd =
+          Number(data.bagItemsCount ?? data.qtdPecas ?? data.count ?? data.quantidade) || 0;
         setExclusao({
           consignante: exclusao.consignante,
           step: "warning",

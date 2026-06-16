@@ -39,6 +39,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { LoadingBox } from "../components/LoadingBox";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { bazarConsignantesService } from "../api/bazarConsignantesService";
 import { bazarSacolasService } from "../api/bazarSacolasService";
 import {
@@ -67,6 +68,8 @@ function BazarConsignante() {
 
   const [painelOpen, setPainelOpen] = useState(false);
   const [modalEditOpen, setModalEditOpen] = useState(false);
+  // { sacola, loading } — confirmação do "Devolver tudo"
+  const [devolucao, setDevolucao] = useState(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -155,16 +158,25 @@ function BazarConsignante() {
     navigate(`/bazar/repasses?consignanteId=${consignante.id}`);
   };
 
-  const handleDevolverSacola = async (sacola) => {
+  const handleDevolverSacola = (sacola) => {
     if (!sacola.podeDevolverTudo && Number(sacola.vendidas) > 0) {
       showWarning(
         "Esta sacola tem peças vendidas. Devolva apenas as peças disponíveis individualmente.",
       );
       return;
     }
+    setDevolucao({ sacola, loading: false });
+  };
+
+  const executarDevolucaoSacola = async () => {
+    if (!devolucao?.sacola) return;
+    setDevolucao((prev) => ({ ...prev, loading: true }));
     try {
-      await bazarSacolasService.devolverTudo(sacola.id);
-      showSuccess(`Peças da sacola #${sacola.id} marcadas como devolvidas.`);
+      await bazarSacolasService.devolverTudo(devolucao.sacola.id);
+      showSuccess(
+        `Peças da sacola #${devolucao.sacola.id} marcadas como devolvidas.`,
+      );
+      setDevolucao(null);
       await carregar();
     } catch (error) {
       const msg =
@@ -172,6 +184,7 @@ function BazarConsignante() {
         "Não foi possível devolver as peças desta sacola.";
       showError(msg);
       console.error("[BazarConsignante] devolverTudo:", error);
+      setDevolucao((prev) => (prev ? { ...prev, loading: false } : null));
     }
   };
 
@@ -412,6 +425,24 @@ function BazarConsignante() {
         onClose={() => setModalEditOpen(false)}
         existing={consignante}
         onSaved={handleConsignanteEditado}
+      />
+
+      <ConfirmDialog
+        open={!!devolucao}
+        onClose={() =>
+          setDevolucao((prev) => (prev?.loading ? prev : null))
+        }
+        onConfirm={executarDevolucaoSacola}
+        variant="warning"
+        destructive
+        loading={!!devolucao?.loading}
+        title="Devolver todas as peças"
+        message={
+          devolucao?.sacola
+            ? `Marcar as ${devolucao.sacola.disponiveis ?? ""} peça(s) disponível(is) da sacola #${devolucao.sacola.id} como devolvidas ao consignante? Esta ação não pode ser desfeita.`
+            : ""
+        }
+        confirmLabel="Devolver tudo"
       />
     </Box>
   );

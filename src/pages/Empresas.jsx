@@ -27,7 +27,7 @@ import { showSuccess, showError } from "../utils/notifications";
 import { authService } from "../api/authService";
 import { useEmpresa } from "../contexts/EmpresaContext";
 
-import { DEV_ADMIN_EMAIL } from "../constants/devAdmin";
+import { isDevAdminUser } from "../constants/devAdmin";
 
 const initialState = {
   nome: "",
@@ -92,7 +92,7 @@ function Empresas() {
     }
   };
 
-  if (user.email !== DEV_ADMIN_EMAIL) {
+  if (!isDevAdminUser(user)) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="info">

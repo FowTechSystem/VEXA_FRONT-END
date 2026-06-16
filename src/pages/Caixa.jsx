@@ -238,10 +238,12 @@ function Caixa() {
   const vendedorInicial = (vendedor || "?").charAt(0).toUpperCase();
 
   // ─── Helpers de imagem do produto ──────────────────────────────────────────
-  const getProdutoImagem = (produtoId) => {
-    if (produtoId == null) return null;
+  const getProdutoImagem = (item) => {
+    if (item?.id == null) return null;
+    const tipoItem = item.tipo ?? "normal";
     const produto = listaProdutos.find(
-      (p) => Number(p.id) === Number(produtoId),
+      (p) =>
+        Number(p.id) === Number(item.id) && (p.tipo ?? "normal") === tipoItem,
     );
     if (!produto) return null;
     return (
@@ -249,6 +251,8 @@ function Caixa() {
       produto.ImagemUrl ||
       produto.imagem ||
       produto.Imagem ||
+      produto.foto1 ||
+      produto.Foto1 ||
       (Array.isArray(produto.imagens)
         ? produto.imagens[0]?.url || produto.imagens[0]
         : null) ||
@@ -311,7 +315,10 @@ function Caixa() {
     const precoVenda =
       Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
     const tipo = produto.tipo ?? "normal";
+    // Chave composta: produto normal e peça de bazar podem ter o mesmo id numérico
+    const chave = `${tipo}-${produto.id}`;
     const item = {
+      chave,
       id: produto.id,
       produtoId: produto.id,
       bazarProdutoId: tipo === "bazar" ? produto.id : null,
@@ -325,31 +332,31 @@ function Caixa() {
       quantidade: 1,
       consignanteNome: produto.consignanteNome ?? null,
     };
-    const jaNoCarrinho = carrinho.find((c) => c.id === produto.id);
+    const jaNoCarrinho = carrinho.find((c) => c.chave === chave);
     if (jaNoCarrinho) {
       if (isProdutoBazar(item)) {
         showError("Esta peça do bazar já está no carrinho (quantidade fixa: 1 unidade).");
         return;
       }
-      handleAlterarQuantidade(produto.id, jaNoCarrinho.quantidade + 1);
+      handleAlterarQuantidade(chave, jaNoCarrinho.quantidade + 1);
     } else {
       setCarrinho([...carrinho, item]);
     }
-    setUltimoAdicionadoId(produto.id);
+    setUltimoAdicionadoId(chave);
   };
 
-  const handleRemoverProduto = (id) => {
-    setCarrinho(carrinho.filter((item) => item.id !== id));
-    if (itemSelecionadoId === id) setItemSelecionadoId(null);
-    if (ultimoAdicionadoId === id) setUltimoAdicionadoId(null);
+  const handleRemoverProduto = (chave) => {
+    setCarrinho(carrinho.filter((item) => item.chave !== chave));
+    if (itemSelecionadoId === chave) setItemSelecionadoId(null);
+    if (ultimoAdicionadoId === chave) setUltimoAdicionadoId(null);
   };
 
-  const handleAlterarQuantidade = (id, novaQuantidade) => {
+  const handleAlterarQuantidade = (chave, novaQuantidade) => {
     if (novaQuantidade <= 0) {
-      handleRemoverProduto(id);
+      handleRemoverProduto(chave);
       return;
     }
-    const item = carrinho.find((c) => c.id === id);
+    const item = carrinho.find((c) => c.chave === chave);
     if (item && isProdutoBazar(item)) {
       if (novaQuantidade !== QUANTIDADE_PRODUTO_BAZAR) {
         showError("Peças do bazar são vendidas em quantidade fixa (1 unidade).");
@@ -358,7 +365,7 @@ function Caixa() {
     }
     setCarrinho(
       carrinho.map((item) =>
-        item.id === id ? { ...item, quantidade: novaQuantidade } : item,
+        item.chave === chave ? { ...item, quantidade: novaQuantidade } : item,
       ),
     );
   };
@@ -960,11 +967,13 @@ function Caixa() {
                         Number(produto.precoVenda ?? produto.precoCusto ?? 0) ||
                         0;
                       const noCupom = carrinho.some(
-                        (c) => Number(c.id) === Number(produto.id),
+                        (c) =>
+                          Number(c.id) === Number(produto.id) &&
+                          (c.tipo ?? "normal") === (produto.tipo ?? "normal"),
                       );
                       return (
                         <Box
-                          key={produto.id}
+                          key={`${produto.tipo ?? "normal"}-${produto.id}`}
                           component="button"
                           type="button"
                           onClick={() => handleAdicionarAoCarrinho(produto)}
@@ -1019,13 +1028,20 @@ function Caixa() {
                             >
                               R$ {preco.toFixed(2)}
                             </Typography>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              aria-label="Adicionar"
+                            <Box
+                              component="span"
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 28,
+                                height: 28,
+                                borderRadius: "50%",
+                                color: "primary.main",
+                              }}
                             >
                               <Add fontSize="small" />
-                            </IconButton>
+                            </Box>
                           </Stack>
                         </Box>
                       );
@@ -1150,15 +1166,15 @@ function Caixa() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        carrinho.map((item, index) => {
+                        carrinho.map((item) => {
                           const codigo = item.sku || `#${item.id}`;
                           const totalLinha = item.precoVenda * item.quantidade;
-                          const selecionada = itemSelecionadoId === item.id;
+                          const selecionada = itemSelecionadoId === item.chave;
                           return (
                             <TableRow
-                              key={item.id}
+                              key={item.chave}
                               hover
-                              onClick={() => setItemSelecionadoId(item.id)}
+                              onClick={() => setItemSelecionadoId(item.chave)}
                               sx={{
                                 cursor: "pointer",
                                 "&:nth-of-type(even) td": {
@@ -1190,7 +1206,7 @@ function Caixa() {
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRemoverProduto(item.id);
+                                    handleRemoverProduto(item.chave);
                                   }}
                                   sx={{ color: "error.main" }}
                                   aria-label="Remover"
@@ -1201,7 +1217,7 @@ function Caixa() {
                               <TableCell align="center" sx={{ py: 0.5 }}>
                                 {selecionada
                                   ? (() => {
-                                      const imgUrl = getProdutoImagem(item.id);
+                                      const imgUrl = getProdutoImagem(item);
                                       return imgUrl ? (
                                         <Box
                                           component="img"
@@ -1294,7 +1310,7 @@ function Caixa() {
                                     disabled={isProdutoBazar(item)}
                                     onClick={() =>
                                       handleAlterarQuantidade(
-                                        item.id,
+                                        item.chave,
                                         item.quantidade - 1,
                                       )
                                     }
@@ -1325,7 +1341,7 @@ function Caixa() {
                                     disabled={isProdutoBazar(item)}
                                     onClick={() =>
                                       handleAlterarQuantidade(
-                                        item.id,
+                                        item.chave,
                                         item.quantidade + 1,
                                       )
                                     }
@@ -2065,12 +2081,14 @@ function Caixa() {
                   const preco =
                     Number(produto.precoVenda ?? produto.precoCusto ?? 0) || 0;
                   const itemCarrinho = carrinho.find(
-                    (c) => Number(c.id) === Number(produto.id),
+                    (c) =>
+                      Number(c.id) === Number(produto.id) &&
+                      (c.tipo ?? "normal") === (produto.tipo ?? "normal"),
                   );
                   const noCupom = !!itemCarrinho;
                   return (
                     <Paper
-                      key={produto.id}
+                      key={`${produto.tipo ?? "normal"}-${produto.id}`}
                       component="button"
                       type="button"
                       onClick={() => handleAdicionarAoCarrinho(produto)}
