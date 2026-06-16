@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Tooltip as MTooltip,
 } from "@mui/material";
 import {
   ShoppingCartRounded,
@@ -60,6 +61,7 @@ import { vendasService } from "../api/vendasService";
 import { produtosService } from "../api/produtosService";
 import { condicionalService } from "../api/condicionalService";
 import { dashboardService } from "../api/dashboardService";
+import { useCompanySettings } from "../contexts/CompanySettingsContext";
 import { vexaColors } from "../theme";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -186,6 +188,7 @@ export default function Home() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const navigate = useNavigate();
+  const { isModuleEnabled } = useCompanySettings();
   const [agora, setAgora] = useState(() => new Date());
 
   // ─── Dados do Resumo de Hoje ──────────────────────────────────────────────
@@ -470,12 +473,12 @@ export default function Home() {
 
   // ─── Atalhos ──────────────────────────────────────────────────────────────
   const atalhos = [
-    { titulo: "Nova Venda", subtitulo: "Abrir o ponto de venda", icone: <ShoppingCartRounded sx={{ fontSize: 38 }} />, corCirculo: isDark ? theme.palette.primary.main : "#14B8A6", corIcone: isDark ? theme.palette.primary.contrastText : "#fff", rota: "/vendas" },
-    { titulo: "Movimentação Caixa", subtitulo: "Registrar entrada ou saída", icone: <PointOfSaleRounded sx={{ fontSize: 38 }} />, corCirculo: "#8B5CF6", corIcone: "#fff", rota: "/caixa?novaMov=1" },
-    { titulo: "Novo Cliente", subtitulo: "Cadastro rápido", icone: <PersonAddRounded sx={{ fontSize: 38 }} />, corCirculo: "#F59E0B", corIcone: "#fff", rota: "/clientes" },
-    { titulo: "Estoque", subtitulo: "Consultar quantidades", icone: <Inventory2Rounded sx={{ fontSize: 38 }} />, corCirculo: "#3B82F6", corIcone: "#fff", rota: "/estoque" },
-    { titulo: "Condicional", subtitulo: "Reservas e devoluções", icone: <AssignmentTurnedInRounded sx={{ fontSize: 38 }} />, corCirculo: "#EC4899", corIcone: "#fff", rota: "/condicional" },
-    { titulo: "Relatórios", subtitulo: "Análises e exportações", icone: <DescriptionRounded sx={{ fontSize: 38 }} />, corCirculo: "#10B981", corIcone: "#fff", rota: "/relatorios" },
+    { titulo: "Nova Venda", subtitulo: "Abrir o ponto de venda", icone: <ShoppingCartRounded sx={{ fontSize: 38 }} />, corCirculo: isDark ? theme.palette.primary.main : "#14B8A6", corIcone: isDark ? theme.palette.primary.contrastText : "#fff", rota: "/vendas", moduleKey: "vendas" },
+    { titulo: "Movimentação Caixa", subtitulo: "Registrar entrada ou saída", icone: <PointOfSaleRounded sx={{ fontSize: 38 }} />, corCirculo: "#8B5CF6", corIcone: "#fff", rota: "/caixa?novaMov=1", moduleKey: "caixa" },
+    { titulo: "Novo Cliente", subtitulo: "Cadastro rápido", icone: <PersonAddRounded sx={{ fontSize: 38 }} />, corCirculo: "#F59E0B", corIcone: "#fff", rota: "/clientes", moduleKey: "clientes" },
+    { titulo: "Estoque", subtitulo: "Consultar quantidades", icone: <Inventory2Rounded sx={{ fontSize: 38 }} />, corCirculo: "#3B82F6", corIcone: "#fff", rota: "/estoque", moduleKey: "estoque" },
+    { titulo: "Condicional", subtitulo: "Reservas e devoluções", icone: <AssignmentTurnedInRounded sx={{ fontSize: 38 }} />, corCirculo: "#EC4899", corIcone: "#fff", rota: "/condicional", moduleKey: "condicional" },
+    { titulo: "Relatórios", subtitulo: "Análises e exportações", icone: <DescriptionRounded sx={{ fontSize: 38 }} />, corCirculo: "#10B981", corIcone: "#fff", rota: "/relatorios", moduleKey: "relatorios" },
   ];
 
   const heroGradient = isDark
@@ -581,35 +584,50 @@ export default function Home() {
 
         {/* ════════════════ Seção 2 — Atalhos ════════════════ */}
         <Grid container spacing={1.5}>
-          {atalhos.map((a) => (
-            <Grid key={a.rota} size={{ xs: 6, sm: 4, md: 2 }}>
-              <Card
-                variant="outlined"
-                elevation={0}
-                onClick={() => navigate(a.rota)}
-                sx={{
-                  ...cardSx,
-                  cursor: "pointer",
-                  height: "100%",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                  "&:hover": {
-                    transform: "translateY(-3px)",
-                    boxShadow: isDark ? "0 12px 28px rgba(0,0,0,0.35)" : "0 12px 28px rgba(0,0,0,0.12)",
-                  },
-                }}
-              >
-                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-                  <Box sx={{ width: 48, height: 48, borderRadius: "50%", bgcolor: a.corCirculo, color: a.corIcone, display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>
-                    {a.icone}
-                  </Box>
-                  <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "text.primary" }}>{a.titulo}</Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25, fontSize: "0.68rem" }}>
-                    {a.subtitulo}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+          {atalhos.map((a) => {
+            // Atalho fica desabilitado quando o módulo não está ativo para a empresa.
+            const ativo = !a.moduleKey || isModuleEnabled(a.moduleKey);
+            return (
+              <Grid key={a.rota} size={{ xs: 6, sm: 4, md: 2 }}>
+                <MTooltip
+                  title={ativo ? "" : "Módulo não disponível para sua empresa"}
+                  arrow
+                  disableHoverListener={ativo}
+                >
+                  <Card
+                    variant="outlined"
+                    elevation={0}
+                    onClick={ativo ? () => navigate(a.rota) : undefined}
+                    aria-disabled={!ativo}
+                    sx={{
+                      ...cardSx,
+                      cursor: ativo ? "pointer" : "not-allowed",
+                      height: "100%",
+                      opacity: ativo ? 1 : 0.45,
+                      filter: ativo ? "none" : "grayscale(0.7)",
+                      transition: "transform 0.2s, box-shadow 0.2s",
+                      "&:hover": ativo
+                        ? {
+                            transform: "translateY(-3px)",
+                            boxShadow: isDark ? "0 12px 28px rgba(0,0,0,0.35)" : "0 12px 28px rgba(0,0,0,0.12)",
+                          }
+                        : {},
+                    }}
+                  >
+                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                      <Box sx={{ width: 48, height: 48, borderRadius: "50%", bgcolor: a.corCirculo, color: a.corIcone, display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>
+                        {a.icone}
+                      </Box>
+                      <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "text.primary" }}>{a.titulo}</Typography>
+                      <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.25, fontSize: "0.68rem" }}>
+                        {a.subtitulo}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </MTooltip>
+              </Grid>
+            );
+          })}
         </Grid>
 
         {/* ════════════════ Seção 3 — Resumo de Hoje (compacto, 3 colunas) ════════════════ */}
