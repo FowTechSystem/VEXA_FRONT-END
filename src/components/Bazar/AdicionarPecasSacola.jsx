@@ -3,7 +3,7 @@
 // Tabela editável inline com totais em tempo real no rodapé.
 // Foco UX: digitação rápida (Tab/Enter avança, nova linha aparece sozinha,
 // linhas inválidas em vermelho).
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   Box,
@@ -55,6 +55,15 @@ function AdicionarPecasSacola({ open, onClose, consignante, onSaved }) {
   const [linhas, setLinhas] = useState(() => [linhaVazia(), linhaVazia()]);
   const [salvando, setSalvando] = useState(false);
   const fotoInputsRef = useRef({});
+
+  // Limpa a tabela sempre que o painel reabre — sem isso as peças da sacola
+  // anterior continuam preenchidas e podem ser salvas em duplicidade.
+  useEffect(() => {
+    if (open) {
+      setLinhas([linhaVazia(), linhaVazia()]);
+      setSalvando(false);
+    }
+  }, [open]);
 
   const atualizar = (id, campo, valor) => {
     setLinhas((prev) => {

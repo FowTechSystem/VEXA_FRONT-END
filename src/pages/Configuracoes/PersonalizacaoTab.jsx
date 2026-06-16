@@ -21,7 +21,6 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
-  InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
@@ -41,14 +40,9 @@ import {
   CloudUpload,
   DarkMode,
   Delete,
-  Info,
   LightMode,
-  Palette,
-  Preview,
   RestartAlt,
   Save,
-  Visibility,
-  VisibilityOff,
   Warning,
 } from "@mui/icons-material";
 import {
@@ -72,30 +66,7 @@ import {
 import { showError, showSuccess } from "../../utils/notifications";
 import { configUiPalette, VEX } from "./configuracoesHelpers";
 
-const HEX_REGEX = /^#[0-9a-fA-F]{6}$/;
 const LS_SELECTED_EMPRESA_KEY = "personalizacao_selected_empresa_id";
-
-/**
- * Combinações primária + secundária testadas no layout. A primeira (VEXA Neon)
- * corresponde ao padrão histórico do sistema. As demais foram escolhidas com
- * bom contraste em tema claro e escuro.
- */
-const COLOR_PRESETS = [
-  { name: "VEXA Neon",         primary: "#F8F32B", secondary: "#2B2D42" },
-  { name: "Azul Corporativo",  primary: "#2563EB", secondary: "#1E293B" },
-  { name: "Verde Esmeralda",   primary: "#10B981", secondary: "#064E3B" },
-  { name: "Roxo Royal",        primary: "#7C3AED", secondary: "#4C1D95" },
-  { name: "Laranja Vibrante",  primary: "#F97316", secondary: "#7C2D12" },
-  { name: "Rosa Magenta",      primary: "#EC4899", secondary: "#831843" },
-  { name: "Ciano Moderno",     primary: "#06B6D4", secondary: "#155E75" },
-  { name: "Vermelho Vinho",    primary: "#DC2626", secondary: "#7F1D1D" },
-  { name: "Âmbar Clássico",    primary: "#D97706", secondary: "#451A03" },
-  { name: "Grafite",           primary: "#475569", secondary: "#0F172A" },
-];
-
-function isHex(c) {
-  return typeof c === "string" && HEX_REGEX.test(c);
-}
 
 function snapshotOf(s) {
   return JSON.stringify({
@@ -126,10 +97,7 @@ export default function PersonalizacaoTab() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(null);
   const [baseSnap, setBaseSnap] = useState("");
-  const [previewOn, setPreviewOn] = useState(false);
-  const previewSnapRef = useRef(null);
   const [logoError, setLogoError] = useState("");
-  const [hexErr, setHexErr] = useState({ primary: false, secondary: false });
 
   const [confirmEnable, setConfirmEnable] = useState(null);
   const [confirmDisable, setConfirmDisable] = useState(null);
@@ -159,7 +127,6 @@ export default function PersonalizacaoTab() {
       const data = await fetchCompanySettings(id);
       setForm(data);
       setBaseSnap(snapshotOf(data));
-      setHexErr({ primary: false, secondary: false });
       setLogoError("");
     } catch (e) {
       showError("Erro ao carregar configurações da empresa.");
@@ -172,28 +139,6 @@ export default function PersonalizacaoTab() {
   useEffect(() => {
     loadEmpresaSettings(selectedEmpresaId);
   }, [selectedEmpresaId, loadEmpresaSettings]);
-
-  // Encerrar preview ao desmontar / trocar empresa.
-  useEffect(() => {
-    return () => {
-      if (previewSnapRef.current) {
-        updateLocal(previewSnapRef.current);
-        previewSnapRef.current = null;
-      }
-    };
-  }, [updateLocal]);
-
-  useEffect(() => {
-    if (previewOn) {
-      setPreviewOn(false);
-      if (previewSnapRef.current) {
-        updateLocal(previewSnapRef.current);
-        previewSnapRef.current = null;
-      }
-    }
-    // intencionalmente sem dependência de updateLocal/previewOn — resetamos ao trocar empresa.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEmpresaId]);
 
   const dirty = useMemo(() => {
     if (!form) return false;
@@ -217,41 +162,8 @@ export default function PersonalizacaoTab() {
       // Quando dev ainda não "entrou" em empresa, o painel reflete a empresa do user.
       (!empresaAtiva && globalSettings && empresaSelecionada.id != null));
 
-  const togglePreview = () => {
-    if (!form) return;
-    if (previewOn) {
-      // Restaurar
-      if (previewSnapRef.current) {
-        updateLocal(previewSnapRef.current);
-        previewSnapRef.current = null;
-      }
-      setPreviewOn(false);
-      return;
-    }
-    if (hexErr.primary || hexErr.secondary) {
-      showError("Corrija o hex inválido antes de pré-visualizar.");
-      return;
-    }
-    previewSnapRef.current = {
-      primary_color: globalSettings.primary_color,
-      secondary_color: globalSettings.secondary_color,
-      default_theme: globalSettings.default_theme,
-    };
-    updateLocal({
-      primary_color: form.primary_color,
-      secondary_color: form.secondary_color,
-      default_theme: form.default_theme,
-    });
-    setPreviewOn(true);
-  };
-
   const handleDiscard = () => {
     if (!form) return;
-    if (previewOn && previewSnapRef.current) {
-      updateLocal(previewSnapRef.current);
-      previewSnapRef.current = null;
-      setPreviewOn(false);
-    }
     loadEmpresaSettings(selectedEmpresaId);
   };
 
@@ -317,10 +229,6 @@ export default function PersonalizacaoTab() {
 
   const handleSave = async () => {
     if (!form || !selectedEmpresaId) return;
-    if (hexErr.primary || hexErr.secondary) {
-      showError("Cores em formato inválido. Use #RRGGBB.");
-      return;
-    }
     if (!form.display_name?.trim()) {
       showError("Nome de exibição é obrigatório.");
       return;
@@ -342,10 +250,6 @@ export default function PersonalizacaoTab() {
       );
       setForm(merged);
       setBaseSnap(snapshotOf(merged));
-      if (previewOn) {
-        previewSnapRef.current = null;
-        setPreviewOn(false);
-      }
       if (isEditingLoggedCompany) {
         updateLocal({
           display_name: merged.display_name,
@@ -526,19 +430,6 @@ export default function PersonalizacaoTab() {
             onRemoveLogo={handleRemoveLogo}
             logoError={logoError}
             saving={saving}
-            cardSx={cardSx}
-            sectionTitleSx={sectionTitleSx}
-            sectionHintSx={sectionHintSx}
-            ui={ui}
-          />
-
-          <CoresCard
-            form={form}
-            setField={setField}
-            hexErr={hexErr}
-            setHexErr={setHexErr}
-            previewOn={previewOn}
-            onTogglePreview={togglePreview}
             cardSx={cardSx}
             sectionTitleSx={sectionTitleSx}
             sectionHintSx={sectionHintSx}
@@ -887,300 +778,6 @@ function IdentidadeCard({
         </Grid>
       </Grid>
     </Paper>
-  );
-}
-
-function CoresCard({
-  form,
-  setField,
-  hexErr,
-  setHexErr,
-  previewOn,
-  onTogglePreview,
-  cardSx,
-  sectionTitleSx,
-  sectionHintSx,
-  ui,
-}) {
-  const theme = useTheme();
-  return (
-    <Paper elevation={0} sx={cardSx}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          mb: 0.5,
-          gap: 1,
-          flexWrap: "wrap",
-        }}
-      >
-        <Typography variant="subtitle1" sx={sectionTitleSx}>
-          Cores do sistema
-        </Typography>
-        <Button
-          size="small"
-          variant={previewOn ? "contained" : "outlined"}
-          startIcon={previewOn ? <VisibilityOff /> : <Visibility />}
-          onClick={onTogglePreview}
-          sx={{
-            textTransform: "none",
-            ...(previewOn && {
-              bgcolor: ui.accent,
-              color: ui.accentContrast,
-              "&:hover": {
-                bgcolor: theme.palette.primary.dark,
-              },
-            }),
-          }}
-        >
-          {previewOn ? "Encerrar prévia" : "Visualizar prévia"}
-        </Button>
-      </Box>
-      <Typography variant="caption" sx={sectionHintSx}>
-        A prévia aplica as cores em tempo real no sistema (sem salvar).
-      </Typography>
-
-      <ColorPresets
-        currentPrimary={form.primary_color}
-        currentSecondary={form.secondary_color}
-        onPick={(p) => {
-          setField("primary_color", p.primary);
-          setField("secondary_color", p.secondary);
-          setHexErr({ primary: false, secondary: false });
-        }}
-        ui={ui}
-      />
-
-      <Grid container spacing={2}>
-        <ColorRow
-          label="Cor primária"
-          value={form.primary_color}
-          onChange={(v) => setField("primary_color", v)}
-          error={hexErr.primary}
-          setError={(b) => setHexErr((p) => ({ ...p, primary: b }))}
-        />
-        <ColorRow
-          label="Cor secundária"
-          value={form.secondary_color}
-          onChange={(v) => setField("secondary_color", v)}
-          error={hexErr.secondary}
-          setError={(b) => setHexErr((p) => ({ ...p, secondary: b }))}
-        />
-      </Grid>
-
-      <Alert
-        severity="info"
-        icon={<Info fontSize="small" />}
-        sx={{
-          mt: 2,
-          bgcolor: ui.alertTintBg,
-          color: ui.textSecondary,
-          border: `1px solid ${ui.border}`,
-          "& .MuiAlert-icon": { color: ui.accent },
-        }}
-      >
-        Cores reservadas (verde de sucesso, vermelho de erro, azul de info) não são alteráveis.
-      </Alert>
-    </Paper>
-  );
-}
-
-function ColorPresets({ currentPrimary, currentSecondary, onPick, ui }) {
-  const theme = useTheme();
-  const isMatch = (preset) =>
-    preset.primary?.toUpperCase() === String(currentPrimary || "").toUpperCase() &&
-    preset.secondary?.toUpperCase() === String(currentSecondary || "").toUpperCase();
-
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="body2" sx={{ color: ui.textSecondary, mb: 1, fontWeight: 600 }}>
-        Combinações sugeridas
-      </Typography>
-      <Box
-        sx={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 1,
-        }}
-      >
-        {COLOR_PRESETS.map((preset) => {
-          const selected = isMatch(preset);
-          return (
-            <Tooltip key={preset.name} title={`${preset.primary} · ${preset.secondary}`} arrow>
-              <Box
-                role="button"
-                tabIndex={0}
-                onClick={() => onPick(preset)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onPick(preset);
-                  }
-                }}
-                aria-label={`Aplicar preset ${preset.name}`}
-                aria-pressed={selected}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.25,
-                  py: 0.75,
-                  borderRadius: 999,
-                  border: `2px solid ${
-                    selected ? theme.palette.primary.main : ui.border
-                  }`,
-                  bgcolor: selected ? ui.bgCardHover : ui.bgInput,
-                  cursor: "pointer",
-                  transition: "all 120ms ease",
-                  "&:hover": {
-                    borderColor: theme.palette.primary.main,
-                    transform: "translateY(-1px)",
-                  },
-                  "&:focus-visible": {
-                    outline: `2px solid ${theme.palette.primary.main}`,
-                    outlineOffset: 2,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    "& > div": {
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      border: `1.5px solid ${theme.palette.background.paper}`,
-                    },
-                    "& > div + div": { ml: "-6px" },
-                  }}
-                >
-                  <Box sx={{ bgcolor: preset.primary }} />
-                  <Box sx={{ bgcolor: preset.secondary }} />
-                </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: ui.textPrimary,
-                    fontWeight: selected ? 700 : 500,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {preset.name}
-                </Typography>
-              </Box>
-            </Tooltip>
-          );
-        })}
-      </Box>
-    </Box>
-  );
-}
-
-function ColorRow({ label, value, onChange, error, setError }) {
-  const theme = useTheme();
-  const [text, setText] = useState(value);
-
-  useEffect(() => {
-    setText(value);
-  }, [value]);
-
-  const safeApply = (next) => {
-    setText(next);
-    if (isHex(next)) {
-      setError(false);
-      onChange(next);
-    } else if (/^#[0-9a-fA-F]{0,6}$/.test(next)) {
-      setError(false);
-    } else {
-      setError(true);
-    }
-  };
-
-  const handleBlur = () => {
-    if (!isHex(text)) {
-      setError(true);
-      return;
-    }
-    onChange(text.toUpperCase());
-    setText(text.toUpperCase());
-  };
-
-  return (
-    <Grid size={{ xs: 12, md: 6 }}>
-      <Stack direction="row" spacing={2} alignItems="flex-start">
-        <Box
-          sx={{
-            position: "relative",
-            width: 56,
-            height: 56,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            overflow: "hidden",
-            bgcolor: isHex(value) ? value : "transparent",
-          }}
-        >
-          <input
-            type="color"
-            value={isHex(value) ? value : "#000000"}
-            onChange={(e) => safeApply(e.target.value.toUpperCase())}
-            aria-label={`Seletor de ${label}`}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              border: 0,
-              padding: 0,
-              cursor: "pointer",
-              opacity: 0,
-            }}
-          />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <TextField
-            fullWidth
-            size="small"
-            label={label}
-            value={text}
-            onChange={(e) => safeApply(e.target.value)}
-            onBlur={handleBlur}
-            error={error}
-            helperText={error ? "Use formato #RRGGBB" : " "}
-            inputProps={{
-              maxLength: 7,
-              "aria-label": label,
-              autoCapitalize: "characters",
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Palette fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
-        <Button
-          variant="contained"
-          size="small"
-          disableElevation
-          sx={{
-            textTransform: "none",
-            bgcolor: isHex(value) ? value : "transparent",
-            color: theme.palette.getContrastText(isHex(value) ? value : "#FFFFFF"),
-            border: `1px solid ${theme.palette.divider}`,
-            minWidth: 88,
-            "&:hover": {
-              bgcolor: isHex(value) ? value : "transparent",
-              opacity: 0.92,
-            },
-          }}
-        >
-          Botão
-        </Button>
-      </Stack>
-    </Grid>
   );
 }
 

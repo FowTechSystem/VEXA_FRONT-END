@@ -36,7 +36,15 @@ import {
   LocalMall,
   Close,
   Delete,
+  AssignmentReturn,
 } from "@mui/icons-material";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Divider,
+  Grid,
+} from "@mui/material";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LoadingBox } from "../components/LoadingBox";
 import VexaDatePicker from "../components/VexaDatePicker";
@@ -107,6 +115,10 @@ function BazarConsignantePecas() {
 
   // Estado do modal de confirmação de exclusão de peça
   const [exclusao, setExclusao] = useState(null); // { peca, loading }
+  // Estado do modal de devolução individual de peça
+  const [devolucao, setDevolucao] = useState(null); // { peca, loading }
+  // Peça exibida no modal de detalhes
+  const [detalhe, setDetalhe] = useState(null);
 
   // Carrega consignante uma vez por id (só pra exibir nome no breadcrumb/header)
   useEffect(() => {
@@ -191,8 +203,32 @@ function BazarConsignantePecas() {
     );
   }
 
-  const handleVerDetalhes = () => {
-    showWarning("Tela de detalhes da peça será disponibilizada em breve.");
+  const handleVerDetalhes = (peca) => setDetalhe(peca);
+
+  const handleAbrirDevolucao = (peca) => {
+    if (peca.status !== STATUS_PECA.DISPONIVEL) {
+      showWarning("Apenas peças disponíveis podem ser devolvidas.");
+      return;
+    }
+    setDevolucao({ peca, loading: false });
+  };
+
+  const executarDevolucao = async () => {
+    if (!devolucao?.peca) return;
+    setDevolucao((prev) => ({ ...prev, loading: true }));
+    try {
+      await bazarPecasService.devolver(devolucao.peca.id);
+      showSuccess("Peça marcada como devolvida.");
+      setDevolucao(null);
+      await carregarPecas();
+    } catch (error) {
+      const msg =
+        error.response?.data?.message ||
+        "Não foi possível devolver esta peça.";
+      showError(msg);
+      console.error("[BazarConsignantePecas] erro ao devolver peça:", error);
+      setDevolucao((prev) => (prev ? { ...prev, loading: false } : null));
+    }
   };
 
   const handleAbrirExclusao = (peca) => {
@@ -440,7 +476,7 @@ function BazarConsignantePecas() {
                           <Tooltip title="Ver detalhes">
                             <IconButton
                               size="small"
-                              onClick={handleVerDetalhes}
+                              onClick={() => handleVerDetalhes(p)}
                               sx={{
                                 color: "text.secondary",
                                 "&:hover": { bgcolor: "action.hover", color: "primary.main" },
@@ -449,6 +485,23 @@ function BazarConsignantePecas() {
                               <Visibility fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          {p.status === STATUS_PECA.DISPONIVEL && (
+                            <Tooltip title="Devolver peça ao consignante">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleAbrirDevolucao(p)}
+                                sx={{
+                                  color: "text.secondary",
+                                  "&:hover": {
+                                    bgcolor: alpha(theme.palette.warning.main, 0.14),
+                                    color: "warning.main",
+                                  },
+                                }}
+                              >
+                                <AssignmentReturn fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {p.status === STATUS_PECA.VENDIDA ? (
                             <Tooltip title="Peça vendida não pode ser excluída">
                               <span>
@@ -510,6 +563,133 @@ function BazarConsignantePecas() {
         }
         confirmLabel="Excluir"
       />
+
+      <ConfirmDialog
+        open={!!devolucao}
+        onClose={() => setDevolucao((prev) => (prev?.loading ? prev : null))}
+        onConfirm={executarDevolucao}
+        variant="warning"
+        loading={!!devolucao?.loading}
+        title="Devolver peça"
+        message={
+          devolucao?.peca
+            ? `Marcar a peça "${devolucao.peca.descricao}" como devolvida ao consignante? Ela sai do estoque do bazar.`
+            : ""
+        }
+        confirmLabel="Devolver"
+      />
+
+      <PecaDetalheDialog peca={detalhe} onClose={() => setDetalhe(null)} />
+    </Box>
+  );
+}
+
+function PecaDetalheDialog({ peca, onClose }) {
+  const theme = useTheme();
+  if (!peca) return null;
+  const chip = statusChipProps(peca.status, theme);
+  return (
+    <Dialog
+      open={!!peca}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+        },
+      }}
+    >
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, pr: 6 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: "1.1rem" }}>
+            {peca.descricao}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Peça #{peca.id} · Sacola #{peca.sacolaId}
+          </Typography>
+        </Box>
+        <Chip label={chip.label} size="small" sx={chip.sx} />
+        <IconButton onClick={onClose} size="small">
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        {Array.isArray(peca.fotos) && peca.fotos.length > 0 && (
+          <>
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              {peca.fotos.map((f) => (
+                <Avatar
+                  key={f.id ?? f.url}
+                  src={f.url}
+                  variant="rounded"
+                  sx={{
+                    width: 96,
+                    height: 96,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                />
+              ))}
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+          </>
+        )}
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem titulo="Tamanho" valor={peca.tamanho || "—"} />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem titulo="Cor" valor={peca.cor || "—"} />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem titulo="Valor de venda" valor={formatBRL(peca.valorVenda)} />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem
+              titulo="Repasse ao consignante"
+              valor={formatBRL(peca.valorCompra)}
+            />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem titulo="Entrada" valor={formatData(peca.dataEntrada)} />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <DetalheItem
+              titulo={
+                peca.status === STATUS_PECA.DEVOLVIDA
+                  ? "Devolvida em"
+                  : "Vendida em"
+              }
+              valor={
+                peca.status === STATUS_PECA.DEVOLVIDA
+                  ? formatData(peca.dataDevolucao)
+                  : peca.status === STATUS_PECA.VENDIDA
+                  ? formatData(peca.dataVenda)
+                  : "—"
+              }
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetalheItem({ titulo, valor }) {
+  return (
+    <Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}
+      >
+        {titulo}
+      </Typography>
+      <Typography sx={{ fontWeight: 700 }}>{valor}</Typography>
     </Box>
   );
 }
